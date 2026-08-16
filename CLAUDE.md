@@ -89,7 +89,7 @@ Ko je Implementer se mijenja sa risk nivoom zadatka — agenti su fiksni po alat
 | HIGH | **Claude** | Codex | Crush / Pi |
 
 - **Claude implementira HIGH-risk zadatke direktno** (šema/migracije, `EXCLUDE` constraint, autentifikacija, token generisanje, javni API endpointi, razdvajanje osjetljivih podataka) — najstabilnija ruka na najkritičnijem poslu, na eksplicitan zahtjev (16.8.2026).
-- **Codex nikad nije Implementer, isključivo Reviewer** — na HIGH je obavezan (Reviewer 1), na MEDIUM dostupan po potrebi radi relevantnijeg pregleda, nije čvrsto vezan samo za HIGH.
+- **Codex može biti Implementer na LOW/MEDIUM** (16.8.2026, izmjena — ranije isključivo reviewer) kad se za konkretnu vrstu posla pokazao jači od Crush/Pi (npr. frontend/GUI, na osnovu Radovanovog ponovljenog iskustva) — nije pravilo "nikad", nego procjena po zadatku. I dalje ostaje dostupan kao Reviewer (obavezan Reviewer 1 na HIGH, opciono na MEDIUM) na zadacima koje ne implementira on sam.
 - **Crush i Pi su Implementeri na LOW/MEDIUM** (worker agenti), i **Reviewer na HIGH** kad Claude implementira (obično jedan od njih, ne oba na svakom HIGH zadatku — dovoljan je jedan uz Codexa, drugi je slobodan za paralelan LOW/MEDIUM rad).
 - **Radovan** (čovjek) — zadnja riječ prije merge-a; rješava neslaganje reviewera; jedina instanca koja odlučuje poslovna/pravna pitanja (npr. emergency-override tumačenje, tekst pristanka).
 

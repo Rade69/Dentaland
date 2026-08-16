@@ -35,3 +35,5 @@ Registar (`.coordination/registry.db`) je lokalan, dijeljen preko svih worktree-
 **Claude Code** ima ovo dodatno automatizovano kroz `PreToolUse` hook (`.claude/settings.json`) — Edit/Write se automatski blokira ako pokušaš dirnuti tuđ aktivan claim, bez potrebe da ručno zoveš `check`. Codex, Crush i Pi trenutno nemaju taj automatski hook ožičen iz ove sesije (nepoznato je da li i kako ti alati podržavaju pre-edit hookove) — zato je `claim`/`release` disciplina za njih ručna, ne automatska.
 
 Dok postoji samo jedan aktivan zadatak na repou, `claim`/`release` nije obavezan (nema s kim se sudariti), ali se preporučuje radi navike.
+
+**`agent_reports/` je dijeljen folder — ne claimuj ga u cjelini.** Svaki zadatak piše svoj različito imenovan fajl (`DENT-XXX-*.md`) tamo, pa nema stvarnog rizika preklapanja. Ako dva zadatka oba pozovu `claim --paths ...,agent_reports`, alatka će ih tretirati kao koliziju iako fizički ne postoji — claimuj konkretan fajl (`agent_reports/DENT-003-task-contract.md`), ne cijeli folder.

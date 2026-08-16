@@ -26,6 +26,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Claude Code — lokalne/lične postavke, ne dijeliti sa timom
+.claude/settings.local.json
+
 # Build
 dist/
 build/

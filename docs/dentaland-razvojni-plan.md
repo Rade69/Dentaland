@@ -57,7 +57,7 @@ Razgovor sa Ljubom: šta ga konkretno nervira kod sveske. Ako nema konkretan odg
 
 ## Faza 1 — Javno online zakazivanje
 
-**Preduslov:** Faza 0 stvarno zaživjela kod Ljube. Ne kreće se ovdje dok to nije potvrđeno.
+(16.8.2026: preduslov "Faza 0 stvarno zaživjela kod Ljube" uklonjen — eksplicitna odluka, faze se više ne blokiraju međusobno tim kriterijumom.)
 
 ### Migracija
 SQLite → PostgreSQL, ista šema (proširena poljima ispod). Jednokratan izvoz/uvoz, ne prepravka.
