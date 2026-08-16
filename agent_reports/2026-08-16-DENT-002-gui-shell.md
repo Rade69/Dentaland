@@ -62,4 +62,6 @@ Verdikt: **PASS_WITH_NOTES**. Jedan reviewer je dovoljan za MEDIUM — pregled z
 
 ## Integration status
 
-NOT_MERGED — čeka DENT-001 (zajednički merge dogovoren sa Radovanom) i dodavanje PySide6/pytest-qt zavisnosti u `pyproject.toml`.
+MERGED → INTEGRATION_VERIFIED → DONE. Mergovano u `main` (commit `8c23c71`) uz DENT-001, poslije dodavanja PySide6/pytest-qt zavisnosti u `pyproject.toml`. Post-merge integration gate: pun test suite (23/23), `ruff check` na cijelom repou, grep provjera arhitekturnog pravila — svi prošli. Ažurirano 16.8.2026 (ranije je fajl pogrešno stajao na `NOT_MERGED` poslije stvarnog merge-a).
+
+**Naknadno uočen nalaz (16.8.2026, kroz nezavisnu analizu koda):** `WeekView.move_appointment_to_slot()` uvijek računa novi kraj termina kao `start + SLOT_MINUTES` (fiksno 30 min), ne čuva stvarno trajanje termina koje se pomjera. Ne manifestuje se u trenutnim testovima/demo podacima jer su svi baš 30 min. Ovo se popravlja unutar DENT-003 (koji ionako dira `week_view.py` radi vezivanja na varijabilna trajanja iz `Service.trajanje_min`), ne kao zaseban hitfix — vidi DENT-003 Task Contract.

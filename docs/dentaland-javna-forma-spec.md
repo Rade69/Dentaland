@@ -25,10 +25,10 @@ Nema koraka za uslugu, nema koraka za doktora, nema izbora tačnog vremena (samo
 **Naslov koraka:** "Odaberite datum"
 **Podnaslov:** "Izaberite dan za svoj termin"
 
-- Mjesečni kalendar (strelice lijevo/desno za promjenu mjeseca), dani sedmice PO–NE.
-- Klik na dan bira datum (vizuelno istaknut, npr. puni krug u brend boji).
-- Dani van dostupnosti ordinacije (npr. nedjelja, ako je neradan dan) prikazani kao onemogućeni — vizuelno bljeđi, neklikabilni.
-- Prošli datumi neklikabilni.
+- Mjesečni kalendar (strelice lijevo/desno za promjenu mjeseca).
+- **Radni dani: ponedjeljak–petak.** Subota i nedjelja su neradni dani. **Prikaz (16.8.2026, potvrđeno mokapom): kalendar prikazuje SAMO pet kolona (PO–PE), vikend kolone se ne prikazuju uopšte** — ne siva/onemogućena subota-nedjelja kolona unutar 7-dnevne mreže, nego kalendar bez tih kolona. Legenda ispod kalendara: "Dostupno" (puna teal tačka) / "Onemogućeno" (siva tačka).
+- **Samo DVA vizuelna stanja datuma — dostupno i onemogućeno.** Ne tri (ranija verzija mokapa je imala legendu Dostupno/Ograničeno/Nedostupno — to više nema smisla jer se ne bira tačno vrijeme, samo dan, pa "ograničeno" nema jasno značenje za prikazati). Dostupan dan: normalna boja teksta, klikabilan. Onemogućen dan (prošlost, unutar prikazanih Pon–Pet kolona): vizuelno bljeđi, neklikabilan. Ne uvoditi treću nijansu.
+- Klik na DOSTUPAN dan: (a) bira datum (vizuelno istaknut, puni krug u brend boji) I (b) **odmah prebacuje na Korak 2** — nema posebnog "Nastavi" dugmeta na Koraku 1 (za razliku od Koraka 2, koji ima svoje dugme jer forma treba validaciju prije nastavka).
 - Info okvir ispod kalendara, uvijek vidljiv:
   > "Tačno vrijeme termina biće određeno od strane naše ordinacije.
   > Kontaktiraćemo vas dan ranije kako bismo potvrdili vrijeme."
@@ -99,8 +99,10 @@ Na dnu: "Imate pitanja? Nazovite nas: [broj telefona ordinacije]"
 ## Globalno (svi koraci)
 
 - **Brend:** teal `#3fbbc0` kao primarna boja, bijela pozadina — u skladu sa postojećim dentaland.org sajtom.
-- **Header:** logo "DENTALAND — STOMATOLOŠKA ORDINACIJA" lijevo, telefon ordinacije i "Kontakt" dugme desno. Bez punog glavnog menija sajta (Početna/Usluge/Ordinacija/...) — ovo je fokusirana stranica za zakazivanje, ne dio šire navigacije. (Ranija verzija mokapa je imala pun meni — ukloniti, stranica treba biti bez distrakcija.)
+- **Header (16.8.2026, ispravljena odluka — ranija verzija ovog reda je pogrešno tvrdila "finalno" bez stvarne potvrde):** puniji header je odobren. Desktop: logo lijevo, pun meni (Početna/Usluge/Ordinacija/Za pacijente/Kontakt), telefon ordinacije + radno vrijeme, "Zakaži termin" dugme desno. Mobilni: logo, telefon ordinacije, bez punog menija (prostorno se ne uklapa). **Nigdje u headeru (desktop ni mobilni) NE smije biti "Login" dugme ili bilo šta što implicira nalog/prijavu pacijenta** — to je eksplicitno van obima (vidi "Šta NIJE u obimu" ispod), prikazivanje UI-ja za nepostojeću funkciju zbunjuje pacijenta.
 - **Step indicator** (1-2-3) na vrhu, uvijek vidljiv, trenutni korak istaknut bojom.
+- **Mobilni prikaz (16.8.2026, precizirano):** na širinama ispod ~768px, tri kolone (koraci) se NE prikazuju jedna pored druge — prikazuje se SAMO panel trenutnog koraka, preko cijele širine, ostali koraci su sakriveni dok se ne dođe do njih. Step indicator (1-2-3) ostaje vidljiv na vrhu kao orijentir. Desktop prikaz (sve tri kolone vidljive uporedo) ostaje kao u mokapu za širokе ekrane.
+- **Ikonice** su SVG (linijske, u stilu mokapa), ne emoji — radi vizuelne konzistentnosti sa dentaland.org.
 - **Ton teksta:** direktan, ljudski, bez žargona — "Zahtjev je poslat", ne "Vaš zahtjev je uspješno procesiran".
 - **Nikad ne implicirati potvrđeno vrijeme termina** ni na jednom koraku dok ga osoblje stvarno ne potvrdi telefonom — ovo pravilo važi za SVAKI tekst na stranici, ne samo korak 3.
 - **Kvačica pristanka je jedina obavezna saglasnost** — nema drugih checkboxova (newsletter, marketing i sl.) osim ako se posebno zatraži.
@@ -124,3 +126,7 @@ Na dnu: "Imate pitanja? Nazovite nas: [broj telefona ordinacije]"
 - [ ] Kvačica pristanka postoji, nije pre-čekirana, link na privacy obavještenje radi
 - [ ] Korak 3 naslov/podnaslov je "ZAHTJEV PRIMLJEN!" / "Datum je rezervisan, javićemo vam se..." — NE jezik potvrđene rezervacije
 - [ ] Nigdje na stranici ne piše da je tačno vrijeme potvrđeno
+- [ ] Kalendar prikazuje samo Pon–Pet kolone (vikend se ne prikazuje), samo dva vizuelna stanja (dostupno/onemogućeno) sa legendom
+- [ ] Klik na dostupan datum odmah prebacuje na Korak 2 (nema "Nastavi" dugmeta na Koraku 1)
+- [ ] Header: pun meni + telefon na desktopu, telefon na mobilnom — ALI nigdje "Login" dugme ili bilo šta što implicira nalog pacijenta
+- [ ] Mobilni prikaz (< ~768px) pokazuje samo trenutni korak, ne sve tri kolone uporedo

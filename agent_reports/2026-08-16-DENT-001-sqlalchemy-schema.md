@@ -122,4 +122,4 @@ Verdikt: **PASS_WITH_NOTES**. Oba reviewera (Claude, Codex) su nezavisno završi
 
 ## Integration status
 
-NOT_MERGED — čeka human approval (Radovan) prije merge-a u `main`. Implementacija je odobrena kao izuzetak od procesa (implementer je Crush umjesto Claude, zbog role promjene koja je stigla nakon što je zadatak već bio u toku) — odobreno 16.8.2026.
+MERGED → INTEGRATION_VERIFIED → DONE. Implementacija je odobrena kao izuzetak od procesa (implementer je Crush umjesto Claude, zbog role promjene koja je stigla nakon što je zadatak već bio u toku) — odobreno 16.8.2026. Mergovano u `main` (commit `414359a`) uz DENT-002 (`8c23c71`). Post-merge integration gate pokrenut zajedno sa DENT-002: pun test suite (23/23, uključujući GUI testove), `ruff check` na cijelom repou, `alembic upgrade`/`downgrade` smoke test — svi prošli. Ažurirano 16.8.2026 (ranije je fajl pogrešno stajao na `NOT_MERGED` i poslije stvarnog merge-a — evidence dokumentacija nije ažurirana u trenutku merge-a, propust uočen kroz nezavisnu analizu koda).
