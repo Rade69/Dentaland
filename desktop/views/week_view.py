@@ -1,8 +1,10 @@
 """Sedmični prikaz kalendara — početni ekran desktop aplikacije.
 
 Prikazuje 7 dana (ponedjeljak–nedjelja) kao mrežu vremenskih slotova.
-Klik na prazan slot emituje ``slot_selected`` (otvara dijalog za unos);
-prevlačenje zauzetog slota na prazan mijenja vrijeme termina u store-u.
+Podržava termine više doktora istovremeno, boja-kodirano po doktoru, i
+filtriranje po jednom doktoru (``set_filter``). Klik na prazan slot emituje
+``slot_selected`` (otvara dijalog za unos); prevlačenje zauzetog slota mijenja
+vrijeme termina — overlap provjerava servisni sloj (``OverlapError``).
 """
 
 from __future__ import annotations
@@ -10,6 +12,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QTableWidget,
@@ -37,11 +40,15 @@ class WeekView(QTableWidget):
     DAY_END_HOUR = 18
     SLOT_MINUTES = 30
 
+    _DOCTOR_PALETTE = ["#A5D6A7", "#EF9A9A", "#90CAF9", "#FFE082", "#CE93D8", "#80DEEA"]
+
     def __init__(self, store, week_start: date, parent=None):
         super().__init__(parent)
         self.store = store
         self.week_start = week_start
         self._drag_appt_id: int | None = None
+        self._filter_doctor_id: int | None = None
+        self._doctor_colors = self._build_doctor_colors()
 
         rows = int((self.DAY_END_HOUR - self.DAY_START_HOUR) * 60 / self.SLOT_MINUTES)
         self.setRowCount(rows)
@@ -60,6 +67,22 @@ class WeekView(QTableWidget):
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.cellClicked.connect(self._on_cell_clicked)
+        self.refresh()
+
+    # ---- doktori i boje ----
+
+    def _build_doctor_colors(self) -> dict[int, QColor]:
+        colors: dict[int, QColor] = {}
+        doctors_fn = getattr(self.store, "doctors", None)
+        if not callable(doctors_fn):
+            return colors
+        for i, doctor in enumerate(doctors_fn()):
+            colors[doctor.id] = QColor(self._DOCTOR_PALETTE[i % len(self._DOCTOR_PALETTE)])
+        return colors
+
+    def set_filter(self, doctor_id: int | None) -> None:
+        """Prikaži samo termine datog doktora (``None`` = svi doktori)."""
+        self._filter_doctor_id = doctor_id
         self.refresh()
 
     # ---- mapiranje slot ↔ vrijeme ----
@@ -90,12 +113,21 @@ class WeekView(QTableWidget):
             return None
         return row, col
 
-    def _appointments_by_cell(self) -> dict[tuple[int, int], AppointmentDTO]:
-        result: dict[tuple[int, int], AppointmentDTO] = {}
-        for appt in self.store.all():
+    def _fetch_appointments(self) -> list[AppointmentDTO]:
+        fetch = getattr(self.store, "all_combined", None)
+        if callable(fetch):
+            return fetch()
+        return self.store.all()
+
+    def _appointments_by_cell(self) -> dict[tuple[int, int], list[AppointmentDTO]]:
+        result: dict[tuple[int, int], list[AppointmentDTO]] = {}
+        for appt in self._fetch_appointments():
+            appt_doctor = getattr(appt, "doctor_id", None)
+            if self._filter_doctor_id is not None and appt_doctor != self._filter_doctor_id:
+                continue
             cell = self._cell_for(appt)
             if cell is not None:
-                result[cell] = appt
+                result.setdefault(cell, []).append(appt)
         return result
 
     # ---- prikaz ----
@@ -105,15 +137,24 @@ class WeekView(QTableWidget):
         for row in range(self.rowCount()):
             for col in range(self.columnCount()):
                 item = QTableWidgetItem("")
-                appt = by_cell.get((row, col))
-                if appt is not None:
-                    item.setText(f"{appt.patient_name} — {appt.service}")
+                appts = by_cell.get((row, col), [])
+                if appts:
+                    lines: list[str] = []
+                    for appt in appts:
+                        doctor = getattr(appt, "doctor_name", None)
+                        suffix = f" [{doctor}]" if doctor and self._filter_doctor_id is None else ""
+                        lines.append(f"{appt.patient_name} — {appt.service}{suffix}")
+                    item.setText("\n".join(lines))
                     item.setFlags(
                         Qt.ItemFlag.ItemIsEnabled
                         | Qt.ItemFlag.ItemIsSelectable
                         | Qt.ItemFlag.ItemIsDragEnabled
                     )
-                    item.setData(_APPT_ID_ROLE, appt.id)
+                    item.setData(_APPT_ID_ROLE, appts[0].id)
+                    if len(appts) == 1:
+                        color = self._doctor_colors.get(getattr(appts[0], "doctor_id", None))
+                        if color is not None:
+                            item.setBackground(color)
                 else:
                     item.setFlags(
                         Qt.ItemFlag.ItemIsEnabled
@@ -125,12 +166,12 @@ class WeekView(QTableWidget):
     # ---- interakcije ----
 
     def _on_cell_clicked(self, row: int, col: int) -> None:
-        if self._appointments_by_cell().get((row, col)) is None:
+        if not self._appointments_by_cell().get((row, col)):
             self.slot_selected.emit(self._slot_datetime(row, col))
 
     def move_appointment_to_slot(self, appt_id: int, row: int, col: int) -> bool:
         appt = self.store.get(appt_id)
-        if appt is None or self._appointments_by_cell().get((row, col)) is not None:
+        if appt is None:
             return False
         new_start = self._slot_datetime(row, col)
         new_end = new_start + (appt.end - appt.start)

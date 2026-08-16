@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from dentaland.services import AppointmentService  # noqa: E402
 from desktop.fake_data import FakeStore  # noqa: E402
 
 
@@ -29,3 +30,9 @@ def week_start() -> date:
 @pytest.fixture()
 def store() -> FakeStore:
     return FakeStore()
+
+
+@pytest.fixture()
+def appointment_service(tmp_path) -> AppointmentService:
+    """Servis nad SQLite bazom sa seed-ovanim doktorima (Ljubo/Zorka/Ana)."""
+    return AppointmentService.from_sqlite(str(tmp_path / "dentaland.db"))
