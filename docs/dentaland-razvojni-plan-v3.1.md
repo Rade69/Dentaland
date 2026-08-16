@@ -216,7 +216,7 @@ BiH Zakon o zaštiti ličnih podataka (`Sl. glasnik BiH 12/25`, na snazi od 4.10
 
 ### Data minimization
 
-Javna forma prikuplja samo: ime i prezime, telefon, odabrani termin, odabranu uslugu (ako je potrebna za trajanje/raspored). Email samo ako se stvarno koristi za potvrdu/komunikaciju.
+Javna forma prikuplja samo: ime i prezime, telefon (obavezno), odabrani datum i vrijeme. Email opciono, samo ako pacijent sam želi da ga ostavi. Usluga i doktor se NE biraju na javnoj formi (16.8.2026) — to se rješava u ordinaciji/telefonom prilikom potvrde zahtjeva, što dodatno smanjuje LEVEL 2 izloženost (identitet pacijenta se ne povezuje sa konkretnom uslugom već na javnoj formi, samo interno kod potvrde).
 
 **Ne prikupljati u javnoj booking formi:** JMBG, adresu stanovanja, broj zdravstvene knjižice, dijagnozu, anamnezu, lijekove, detaljne simptome.
 

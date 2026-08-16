@@ -4,7 +4,9 @@ Ovaj fajl vodi Claude Code i druge agente kroz pravila rada na Dentaland projekt
 
 ## Šta je Dentaland
 
-Sistem zakazivanja termina koji se gradi **samo za Ljubu** (suvlasnik ordinacije, prijatelj — ne cijela ordinacija). Ekonomski okvir je neformalan; naplata je moguća tek ako se pokaže vrijednost. Zorka i Ana (ostali doktori) ulaze u priču tek ako sami zatraže, nakon što vide da sistem radi kod Ljube.
+Sistem zakazivanja termina za **sva tri doktora ordinacije** (Ljubo, Zorka, Ana) — promjena od 16.8.2026, eksplicitan zahtjev; ranija verzija ovog dokumenta je govorila "samo za Ljubu, ostali tek ako sami zatraže". Ekonomski okvir je i dalje neformalan; naplata je moguća tek ako se pokaže vrijednost.
+
+**Napomena o riziku (kontekst za buduće sesije, ne blokira rad):** ranija verzija ovog plana je namjerno izbjegavala rad za sva tri doktora odjednom, uz obrazloženje "najveći rizik neuspjeha cijelog projekta" (ako se ne dopadne svima, cijeli sistem pada). Ta procjena rizika nije povučena kao pogrešna — samo je eksplicitno prevaziđena poslovnom odlukom. Ako usvajanje kod Zorke/Ane bude sporo, to je poznat i prihvaćen rizik, ne novo otkriće.
 
 Razvoj ide u fazama, svaka sa jasnim kriterijumom uspjeha prije prelaska na sljedeću:
 
@@ -15,7 +17,7 @@ Faza 0 — digitalna sveska (lokalno, PySide6 + SQLite, bez interneta)
 → Faza 3 — samo ako se pokaže potreba (drugi doktori, lista čekanja, multi-tenancy)
 ```
 
-Model zakazivanja je **zahtjev, ne instant rezervacija** — pacijent šalje zahtjev, osoblje potvrđuje.
+Model zakazivanja je **zahtjev, ne instant rezervacija** — pacijent šalje zahtjev, osoblje potvrđuje. (16.8.2026: kratko razmatran prelazak na instant rezervaciju pa vraćeno na zahtjev-model — odluka o instant rezervaciji još nije donesena, ne pretpostavljati je dok se eksplicitno ne potvrdi.)
 
 ## Izvori istine
 
@@ -58,9 +60,8 @@ Faza 1: PySide6 desktop → httpx/QNetworkAccessManager → FastAPI → PostgreS
 
 - Plugin sistem/arhitektura za proširenje — nema drugog klijenta na osnovu kojeg bi se dizajnirale tačke proširenja.
 - Twilio SMS — preskup za obim jedne ordinacije; Viber (Faza 2) je jeftinija alternativa u BiH.
-- Instant rezervacija (Model B) — oduzima kontrolu osoblju prerano.
+- Instant rezervacija (Model B) — oduzima kontrolu osoblju prerano. (16.8.2026: kratko razmatrano ukidanje ovog stava, vraćeno — vidi napomenu uz "Model zakazivanja" na vrhu fajla.)
 - Javni server na Ljubinom ličnom računaru — poništava sigurnosnu prednost desktop pristupa.
-- Rad za sva tri doktora odjednom — najveći rizik neuspjeha cijelog projekta.
 - Multi-tenancy — tek kad postoji drugi stvarni klijent, na osnovu stvarne razlike, ne unaprijed nagađane.
 - Redis/message broker/mikroservisi — jedan VPS, jedna instanca aplikacije pokriva obim; `slowapi` in-memory rate limiting je dovoljan, ne treba distribuiran backend.
 - `project_rooms/` folder — kreira se tek kad prva HIGH-risk izmjena stvarno zatreba plan fajl van agent_reporta, ne unaprijed.

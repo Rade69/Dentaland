@@ -71,7 +71,7 @@ SQLite → PostgreSQL, ista šema (proširena poljima ispod). Jednokratan izvoz/
 ### Javna strana
 - Poddomen (npr. `zakazivanje.dentaland.org`), stilizovan u boje ordinacije (`#3fbbc0`)
 - Jedina izmjena na postojećem sajtu: `href` na dugmetu "Zakaži termin" → novi URL
-- Forma: usluga → kalendar sa slobodnim terminima → ime, telefon, email, napomena, kvačica pristanka → "Zahtjev poslat, javićemo se"
+- Forma (pojednostavljeno 16.8.2026 — usluga i doktor se biraju u ordinaciji/telefonom, ne online): kalendar sa slobodnim terminima → datum → vrijeme → ime, telefon (obavezno), email (opciono), kvačica pristanka → "Zahtjev poslat, javićemo se"
 - Link za otkazivanje sa nasumičnim tokenom (`secrets.token_urlsafe(32)`), ne sekvencijalni ID
 - Email potvrda pacijentu (SMTP / SendGrid) — SMS se za sada izostavlja (trošak, vidi Fazu 2 za Viber alternativu)
 
