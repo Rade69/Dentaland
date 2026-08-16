@@ -111,11 +111,22 @@ review:
 
 Za LOW zadatke, Task Contract ostaje minimalan — `id`, `title`, `risk: LOW`, `objective`, `allowed_paths`, `acceptance`, `verification`. Četiri-pet redova je dovoljno. Puna ceremonija ide na MEDIUM/HIGH.
 
-## Ownership manifest
+## Ownership manifest i koordinacija agenata (Claude/Codex/Crush)
 
-Za bilo koji trenutak kad dva zadatka rade paralelno (dva agenta, dva worktree-a) — mala tabela/fajl koji kaže koji zadatak smije dirati koje fajlove/tabele, dogovorena PRIJE početka rada, ne otkrivena naknadno kroz konflikt. Ovo je komplementarno git worktree izolaciji (spriječava planning-time koliziju), ne zamjena za nju.
+Za bilo koji trenutak kad dva zadatka rade paralelno (dva agenta, dva worktree-a) — koji zadatak smije dirati koje fajlove/tabele mora biti dogovoreno PRIJE početka rada, ne otkriveno naknadno kroz konflikt. Ovo je komplementarno git worktree izolaciji (spriječava planning-time koliziju), ne zamjena za nju.
 
-Dok ima samo jedan aktivan zadatak u toku, ovaj korak se preskače — uvodi se onog trenutka kad stvarno postoje dva paralelna zadatka, ne unaprijed.
+Automatizovano kroz `scripts/coordination.py` — SQLite registar (`.coordination/registry.db`, lokalan, gitignored, dijeljen preko svih worktree-ova istog repoa preko `git rev-parse --git-common-dir`) koji prati koja putanja je "zauzeta" kojim zadatkom/agentom iz kojeg worktree-a:
+
+```bash
+python scripts/coordination.py claim --task DENT-014 --agent claude --paths backend/services/tokens.py,tests/test_tokens.py
+python scripts/coordination.py status
+python scripts/coordination.py release --task DENT-014
+```
+
+- **Claude Code**: ožičeno automatski kao `PreToolUse` hook (`.claude/settings.json`, matcher `Edit|Write`) — poziva `coordination.py hook-check` prije svakog Edit/Write; blokira (exit 2) ako je ciljna putanja aktivan claim iz DRUGOG worktree-a, propušta sopstvene izmjene i nezauzete putanje bez ikakve dodatne akcije. Ako se `.claude/` folder tek kreirao u trenutnoj sesiji, watcher ga možda ne prati odmah — otvoriti `/hooks` jednom ili restartovati sesiju da se pokupi.
+- **Codex i Crush**: nemaju ovdje ožičen hook (nisu konfigurisani iz ove sesije) — pozivati `claim`/`release` ručno na početku/kraju zadatka, i po potrebi `check --path <fajl>` prije veće izmjene. Ako ti alati podržavaju svoj pre-edit hook mehanizam, isti `coordination.py hook-check`/`check` poziv se može ožičiti tamo na isti način.
+- Identitet "vlasnika" claim-a je apsolutna putanja worktree-a (`Path.cwd()` u trenutku `claim` poziva), ne agent ime ni env varijabla — nema ručnog praćenja "ko sam ja".
+- Dok postoji samo jedan aktivan zadatak, alatka se i dalje može koristiti, ali nije obavezna — konflikt je nemoguć sa jednim aktivnim zadatkom.
 
 ## Git izolacija
 
@@ -237,6 +248,8 @@ Integration: full pytest PASS, smoke test PASS
 ## Šta ne graditi odmah (proces)
 
 Ne pravi se poseban orkestrator samo da bi se proces sproveo. Prvih 5-10 stvarnih Dentaland zadataka ide ručno/poluautomatski sa postojećim alatima (worktree, Task Contract fajl, test runner, Claude/Codex review, prost evidence zapis). Automatizuje se tek ono što se pokaže repetitivnim i stabilnim. Cilj je razviti Dentaland, ne izgraditi proizvod za orkestraciju razvoja Dentalanda.
+
+**Izuzetak (16.8.2026, eksplicitan zahtjev):** koordinacija ownership-a preko `scripts/coordination.py` (vidi "Ownership manifest i koordinacija agenata" iznad) je napravljena prije prvog stvarnog zadatka, ne nakon što se pokazala repetitivna potreba — svjesno odstupanje od pravila iznad jer je Radovan eksplicitno tražio rad sa tri agenta (Claude/Codex/Crush) paralelno od samog početka. Ostatak pravila i dalje važi za sve OSTALE alatke — ne graditi dodatnu automatizaciju procesa dok se potreba stvarno ne pokaže kroz ponovljene probleme.
 
 ## Prije nego počneš kodirati
 
