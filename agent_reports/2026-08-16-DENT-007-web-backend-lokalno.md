@@ -99,4 +99,4 @@ kodu.
 
 ## Integration status
 
-NOT_MERGED — čeka review i human approval.
+MERGED → INTEGRATION_VERIFIED → DONE. Mergovano u `main` bez independent review-a (vidi sekciju "Review" iznad — eksplicitan izuzetak). Post-merge integration gate: pun test suite (70/70), `ruff check` čist, `mypy` vraćen na poznat baseline (8 grešaka, sve u `desktop/`) poslije brze popravke `booking.py` regresije koja se pojavila kad su se DENT-006 i DENT-007 spojili (commit `65a61fd`, najavljeno kao follow-up u oba evidence fajla).

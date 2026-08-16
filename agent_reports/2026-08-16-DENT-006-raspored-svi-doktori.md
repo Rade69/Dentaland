@@ -101,11 +101,6 @@ Verdikt: **PASS_WITH_NOTES**. Spremno za human approval.
 
 ## Integration status
 
-MERGED → INTEGRATION_VERIFIED → DONE. Mergovano u `main` (commit `9f15a07`, merge commit poslije). Post-merge integration gate: pun test suite (51/51), `ruff check` na cijelom repou — oba prošla. Napomena:
-DENT-007 (Claude, paralelno) mijenja `src/dentaland/models.py` da učini
-`doctor_id`/`service_id`/`start_time`/`end_time` nullable — kad se OBA
-mergiraju, `booking.py` (uključujući izmjene iz ovog zadatka) će trebati
-malu popravku tipova (5 mypy grešaka, već najavljeno u DENT-007 evidence
-fajlu) jer mypy ne može statički znati da su ta polja uvijek popunjena za
-SCHEDULED termine. Nije blokirajuće za merge ovog zadatka, ali treba
-riješiti kao brz follow-up poslije oba merge-a.
+MERGED → INTEGRATION_VERIFIED → DONE. Mergovano u `main` (commit `9f15a07`, merge commit poslije). Post-merge integration gate: pun test suite (51/51), `ruff check` na cijelom repou — oba prošla.
+
+Najavljen follow-up (DENT-007 je poslije mergovao nullable šemu, što je u `booking.py` unijelo 7 mypy grešaka) je riješen istog dana — commit `65a61fd`, poslije oba merge-a, mypy vraćen na poznat baseline.
