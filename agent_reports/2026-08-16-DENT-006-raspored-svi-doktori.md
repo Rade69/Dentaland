@@ -101,7 +101,7 @@ Verdikt: **PASS_WITH_NOTES**. Spremno za human approval.
 
 ## Integration status
 
-NOT_MERGED — čeka human approval (Radovan) prije merge-a u `main`. Napomena:
+MERGED → INTEGRATION_VERIFIED → DONE. Mergovano u `main` (commit `9f15a07`, merge commit poslije). Post-merge integration gate: pun test suite (51/51), `ruff check` na cijelom repou — oba prošla. Napomena:
 DENT-007 (Claude, paralelno) mijenja `src/dentaland/models.py` da učini
 `doctor_id`/`service_id`/`start_time`/`end_time` nullable — kad se OBA
 mergiraju, `booking.py` (uključujući izmjene iz ovog zadatka) će trebati
