@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="bs">
+<head><meta charset="utf-8"><title>DENT-005 browser flow test</title></head>
+<body>
+  <h1 id="result">RUNNING</h1>
+  <pre id="details"></pre>
+  <iframe id="app" src="../index.html" width="1440" height="1000"></iframe>
+  <script>
+    const checks = [];
+    const assert = (condition, message) => { if (!condition) throw new Error(message); checks.push(`PASS: ${message}`); };
+    document.querySelector("#app").addEventListener("load", () => {
+      try {
+        const doc = document.querySelector("#app").contentDocument;
+        const win = document.querySelector("#app").contentWindow;
+        const augustButtons = [...doc.querySelectorAll("#calendar-grid button")];
+        assert(augustButtons[0].textContent === "3" && augustButtons[1].textContent === "4", "avgust 2026 poravnava 3. pod PO i 4. pod UT");
+        const availableDate = [...doc.querySelectorAll("#calendar-grid button")].find(button => !button.disabled);
+        assert(Boolean(availableDate), "kalendar ima dostupan radni dan");
+        availableDate.click();
+        assert(doc.querySelector('[data-step-indicator="2"]').classList.contains("is-active"), "klik datuma odmah otvara korak 2");
+        const next = doc.querySelector("#continue-button");
+        assert(next.disabled, "Nastavi je inicijalno onemogućen");
+        doc.querySelector("#full-name").value = "Test Pacijent";
+        doc.querySelector("#phone").value = "65123456";
+        doc.querySelector("#full-name").dispatchEvent(new win.Event("input", { bubbles: true }));
+        doc.querySelector("#phone").dispatchEvent(new win.Event("input", { bubbles: true }));
+        assert(next.disabled, "ime i telefon nisu dovoljni bez pristanka");
+        doc.querySelector("#consent").click();
+        assert(!next.disabled, "Nastavi se aktivira tek nakon obaveznog pristanka");
+        doc.querySelector("#booking-form").dispatchEvent(new win.Event("submit", { bubbles: true, cancelable: true }));
+        assert(doc.querySelector('[data-step-indicator="3"]').classList.contains("is-active"), "submit bez mreže otvara korak 3");
+        assert(doc.querySelector(".confirmation h3").textContent === "ZAHTJEV PRIMLJEN!", "završni naslov je tačan");
+        assert(doc.body.textContent.includes("Datum je rezervisan, javićemo vam se dan ranije sa tačnim vremenom."), "završni podnaslov je tačan");
+        assert(doc.body.textContent.includes("+387 66 615 326"), "prikazan je zvanični broj ordinacije");
+        assert(doc.body.textContent.includes("Dušana Baranjina 37, 76300 Bijeljina"), "prikazana je zvanična adresa ordinacije");
+        assert(doc.body.textContent.includes("Pon–Pet 08:00–19:00") && doc.body.textContent.includes("Sub 09:00–13:00"), "prikazano je zvanično radno vrijeme");
+        document.querySelector("#result").textContent = "PASS";
+        document.querySelector("#details").textContent = checks.join("\n");
+      } catch (error) {
+        document.querySelector("#result").textContent = "FAIL";
+        document.querySelector("#details").textContent = `${checks.join("\n")}\n${error.stack}`;
+      }
+    });
+  </script>
+</body></html>
