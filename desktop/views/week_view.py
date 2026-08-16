@@ -2,7 +2,7 @@
 
 Prikazuje 7 dana (ponedjeljak–nedjelja) kao mrežu vremenskih slotova.
 Klik na prazan slot emituje ``slot_selected`` (otvara dijalog za unos);
-prevlačenje zauzetog slota na prazan mijenja vrijeme termina u fake sloju.
+prevlačenje zauzetog slota na prazan mijenja vrijeme termina u store-u.
 """
 
 from __future__ import annotations
@@ -16,7 +16,8 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
 )
 
-from desktop.fake_data import SARAJEVO, Appointment, FakeStore
+from dentaland.services import AppointmentDTO, OverlapError
+from desktop.fake_data import SARAJEVO
 
 _APPT_ID_ROLE = Qt.ItemDataRole.UserRole
 
@@ -36,7 +37,7 @@ class WeekView(QTableWidget):
     DAY_END_HOUR = 18
     SLOT_MINUTES = 30
 
-    def __init__(self, store: FakeStore, week_start: date, parent=None):
+    def __init__(self, store, week_start: date, parent=None):
         super().__init__(parent)
         self.store = store
         self.week_start = week_start
@@ -75,7 +76,7 @@ class WeekView(QTableWidget):
             minutes // 60, minutes % 60, tzinfo=SARAJEVO,
         )
 
-    def _cell_for(self, appt: Appointment) -> tuple[int, int] | None:
+    def _cell_for(self, appt: AppointmentDTO) -> tuple[int, int] | None:
         local = appt.start.astimezone(SARAJEVO)
         col = (local.date() - self.week_start).days
         if col < 0 or col >= self.DAY_COUNT:
@@ -89,8 +90,8 @@ class WeekView(QTableWidget):
             return None
         return row, col
 
-    def _appointments_by_cell(self) -> dict[tuple[int, int], Appointment]:
-        result: dict[tuple[int, int], Appointment] = {}
+    def _appointments_by_cell(self) -> dict[tuple[int, int], AppointmentDTO]:
+        result: dict[tuple[int, int], AppointmentDTO] = {}
         for appt in self.store.all():
             cell = self._cell_for(appt)
             if cell is not None:
@@ -132,8 +133,11 @@ class WeekView(QTableWidget):
         if appt is None or self._appointments_by_cell().get((row, col)) is not None:
             return False
         new_start = self._slot_datetime(row, col)
-        new_end = new_start + timedelta(minutes=self.SLOT_MINUTES)
-        self.store.move(appt_id, new_start, new_end)
+        new_end = new_start + (appt.end - appt.start)
+        try:
+            self.store.move(appt_id, new_start, new_end)
+        except OverlapError:
+            return False
         self.refresh()
         self.appointment_moved.emit(appt)
         return True
