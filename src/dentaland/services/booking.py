@@ -34,7 +34,11 @@ DEFAULT_SERVICES = [
 
 @dataclass
 class AppointmentDTO:
-    """Termin u obliku koji GUI očekuje (plain podaci, ne SQLAlchemy objekat)."""
+    """Termin u obliku koji GUI očekuje (plain podaci, ne SQLAlchemy objekat).
+
+    ``doctor_id``/``doctor_name`` omogućavaju boja-kodiranje po doktoru u
+    kombinovanom sedmičnom prikazu (DENT-006).
+    """
 
     id: int
     patient_name: str
@@ -44,6 +48,8 @@ class AppointmentDTO:
     note: str
     start: datetime
     end: datetime
+    doctor_id: int
+    doctor_name: str
 
 
 @dataclass
@@ -85,7 +91,7 @@ class AppointmentService:
     def doctors(self) -> list[DoctorDTO]:
         with self._session_factory() as session:
             doctors = session.scalars(
-                select(Doctor).where(Doctor.aktivan.is_(True)).order_by(Doctor.ime)
+                select(Doctor).where(Doctor.aktivan.is_(True)).order_by(Doctor.id)
             ).all()
             return [DoctorDTO(id=d.id, ime=d.ime) for d in doctors]
 
@@ -142,15 +148,26 @@ class AppointmentService:
             ).all()
             return [self._to_dto(a, a.service.naziv) for a in appts]
 
+    def all_combined(self) -> list[AppointmentDTO]:
+        """Termini svih doktora odjednom (za kombinovani sedmični prikaz)."""
+        with self._session_factory() as session:
+            appts = session.scalars(
+                select(Appointment).order_by(Appointment.start_time)
+            ).all()
+            return [self._to_dto(a, a.service.naziv) for a in appts]
+
     def move(self, appt_id: int, new_start: datetime, new_end: datetime) -> AppointmentDTO:
-        doctor_id = self._require_doctor()
         with self._session_factory() as session:
             appt = session.scalar(
                 select(Appointment).where(Appointment.id == appt_id)
             )
-            if appt is None or appt.doctor_id != doctor_id:
+            if appt is None:
                 raise ValueError(f"termin {appt_id} nije pronađen")
-            self._check_overlap(session, doctor_id, new_start, new_end, exclude_id=appt_id)
+            # Overlap se provjerava za doktora SAMOG termina, ne za self.doctor_id
+            # — drag&drop mora raditi i u kombinovanom prikazu (DENT-006).
+            self._check_overlap(
+                session, appt.doctor_id, new_start, new_end, exclude_id=appt_id
+            )
             appt.start_time = new_start
             appt.end_time = new_end
             session.commit()
@@ -201,6 +218,8 @@ class AppointmentService:
             note=appt.napomena or "",
             start=appt.start_time,
             end=appt.end_time,
+            doctor_id=appt.doctor_id,
+            doctor_name=appt.doctor.ime,
         )
 
 

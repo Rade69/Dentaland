@@ -170,6 +170,39 @@ def test_ensure_seed_data(session_factory: sessionmaker[Session]) -> None:
     assert len(services) == 5
 
 
+def test_all_combined_vraca_termina_svih_doktora(
+    session_factory: sessionmaker[Session],
+    appointment_service: AppointmentService,
+) -> None:
+    appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+
+    with session_factory() as session:
+        zorka_id = _make_doctor(session, "Zorka")
+        session.commit()
+    zorka_service = AppointmentService(session_factory, doctor_id=zorka_id)
+    zorka_service.create("Marko", "", "", "Kontrola", "", _at(10), _at(10, 30))
+
+    combined = appointment_service.all_combined()
+    assert {d.patient_name for d in combined} == {"Ana", "Marko"}
+    assert {d.doctor_name for d in combined} == {"Ljubo", "Zorka"}
+
+
+def test_move_radi_za_termin_drugog_doktora(
+    session_factory: sessionmaker[Session],
+    appointment_service: AppointmentService,
+) -> None:
+    with session_factory() as session:
+        zorka_id = _make_doctor(session, "Zorka")
+        session.commit()
+    zorka_service = AppointmentService(session_factory, doctor_id=zorka_id)
+    dto = zorka_service.create("Marko", "", "", "Kontrola", "", _at(10), _at(10, 30))
+
+    # appointment_service ima self.doctor_id = Ljubo, a pomjera Zorkin termin.
+    moved = appointment_service.move(dto.id, _at(11), _at(11, 30))
+    assert moved.start == _at(11)
+    assert moved.doctor_name == "Zorka"
+
+
 def _set_status(session_factory: sessionmaker[Session], status: AppointmentStatus) -> None:
     with session_factory() as session:
         appt = session.scalar(select(Appointment))
