@@ -1,0 +1,28 @@
+[project]
+name = "dentaland"
+version = "0.0.0"
+description = "Sistem zakazivanja termina za Dentaland — Faza 0: PySide6 + SQLite desktop aplikacija."
+requires-python = ">=3.12"
+# Zavisnosti se dodaju kad Faza 0 stvarno počne pisati kod (PySide6, SQLAlchemy,
+# Alembic) — ne unaprijed, da se izbjegne prazna arhitektura bez ičega za provjeriti.
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "mypy>=1.14",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = false
+warn_redundant_casts = true
+disallow_untyped_defs = true
