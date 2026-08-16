@@ -9,6 +9,15 @@ modelima iz DENT-001. Field-name prevod (fake ↔ model):
 * ``note`` ↔ ``napomena``, ``start`` ↔ ``start_time``, ``end`` ↔ ``end_time``
 
 GUI nikad ne dobija SQLAlchemy objekte — servis vraća plain DTO dataclasses.
+
+``doctor_id``/``service_id``/``start_time``/``end_time`` su nullable na
+nivou modela (DENT-007 — javni zahtjev stiže bez njih dok nije potvrđen,
+vidi ``src/dentaland/services/requests.py``), ali svaki red kojim ovaj
+modul (booking.py) rukuje je uvijek ili tek kreiran ovdje (sva četiri polja
+se postavljaju atomski u ``create()``) ili već ima status različit od
+``PENDING`` — što po konstrukciji znači da su sva četiri polja popunjena.
+``assert`` pozivi ispod postoje da to i mypy zna, ne mijenjaju runtime
+ponašanje u normalnom slučaju.
 """
 
 from __future__ import annotations
@@ -136,7 +145,7 @@ class AppointmentService:
             )
             if appt is None:
                 return None
-            return self._to_dto(appt, appt.service.naziv)
+            return self._to_dto(appt, self._service_name(appt))
 
     def all(self) -> list[AppointmentDTO]:
         doctor_id = self._require_doctor()
@@ -146,7 +155,7 @@ class AppointmentService:
                 .where(Appointment.doctor_id == doctor_id)
                 .order_by(Appointment.start_time)
             ).all()
-            return [self._to_dto(a, a.service.naziv) for a in appts]
+            return [self._to_dto(a, self._service_name(a)) for a in appts]
 
     def all_combined(self) -> list[AppointmentDTO]:
         """Termini svih doktora odjednom (za kombinovani sedmični prikaz)."""
@@ -154,7 +163,7 @@ class AppointmentService:
             appts = session.scalars(
                 select(Appointment).order_by(Appointment.start_time)
             ).all()
-            return [self._to_dto(a, a.service.naziv) for a in appts]
+            return [self._to_dto(a, self._service_name(a)) for a in appts]
 
     def move(self, appt_id: int, new_start: datetime, new_end: datetime) -> AppointmentDTO:
         with self._session_factory() as session:
@@ -163,6 +172,7 @@ class AppointmentService:
             )
             if appt is None:
                 raise ValueError(f"termin {appt_id} nije pronađen")
+            assert appt.doctor_id is not None, "move() radi samo nad već dodijeljenim terminima"
             # Overlap se provjerava za doktora SAMOG termina, ne za self.doctor_id
             # — drag&drop mora raditi i u kombinovanom prikazu (DENT-006).
             self._check_overlap(
@@ -171,7 +181,7 @@ class AppointmentService:
             appt.start_time = new_start
             appt.end_time = new_end
             session.commit()
-            return self._to_dto(appt, appt.service.naziv)
+            return self._to_dto(appt, self._service_name(appt))
 
     # ---- interne ----
 
@@ -208,7 +218,16 @@ class AppointmentService:
             )
 
     @staticmethod
+    def _service_name(appt: Appointment) -> str:
+        assert appt.service is not None, "termin bez usluge nije nadležnost booking.py"
+        return appt.service.naziv
+
+    @staticmethod
     def _to_dto(appt: Appointment, service_name: str) -> AppointmentDTO:
+        assert appt.start_time is not None
+        assert appt.end_time is not None
+        assert appt.doctor_id is not None
+        assert appt.doctor is not None
         return AppointmentDTO(
             id=appt.id,
             patient_name=appt.ime,
