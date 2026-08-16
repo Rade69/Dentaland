@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import enum
-from datetime import UTC, datetime, time
+from datetime import UTC, date, datetime, time
 from typing import Any
 
 from sqlalchemy import (
@@ -32,14 +32,18 @@ class Base(DeclarativeBase):
 class AppointmentStatus(enum.StrEnum):
     """Status termina definisan od Faze 0.
 
-    Faza 1 dodaje ``PENDING`` i ``REJECTED`` aditivno — postojeće vrijednosti
-    se ne mijenjaju.
+    ``PENDING``/``REJECTED`` su Faza 1 aditivna dopuna (16.8.2026) — javni
+    zahtjev sa web forme ulazi kao ``PENDING`` dok ga osoblje ne potvrdi
+    (``SCHEDULED``) ili odbije (``REJECTED``). Postojeće vrijednosti se ne
+    mijenjaju.
     """
 
     SCHEDULED = "SCHEDULED"
     CANCELLED = "CANCELLED"
     COMPLETED = "COMPLETED"
     NO_SHOW = "NO_SHOW"
+    PENDING = "PENDING"
+    REJECTED = "REJECTED"
 
 
 def utcnow() -> datetime:
@@ -127,14 +131,20 @@ class Appointment(Base):
     __tablename__ = "appointments"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    doctor_id: Mapped[int] = mapped_column(ForeignKey("doctors.id"), nullable=False)
-    service_id: Mapped[int] = mapped_column(ForeignKey("services.id"), nullable=False)
+    doctor_id: Mapped[int | None] = mapped_column(ForeignKey("doctors.id"), nullable=True)
+    service_id: Mapped[int | None] = mapped_column(ForeignKey("services.id"), nullable=True)
     ime: Mapped[str] = mapped_column(String(200), nullable=False)
     telefon: Mapped[str | None] = mapped_column(String(50), nullable=True)
     email: Mapped[str | None] = mapped_column(String(200), nullable=True)
     napomena: Mapped[str | None] = mapped_column(Text, nullable=True)
-    start_time: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False)
-    end_time: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False)
+    # Datum koji je pacijent tražio na javnoj formi — nezavisan od start_time,
+    # jer se tačno vrijeme ne bira online (vidi docs/dentaland-javna-forma-spec.md).
+    # Popunjen za PENDING zahtjeve; NULL za termine unesene direktno u ordinaciji.
+    requested_date: Mapped[date | None] = mapped_column(nullable=True)
+    # start_time/end_time su nepoznati dok je status PENDING — osoblje ih
+    # postavlja pri potvrdi zahtjeva. Uvijek popunjeni za SCHEDULED i dalje.
+    start_time: Mapped[datetime | None] = mapped_column(TZDateTime(), nullable=True)
+    end_time: Mapped[datetime | None] = mapped_column(TZDateTime(), nullable=True)
     status: Mapped[AppointmentStatus] = mapped_column(
         Enum(
             AppointmentStatus,
@@ -157,5 +167,5 @@ class Appointment(Base):
         TZDateTime(), nullable=False, default=utcnow, onupdate=utcnow
     )
 
-    doctor: Mapped[Doctor] = relationship(back_populates="appointments")
-    service: Mapped[Service] = relationship(back_populates="appointments")
+    doctor: Mapped[Doctor | None] = relationship(back_populates="appointments")
+    service: Mapped[Service | None] = relationship(back_populates="appointments")
