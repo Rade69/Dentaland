@@ -79,14 +79,20 @@ Task Contract (ispod) nosi `risk: LOW|MEDIUM|HIGH` polje — to je operativna oz
 
 ## Uloge
 
-| Uloga | Ko | Posao |
-|---|---|---|
-| **Implementer** | Worker agent | Piše kod i testove za jedan dodijeljeni zadatak |
-| **Reviewer 1** | Claude | Nezavisan pregled diff-a nasuprot Task Contracta i bezbjednosne liste za tu fazu |
-| **Reviewer 2** | Codex | Drugi nezavisan pregled, samo za HIGH zadatke |
-| **Radovan** | Čovjek | Zadnja riječ prije merge-a; rješava neslaganje reviewera; jedina instanca koja odlučuje poslovna/pravna pitanja (npr. emergency-override tumačenje, tekst pristanka) |
+Ko je Implementer se mijenja sa risk nivoom zadatka — agenti su fiksni po alatu, ali njihova uloga na datom zadatku (Implementer ili Reviewer) zavisi od toga koliko je zadatak rizičan:
 
-**Implementer nikad nije isti agent/sesija/kontekst kao Reviewer za taj isti zadatak.** Agent koji je nešto upravo napisao ima sistemsku slijepu tačku za sopstvene greške — nezavisan par očiju to hvata. Ovo se primjenjuje bez izuzetka, čak i za LOW zadatke (samo je tok laganiji, ne izostavljen).
+| Risk | Implementer | Reviewer 1 | Reviewer 2 |
+|---|---|---|---|
+| LOW | Crush / Pi (ili Codex kao worker) | Claude | — |
+| MEDIUM | Crush / Pi (ili Codex kao worker) | Claude | Codex — opciono, kad treba dodatna relevantnost pregleda, ne obavezno |
+| HIGH | **Claude** | Codex | Crush / Pi |
+
+- **Claude implementira HIGH-risk zadatke direktno** (šema/migracije, `EXCLUDE` constraint, autentifikacija, token generisanje, javni API endpointi, razdvajanje osjetljivih podataka) — najstabilnija ruka na najkritičnijem poslu, na eksplicitan zahtjev (16.8.2026).
+- **Codex nikad nije Implementer, isključivo Reviewer** — na HIGH je obavezan (Reviewer 1), na MEDIUM dostupan po potrebi radi relevantnijeg pregleda, nije čvrsto vezan samo za HIGH.
+- **Crush i Pi su Implementeri na LOW/MEDIUM** (worker agenti), i **Reviewer na HIGH** kad Claude implementira (obično jedan od njih, ne oba na svakom HIGH zadatku — dovoljan je jedan uz Codexa, drugi je slobodan za paralelan LOW/MEDIUM rad).
+- **Radovan** (čovjek) — zadnja riječ prije merge-a; rješava neslaganje reviewera; jedina instanca koja odlučuje poslovna/pravna pitanja (npr. emergency-override tumačenje, tekst pristanka).
+
+**Implementer nikad nije isti agent/sesija/kontekst kao Reviewer za taj isti zadatak.** Agent koji je nešto upravo napisao ima sistemsku slijepu tačku za sopstvene greške — nezavisan par očiju to hvata. Ovo se primjenjuje bez izuzetka, čak i za LOW zadatke (samo je tok laganiji, ne izostavljen). Kad Claude implementira HIGH zadatak, Reviewer 1/2 (Codex/Crush) moraju biti nezavisni od te sesije — Claude se ne vraća da "sam sebe" pregleda u istom kontekstu.
 
 ## Task Contract
 

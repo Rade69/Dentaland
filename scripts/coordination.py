@@ -38,7 +38,7 @@ if sys.platform == "win32":
         except Exception:
             pass
 
-AGENTS = ("claude", "codex", "crush")
+AGENTS = ("claude", "codex", "crush", "pi")
 
 
 def _git_rev_parse(arg: str, start: Path) -> str:
