@@ -118,4 +118,4 @@ Verdikt: **PASS_WITH_NOTES**. Spremno za human approval.
 
 ## Integration status
 
-NOT_MERGED — čeka human approval (Radovan) prije merge-a u `main`.
+MERGED → INTEGRATION_VERIFIED → DONE. Mergovano u `main` (commit `453272d`, merge commit poslije). Post-merge integration gate: pun test suite (43/43), `ruff check` na cijelom repou, grep provjera arhitekturnog pravila — svi prošli.
