@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 from PySide6.QtWidgets import QApplication
 
-from desktop.fake_data import FakeStore
+from dentaland.services import AppointmentService
 from desktop.views.main_window import MainWindow
 
 
@@ -18,8 +18,8 @@ def current_week_start() -> date:
 
 def main() -> int:
     app = QApplication(sys.argv)
-    store = FakeStore.seeded(current_week_start())
-    window = MainWindow(store)
+    service = AppointmentService.from_sqlite("dentaland.db")
+    window = MainWindow(service)
     window.show()
     return app.exec()
 
