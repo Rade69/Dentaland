@@ -101,7 +101,7 @@ Na dnu: "Imate pitanja? Nazovite nas: [broj telefona ordinacije]"
 - **Brend:** teal `#3fbbc0` kao primarna boja, bijela pozadina — u skladu sa postojećim dentaland.org sajtom.
 - **Header (16.8.2026, ispravljena odluka — ranija verzija ovog reda je pogrešno tvrdila "finalno" bez stvarne potvrde):** puniji header je odobren. Desktop: logo lijevo, pun meni (Početna/Usluge/Ordinacija/Za pacijente/Kontakt), telefon ordinacije + radno vrijeme, "Zakaži termin" dugme desno. Mobilni: logo, telefon ordinacije, bez punog menija (prostorno se ne uklapa). **Nigdje u headeru (desktop ni mobilni) NE smije biti "Login" dugme ili bilo šta što implicira nalog/prijavu pacijenta** — to je eksplicitno van obima (vidi "Šta NIJE u obimu" ispod), prikazivanje UI-ja za nepostojeću funkciju zbunjuje pacijenta.
 - **Step indicator** (1-2-3) na vrhu, uvijek vidljiv, trenutni korak istaknut bojom.
-- **Mobilni prikaz (16.8.2026, precizirano):** na širinama ispod ~768px, tri kolone (koraci) se NE prikazuju jedna pored druge — prikazuje se SAMO panel trenutnog koraka, preko cijele širine, ostali koraci su sakriveni dok se ne dođe do njih. Step indicator (1-2-3) ostaje vidljiv na vrhu kao orijentir. Desktop prikaz (sve tri kolone vidljive uporedo) ostaje kao u mokapu za širokе ekrane.
+- **Responsive prikaz (17.8.2026, konačno razjašnjeno referentnim slikama):** desktop/laptop/monitor prikazuje sva tri panela istovremeno u tri jednake kolone i cijela stranica staje u viewport bez vertikalnog ili horizontalnog skrola. Paneli ne smiju biti rastegnuti praznim prostorom niti se sadržaj smije smanjiti do nečitljivosti. Mobilni prikazuje samo panel trenutnog koraka preko cijele širine; ostali su sakriveni dok korisnik ne dođe do njih, a normalan vertikalni skrol je dozvoljen. Step indicator (1-2-3) ostaje vidljiv na vrhu.
 - **Ikonice** su SVG (linijske, u stilu mokapa), ne emoji — radi vizuelne konzistentnosti sa dentaland.org.
 - **Ton teksta:** direktan, ljudski, bez žargona — "Zahtjev je poslat", ne "Vaš zahtjev je uspješno procesiran".
 - **Nikad ne implicirati potvrđeno vrijeme termina** ni na jednom koraku dok ga osoblje stvarno ne potvrdi telefonom — ovo pravilo važi za SVAKI tekst na stranici, ne samo korak 3.
@@ -129,4 +129,4 @@ Na dnu: "Imate pitanja? Nazovite nas: [broj telefona ordinacije]"
 - [ ] Kalendar prikazuje samo Pon–Pet kolone (vikend se ne prikazuje), samo dva vizuelna stanja (dostupno/onemogućeno) sa legendom
 - [ ] Klik na dostupan datum odmah prebacuje na Korak 2 (nema "Nastavi" dugmeta na Koraku 1)
 - [ ] Header: pun meni + telefon na desktopu, telefon na mobilnom — ALI nigdje "Login" dugme ili bilo šta što implicira nalog pacijenta
-- [ ] Mobilni prikaz (< ~768px) pokazuje samo trenutni korak, ne sve tri kolone uporedo
+- [ ] Desktop prikazuje sva tri panela bez skrola; mobilni prikazuje samo trenutni panel i dozvoljava vertikalni skrol

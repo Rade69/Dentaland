@@ -4,6 +4,8 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="Pošaljite zahtjev za termin u stomatološkoj ordinaciji Dentaland.">
   <title>Zakažite termin | Dentaland</title><link rel="stylesheet" href="styles.css">
+  <style>@media (min-width:768px){.page-shell{grid-template-rows:auto auto auto auto auto;align-content:center}}@media (min-width:1200px) and (min-height:850px){body{grid-template-rows:72px minmax(0,1fr) 90px}.page-shell{max-width:1540px;height:100%;padding-block:12px;align-content:center;row-gap:10px}.panels{align-items:stretch}.panel{min-height:clamp(515px,calc(100vh - 430px),650px);height:100%;display:flex;flex-direction:column}.panel[data-panel="1"] .calendar{display:flex;flex:1;flex-direction:column}.panel[data-panel="1"] .calendar-grid{flex:1;grid-auto-rows:1fr}.panel[data-panel="1"] .calendar-grid button,.panel[data-panel="1"] .calendar-grid .empty{height:auto}.panel[data-panel="1"] .info-box{margin-top:10px}.panel[data-panel="2"] form{display:flex;flex-direction:column;flex:1;justify-content:space-between}.panel[data-panel="2"] .primary-button{margin-top:8px}.confirmation{justify-content:space-between}.confirmation .contact-strip{margin-top:6px}.benefits{min-height:64px}.site-footer{height:90px;min-height:90px;padding-block:10px;align-content:center}}</style>
+  <style>@media (min-width:768px) and (max-width:1199px), (min-width:768px) and (max-height:849px){.page-shell{align-content:end}}</style>
 </head>
 <body>
   <header class="site-header">
@@ -42,7 +44,19 @@
         <button class="outline-button" type="button">Dodaj u kalendar</button><button class="outline-button" type="button">Otkaži ili promijeni termin</button><p class="contact-strip">Imate pitanja? Nazovite nas: <a href="tel:+38766615326">+387 66 615 326</a></p>
       </section>
     </div>
+    <section class="benefits" aria-label="Prednosti zakazivanja">
+      <div><span class="benefit-icon">✓</span><p><strong>Sigurno i pouzdano</strong><small>Vaši podaci su zaštićeni i čuvaju se u skladu sa zakonom.</small></p></div>
+      <div><span class="benefit-icon">◷</span><p><strong>Brzo i jednostavno</strong><small>Zahtjev za termin traje samo nekoliko minuta.</small></p></div>
+      <div><span class="benefit-icon">♢</span><p><strong>Podsjetnici</strong><small>Podsjetićemo vas dan ranije na vaš termin.</small></p></div>
+      <div><span class="benefit-icon">☺</span><p><strong>Brinemo o vama</strong><small>Naš tim je tu da vam pruži najbolju stomatološku uslugu.</small></p></div>
+    </section>
   </main>
-  <footer><strong>Dentaland</strong><span>Dušana Baranjina 37, 76300 Bijeljina</span><a href="tel:+38766615326">+387 66 615 326</a><a href="mailto:info@dentaland.org">info@dentaland.org</a></footer>
+  <footer class="site-footer">
+    <div class="footer-brand"><strong>DENTALAND</strong><small>STOMATOLOŠKA ORDINACIJA</small></div>
+    <div><strong>Lokacija</strong><span>Dušana Baranjina 37,<br>76300 Bijeljina</span></div>
+    <div><strong>Telefon</strong><a href="tel:+38766615326">+387 66 615 326</a><span>Pon–Pet 08:00–19:00<br>Sub 09:00–13:00</span></div>
+    <div><strong>Email</strong><a href="mailto:info@dentaland.org">info@dentaland.org</a></div>
+    <div><strong>Pratite nas</strong><span class="social-links" aria-label="Društvene mreže"><a href="#" aria-label="Facebook">f</a><a href="#" aria-label="Instagram">◎</a></span></div>
+  </footer>
   <script src="app.js"></script>
 </body></html>
