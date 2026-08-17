@@ -162,6 +162,13 @@ class Appointment(Base):
         default=False,
         server_default=false(),
     )
+    # Aditivna dopuna (DENT-012, 17.8.2026) — nezavisne od status enuma:
+    # termin može biti SCHEDULED, potvrđen, i još nije stigao sve
+    # istovremeno. NULL = "nepoznato/nije se desilo", ne "sada". Ništa u
+    # ovom trenutku ne popunjava ove kolone (šema ide ispred UI-ja koji
+    # će ih koristiti) — vidi agent_reports/2026-08-17-DENT-012-plan.md.
+    confirmed_at: Mapped[datetime | None] = mapped_column(TZDateTime(), nullable=True)
+    arrived_at: Mapped[datetime | None] = mapped_column(TZDateTime(), nullable=True)
     created_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         TZDateTime(), nullable=False, default=utcnow, onupdate=utcnow

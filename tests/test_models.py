@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, event, inspect
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import StatementError
 from sqlalchemy.orm import Session
@@ -235,6 +235,118 @@ def test_is_manual_override_default_false(session: Session) -> None:
     session.add(appt)
     session.flush()
     assert appt.is_manual_override is False
+
+
+def test_confirmed_arrived_at_default_none(session: Session) -> None:
+    doctor = _make_doctor(session)
+    service = _make_service(session)
+    appt = Appointment(
+        doctor_id=doctor.id,
+        service_id=service.id,
+        ime="Pacijent",
+        start_time=datetime(2026, 8, 20, 10, 0, tzinfo=UTC),
+        end_time=datetime(2026, 8, 20, 10, 30, tzinfo=UTC),
+    )
+    session.add(appt)
+    session.flush()
+    assert appt.confirmed_at is None
+    assert appt.arrived_at is None
+
+
+def test_confirmed_arrived_at_prihvataju_aware_datetime(session: Session) -> None:
+    doctor = _make_doctor(session)
+    service = _make_service(session)
+    appt = Appointment(
+        doctor_id=doctor.id,
+        service_id=service.id,
+        ime="Pacijent",
+        start_time=datetime(2026, 8, 20, 10, 0, tzinfo=UTC),
+        end_time=datetime(2026, 8, 20, 10, 30, tzinfo=UTC),
+        confirmed_at=datetime(2026, 8, 18, 9, 0, tzinfo=ZoneInfo("Europe/Sarajevo")),
+        arrived_at=datetime(2026, 8, 20, 9, 55, tzinfo=UTC),
+    )
+    session.add(appt)
+    session.flush()
+    assert appt.confirmed_at.utcoffset() is not None
+    assert appt.arrived_at.utcoffset() is not None
+
+
+def test_alembic_migracija_dodaje_confirmed_arrived_at(tmp_path: Path) -> None:
+    database_path = tmp_path / "migration_dent012.db"
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path.as_posix()}")
+    command.upgrade(config, "head")
+
+    migrated_engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    columns = {
+        column["name"]: column
+        for column in inspect(migrated_engine).get_columns("appointments")
+    }
+    assert columns["confirmed_at"]["nullable"] is True
+    assert columns["arrived_at"]["nullable"] is True
+
+    command.downgrade(config, "base")
+    remaining_tables = set(inspect(migrated_engine).get_table_names())
+    assert remaining_tables <= {"alembic_version"}
+    migrated_engine.dispose()
+
+
+def test_migracija_cuva_postojece_termine_pri_upgrade_i_downgrade(tmp_path: Path) -> None:
+    """Regresija zatražena u DENT-012 review-u (Codex, 17.8.2026).
+
+    Prazna baza (test iznad) ne dokazuje da batch-mode recreate ne gubi
+    POSTOJEĆE redove. Ovdje: upgrade do revizije PRIJE DENT-012, upis
+    stvarnog termina, pa upgrade na head (mora dobiti NULL u oba nova
+    polja), pa downgrade nazad (termin i status moraju ostati netaknuti).
+    """
+    database_path = tmp_path / "migration_dent012_data.db"
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path.as_posix()}")
+    command.upgrade(config, "b2c3d4e5f6a7")
+
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    with engine.begin() as conn:
+        conn.execute(text("INSERT INTO doctors (id, ime, aktivan) VALUES (1, 'Ljubo', 1)"))
+        conn.execute(
+            text(
+                "INSERT INTO services (id, naziv, trajanje_min, buffer_min) "
+                "VALUES (1, 'Kontrola', 30, 0)"
+            )
+        )
+        conn.execute(
+            text(
+                "INSERT INTO appointments "
+                "(id, doctor_id, service_id, ime, telefon, email, napomena, requested_date, "
+                "start_time, end_time, status, is_manual_override, created_at, updated_at) "
+                "VALUES (1, 1, 1, 'Postojeći Pacijent', '061111222', NULL, NULL, NULL, "
+                "'2026-08-20 10:00:00', '2026-08-20 10:30:00', 'SCHEDULED', 0, "
+                "'2026-08-17 00:00:00', '2026-08-17 00:00:00')"
+            )
+        )
+    engine.dispose()
+
+    command.upgrade(config, "head")
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT confirmed_at, arrived_at, status, ime FROM appointments WHERE id=1")
+        ).one()
+        assert row.confirmed_at is None
+        assert row.arrived_at is None
+        assert row.status == "SCHEDULED"
+        assert row.ime == "Postojeći Pacijent"
+    engine.dispose()
+
+    command.downgrade(config, "b2c3d4e5f6a7")
+    engine = create_engine(f"sqlite:///{database_path.as_posix()}")
+    with engine.connect() as conn:
+        row = conn.execute(text("SELECT status, ime FROM appointments WHERE id=1")).one()
+        assert row.status == "SCHEDULED"
+        assert row.ime == "Postojeći Pacijent"
+    columns = {c["name"] for c in inspect(engine).get_columns("appointments")}
+    assert "confirmed_at" not in columns
+    assert "arrived_at" not in columns
+    engine.dispose()
 
 
 def test_relacije_doctor_service_appointment(session: Session) -> None:
