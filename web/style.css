@@ -735,6 +735,18 @@ h1 {
   cursor: pointer;
 }
 
+.outline-btn svg {
+  width: 19px;
+  height: 19px;
+  margin-right: 8px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: -5px;
+}
+
 .contact-strip {
   padding: 8px 12px;
   font-size: 11px;

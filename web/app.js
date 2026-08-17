@@ -24,6 +24,7 @@ const fullNameInput = document.querySelector("#full-name");
 const phoneInput = document.querySelector("#phone");
 const emailInput = document.querySelector("#email");
 const consentInput = document.querySelector("#consent");
+const addCalendarReminderButton = document.querySelector("#add-calendar-reminder");
 const requiredInputs = [fullNameInput, phoneInput, consentInput];
 
 const API_BASE = window.DENTALAND_API_BASE || "http://127.0.0.1:8000";
@@ -40,6 +41,67 @@ function formatDate(date) {
 
 function toIsoDate(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function toIcsDate(date) {
+  return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function toIcsTimestamp(date) {
+  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function escapeIcsText(value) {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\r?\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+function downloadCalendarReminder() {
+  if (!selectedDate) return;
+
+  const followingDate = new Date(
+    selectedDate.getFullYear(),
+    selectedDate.getMonth(),
+    selectedDate.getDate() + 1,
+  );
+  const eventId = typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const description = "Ovo je podsjetnik za poslani zahtjev. Termin i tačno vrijeme još nisu potvrđeni. Ordinacija Dentaland će vas kontaktirati radi dogovora.";
+  const location = "Dušana Baranjina 37, 76300 Bijeljina";
+  const calendarContent = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Dentaland//Podsjetnik za zahtjev//BS",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${eventId}@dentaland.org`,
+    `DTSTAMP:${toIcsTimestamp(new Date())}`,
+    `DTSTART;VALUE=DATE:${toIcsDate(selectedDate)}`,
+    `DTEND;VALUE=DATE:${toIcsDate(followingDate)}`,
+    `SUMMARY:${escapeIcsText("Dentaland — zahtjev za termin")}`,
+    `DESCRIPTION:${escapeIcsText(description)}`,
+    `LOCATION:${escapeIcsText(location)}`,
+    "STATUS:TENTATIVE",
+    "TRANSP:TRANSPARENT",
+    "END:VEVENT",
+    "END:VCALENDAR",
+    "",
+  ].join("\r\n");
+
+  const calendarFile = new Blob([calendarContent], { type: "text/calendar;charset=utf-8" });
+  const downloadUrl = URL.createObjectURL(calendarFile);
+  const downloadLink = document.createElement("a");
+  downloadLink.href = downloadUrl;
+  downloadLink.download = `dentaland-podsjetnik-${toIsoDate(selectedDate)}.ics`;
+  document.body.append(downloadLink);
+  downloadLink.click();
+  downloadLink.remove();
+  window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
 }
 
 function isMobile() {
@@ -184,6 +246,8 @@ emailInput.addEventListener("input", validateForm);
 document.querySelector("#header-booking-button").addEventListener("click", () => {
   document.querySelector("#date-card").scrollIntoView({ behavior: "smooth", block: "start" });
 });
+
+addCalendarReminderButton.addEventListener("click", downloadCalendarReminder);
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
