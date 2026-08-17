@@ -8,6 +8,8 @@ Sistem zakazivanja termina za **sva tri doktora ordinacije** (Ljubo, Zorka, Ana)
 
 **Napomena o riziku (kontekst za buduće sesije, ne blokira rad):** ranija verzija ovog plana je namjerno izbjegavala rad za sva tri doktora odjednom, uz obrazloženje "najveći rizik neuspjeha cijelog projekta" (ako se ne dopadne svima, cijeli sistem pada). Ta procjena rizika nije povučena kao pogrešna — samo je eksplicitno prevaziđena poslovnom odlukom. Ako usvajanje kod Zorke/Ane bude sporo, to je poznat i prihvaćen rizik, ne novo otkriće.
 
+**Strategija validacije desktop GUI-ja (17.8.2026, eksplicitna odluka):** originalni plan je gradio Fazu 0 minimalno pa čekao mjesec dana stvarne upotrebe kod Ljube prije dodavanja funkcionalnosti ("Kriterijum uspjeha" u v1 planu). Ta postepena, čekaj-pa-validiraj logika je svjesno zamijenjena za desktop GUI: umjesto da se čeka Ljubina stvarna upotreba prije dodavanja funkcija, koriste se provjereni UI/workflow obrasci iz zrelih dentalnih sistema (Open Dental, Curve Dental, NexHealth — vidi `docs/istrazivanje-dentalni-scheduler-gui.md`) kao zamjena za sopstvenu validaciju. Cilj je da Ljubo od početka dobije upotrebljivu aplikaciju, ne iterativni MVP. Ovo NE mijenja risk-tier proces — šema/migracije i dalje idu isključivo kroz Claude kao HIGH-risk implementera, bez obzira na to što se "čekaj Ljubu" logika napušta. Ne kopirati cio scope zrelih EHR sistema (treatment plans, insurance, recall, operatories) — samo provjerene interaction patterns za raspored/doktore/termine/blockout/zahtjeve, vidi istraživački dokument sekciju 14.
+
 Razvoj ide u fazama, svaka sa jasnim kriterijumom uspjeha prije prelaska na sljedeću:
 
 ```text

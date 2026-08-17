@@ -25,8 +25,8 @@ Nema koraka za uslugu, nema koraka za doktora, nema izbora tačnog vremena (samo
 **Naslov koraka:** "Odaberite datum"
 **Podnaslov:** "Izaberite dan za svoj termin"
 
-- Mjesečni kalendar (strelice lijevo/desno za promjenu mjeseca).
-- **Radni dani: ponedjeljak–petak.** Subota i nedjelja su neradni dani. **Prikaz (16.8.2026, potvrđeno mokapom): kalendar prikazuje SAMO pet kolona (PO–PE), vikend kolone se ne prikazuju uopšte** — ne siva/onemogućena subota-nedjelja kolona unutar 7-dnevne mreže, nego kalendar bez tih kolona. Legenda ispod kalendara: "Dostupno" (puna teal tačka) / "Onemogućeno" (siva tačka).
+- Mjesečni kalendar (strelice lijevo/desno za promjenu mjeseca), pun mjesečni grid (6 sedmica × 7 dana, uključujući sive datume iz susjednih mjeseci kao popunu).
+- **Radni dani: ponedjeljak–subota.** Nedjelja je neradni dan. **Prikaz (17.8.2026, konačna odluka — treća iteracija, zamjenjuje i 16.8. petodnevnu i 17.8. šestodnevnu-bez-nedjelje verziju): kalendar prikazuje SVIH SEDAM kolona (PO–NE), nedjeljni datumi su vidljivi ali onemogućeni (sivi, neklikabilni)** — obrnuto od ranije odluke "nedjelja se ne prikazuje uopšte". Razlog promjene: implementacija punog mjesečnog grid-a (sa danima iz susjednih mjeseci kao kontekst) prirodnije radi sa punih 7 kolona; Radovan je potvrdio da ne mijenja ovo rješenje. Legenda ispod kalendara: "Dostupno" (puna teal tačka) / "Onemogućeno" (siva tačka) — nedjelja i prošli datumi dijele "Onemogućeno" stanje.
 - **Samo DVA vizuelna stanja datuma — dostupno i onemogućeno.** Ne tri (ranija verzija mokapa je imala legendu Dostupno/Ograničeno/Nedostupno — to više nema smisla jer se ne bira tačno vrijeme, samo dan, pa "ograničeno" nema jasno značenje za prikazati). Dostupan dan: normalna boja teksta, klikabilan. Onemogućen dan (prošlost, unutar prikazanih Pon–Pet kolona): vizuelno bljeđi, neklikabilan. Ne uvoditi treću nijansu.
 - Klik na DOSTUPAN dan: (a) bira datum (vizuelno istaknut, puni krug u brend boji) I (b) **odmah prebacuje na Korak 2** — nema posebnog "Nastavi" dugmeta na Koraku 1 (za razliku od Koraka 2, koji ima svoje dugme jer forma treba validaciju prije nastavka).
 - Info okvir ispod kalendara, uvijek vidljiv:
@@ -126,7 +126,7 @@ Na dnu: "Imate pitanja? Nazovite nas: [broj telefona ordinacije]"
 - [ ] Kvačica pristanka postoji, nije pre-čekirana, link na privacy obavještenje radi
 - [ ] Korak 3 naslov/podnaslov je "ZAHTJEV PRIMLJEN!" / "Datum je rezervisan, javićemo vam se..." — NE jezik potvrđene rezervacije
 - [ ] Nigdje na stranici ne piše da je tačno vrijeme potvrđeno
-- [ ] Kalendar prikazuje samo Pon–Pet kolone (vikend se ne prikazuje), samo dva vizuelna stanja (dostupno/onemogućeno) sa legendom
+- [ ] Kalendar prikazuje svih 7 kolona (Pon–Ned), nedjelja vidljiva ali onemogućena, samo dva vizuelna stanja (dostupno/onemogućeno) sa legendom
 - [ ] Klik na dostupan datum odmah prebacuje na Korak 2 (nema "Nastavi" dugmeta na Koraku 1)
 - [ ] Header: pun meni + telefon na desktopu, telefon na mobilnom — ALI nigdje "Login" dugme ili bilo šta što implicira nalog pacijenta
 - [ ] Mobilni prikaz (< ~768px) pokazuje samo trenutni korak, ne sve tri kolone uporedo
