@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -71,6 +72,23 @@ def test_submit_booking_request_vraca_201_i_id(client: TestClient) -> None:
     body = response.json()
     assert body["status"] == "PENDING"
     assert isinstance(body["id"], int)
+
+
+def test_submit_sa_emailom_ne_pada_kad_smtp_pukne(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DENTALAND_SMTP_HOST", "smtp.example.com")
+    with patch("backend.notifications.smtplib.SMTP", side_effect=OSError("konekcija pala")):
+        response = client.post(
+            "/api/booking-requests",
+            json={
+                "ime": "Ana Anić",
+                "telefon": "061/111-222",
+                "email": "ana@x.com",
+                "requested_date": "2026-08-20",
+            },
+        )
+    assert response.status_code == 201
 
 
 def test_submit_bez_imena_vraca_422(client: TestClient) -> None:

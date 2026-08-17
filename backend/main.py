@@ -25,6 +25,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from backend.notifications import send_booking_confirmation
 from dentaland.models import Base
 from dentaland.services.requests import (
     OverlapError,
@@ -112,6 +113,8 @@ def submit_booking_request(
     dto = create_request(
         session_factory, payload.ime, payload.telefon, payload.email, payload.requested_date
     )
+    # Best-effort: email potvrda ne smije srušiti booking tok (funkcija ne diže).
+    send_booking_confirmation(payload.email, payload.requested_date)
     return BookingRequestOut(id=dto.id)
 
 
