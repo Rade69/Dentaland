@@ -89,4 +89,6 @@ nije potreban novi krug reviewa za ovu veličinu ispravke.
 
 ## Integration status
 
-NOT_MERGED — čeka human approval (Radovan) prije merge-a u `main`.
+MERGED → INTEGRATION_VERIFIED → DONE. Mergovano u `main` (--no-ff),
+poslije merge-a pun test suite na main-u: 83 passed, ruff čist, mypy 8/8
+(baseline nepromijenjen).
