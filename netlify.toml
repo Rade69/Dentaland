@@ -1,2 +1,7 @@
+# Statičan sajt (HTML/CSS/JS), nema build korak. "publish" je relativan na
+# korijen repoa — Netlify dashboard "Base directory"/"Build command"/
+# "Publish directory" polja MORAJU biti prazna, inače dashboard vrijednosti
+# pobjeđuju ovaj fajl (provjereno empirijski, ne teorija).
 [build]
   publish = "web"
+  command = ""
