@@ -81,3 +81,15 @@ def test_filter_none_vraca_sve(week_view: WeekView) -> None:
     joined = _all_item_texts(week_view)
     assert "Ana Anić" in joined
     assert "Marko Marković" in joined
+
+
+def test_termin_od_60_min_spojen_preko_dva_slota(
+    week_view: WeekView, appointment_service, doctor_ids: dict[str, int]
+) -> None:
+    appointment_service.set_doctor(doctor_ids["Ljubo"])
+    appointment_service.create(
+        "Petar Petrović", "063", "p@x", "Plomba", "", _at(2, 9), _at(2, 10)
+    )
+    week_view.refresh()
+
+    assert week_view.rowSpan(2, 2) == 2  # srijeda 09:00–10:00

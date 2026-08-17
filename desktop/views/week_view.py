@@ -2,13 +2,16 @@
 
 Prikazuje 7 dana (ponedjeljak–nedjelja) kao mrežu vremenskih slotova.
 Podržava termine više doktora istovremeno, boja-kodirano po doktoru, i
-filtriranje po jednom doktoru (``set_filter``). Klik na prazan slot emituje
-``slot_selected`` (otvara dijalog za unos); prevlačenje zauzetog slota mijenja
-vrijeme termina — overlap provjerava servisni sloj (``OverlapError``).
+filtriranje po jednom doktoru (``set_filter``). Termini duži od jednog slota
+su vertikalno spojeni (``setSpan``) preko svih ćelija koje pokrivaju. Klik na
+prazan slot emituje ``slot_selected`` (otvara dijalog za unos); prevlačenje
+zauzetog slota mijenja vrijeme termina — overlap provjerava servisni sloj
+(``OverlapError``).
 """
 
 from __future__ import annotations
 
+import math
 from datetime import date, datetime, timedelta
 
 from PySide6.QtCore import Qt, Signal
@@ -113,55 +116,81 @@ class WeekView(QTableWidget):
             return None
         return row, col
 
+    def _cell_span(self, appt: AppointmentDTO) -> tuple[tuple[int, int], int] | None:
+        cell = self._cell_for(appt)
+        if cell is None:
+            return None
+        row, col = cell
+        duration_minutes = (appt.end - appt.start).total_seconds() / 60
+        span = int(math.ceil(duration_minutes / self.SLOT_MINUTES))
+        span = max(span, 1)
+        return (row, col), min(span, self.rowCount() - row)
+
     def _fetch_appointments(self) -> list[AppointmentDTO]:
         fetch = getattr(self.store, "all_combined", None)
         if callable(fetch):
             return fetch()
         return self.store.all()
 
-    def _appointments_by_cell(self) -> dict[tuple[int, int], list[AppointmentDTO]]:
-        result: dict[tuple[int, int], list[AppointmentDTO]] = {}
+    def _visible_appointments(self) -> list[tuple[tuple[int, int], int, AppointmentDTO]]:
+        visible: list[tuple[tuple[int, int], int, AppointmentDTO]] = []
         for appt in self._fetch_appointments():
             appt_doctor = getattr(appt, "doctor_id", None)
             if self._filter_doctor_id is not None and appt_doctor != self._filter_doctor_id:
                 continue
-            cell = self._cell_for(appt)
-            if cell is not None:
-                result.setdefault(cell, []).append(appt)
+            span_info = self._cell_span(appt)
+            if span_info is not None:
+                cell, span = span_info
+                visible.append((cell, span, appt))
+        return visible
+
+    def _appointments_by_cell(self) -> dict[tuple[int, int], list[AppointmentDTO]]:
+        result: dict[tuple[int, int], list[AppointmentDTO]] = {}
+        for (row, col), span, appt in self._visible_appointments():
+            for r in range(row, row + span):
+                result.setdefault((r, col), []).append(appt)
         return result
 
     # ---- prikaz ----
 
     def refresh(self) -> None:
-        by_cell = self._appointments_by_cell()
+        self.clearSpans()
         for row in range(self.rowCount()):
             for col in range(self.columnCount()):
                 item = QTableWidgetItem("")
-                appts = by_cell.get((row, col), [])
-                if appts:
-                    lines: list[str] = []
-                    for appt in appts:
-                        doctor = getattr(appt, "doctor_name", None)
-                        suffix = f" [{doctor}]" if doctor and self._filter_doctor_id is None else ""
-                        lines.append(f"{appt.patient_name} — {appt.service}{suffix}")
-                    item.setText("\n".join(lines))
-                    item.setFlags(
-                        Qt.ItemFlag.ItemIsEnabled
-                        | Qt.ItemFlag.ItemIsSelectable
-                        | Qt.ItemFlag.ItemIsDragEnabled
-                    )
-                    item.setData(_APPT_ID_ROLE, appts[0].id)
-                    if len(appts) == 1:
-                        color = self._doctor_colors.get(getattr(appts[0], "doctor_id", None))
-                        if color is not None:
-                            item.setBackground(color)
-                else:
-                    item.setFlags(
-                        Qt.ItemFlag.ItemIsEnabled
-                        | Qt.ItemFlag.ItemIsSelectable
-                        | Qt.ItemFlag.ItemIsDropEnabled
-                    )
+                item.setFlags(
+                    Qt.ItemFlag.ItemIsEnabled
+                    | Qt.ItemFlag.ItemIsSelectable
+                    | Qt.ItemFlag.ItemIsDropEnabled
+                )
                 self.setItem(row, col, item)
+
+        grouped: dict[tuple[int, int], tuple[int, list[AppointmentDTO]]] = {}
+        for (row, col), span, appt in self._visible_appointments():
+            cur_span, appts = grouped.get((row, col), (0, []))
+            grouped[(row, col)] = (max(cur_span, span), appts + [appt])
+
+        for (row, col), (span, appts) in grouped.items():
+            if span > 1:
+                self.setSpan(row, col, span, 1)
+            cell_item = self.item(row, col)
+            assert cell_item is not None
+            lines: list[str] = []
+            for appt in appts:
+                doctor = getattr(appt, "doctor_name", None)
+                suffix = f" [{doctor}]" if doctor and self._filter_doctor_id is None else ""
+                lines.append(f"{appt.patient_name} — {appt.service}{suffix}")
+            cell_item.setText("\n".join(lines))
+            cell_item.setFlags(
+                Qt.ItemFlag.ItemIsEnabled
+                | Qt.ItemFlag.ItemIsSelectable
+                | Qt.ItemFlag.ItemIsDragEnabled
+            )
+            cell_item.setData(_APPT_ID_ROLE, appts[0].id)
+            if len(appts) == 1:
+                color = self._doctor_colors.get(getattr(appts[0], "doctor_id", None))
+                if color is not None:
+                    cell_item.setBackground(color)
 
     # ---- interakcije ----
 
@@ -172,6 +201,9 @@ class WeekView(QTableWidget):
     def move_appointment_to_slot(self, appt_id: int, row: int, col: int) -> bool:
         appt = self.store.get(appt_id)
         if appt is None:
+            return False
+        occupied = self._appointments_by_cell().get((row, col), [])
+        if any(a.id != appt_id for a in occupied):
             return False
         new_start = self._slot_datetime(row, col)
         new_end = new_start + (appt.end - appt.start)
@@ -187,16 +219,19 @@ class WeekView(QTableWidget):
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
-            item = self.itemAt(event.position().toPoint())
-            self._drag_appt_id = item.data(_APPT_ID_ROLE) if item is not None else None
+            row = self.rowAt(event.position().toPoint().y())
+            col = self.columnAt(event.position().toPoint().x())
+            appts = self._appointments_by_cell().get((row, col), [])
+            self._drag_appt_id = appts[0].id if appts else None
         super().mousePressEvent(event)
 
     def dropEvent(self, event) -> None:
-        index = self.indexAt(event.position().toPoint())
-        if self._drag_appt_id is None or not index.isValid():
+        row = self.rowAt(event.position().toPoint().y())
+        col = self.columnAt(event.position().toPoint().x())
+        if self._drag_appt_id is None or row < 0 or col < 0:
             event.ignore()
             return
-        if self.move_appointment_to_slot(self._drag_appt_id, index.row(), index.column()):
+        if self.move_appointment_to_slot(self._drag_appt_id, row, col):
             event.accept()
         else:
             event.ignore()
