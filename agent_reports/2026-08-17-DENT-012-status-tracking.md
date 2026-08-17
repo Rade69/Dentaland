@@ -154,5 +154,6 @@ poseban, namjeran zadatak — ne nešto što se tiho uvuče kroz šema PR.
 
 ## Integration status
 
-`READY_FOR_REVIEW → REVIEWED (Codex PASS, Pi PASS poslije scope
-ispravke)` — čeka human approval (Radovan) prije merge-a.
+MERGED → INTEGRATION_VERIFIED → DONE. Mergovano u `main` (--no-ff),
+poslije merge-a pun test suite: 87 passed, ruff čist, mypy baseline
+nepromijenjen (8/8), jedan alembic head (`c3d4e5f6a7b8`).
