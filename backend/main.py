@@ -25,8 +25,8 @@ from slowapi.util import get_remote_address
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from backend.notifications import send_booking_confirmation
 from dentaland.models import Base
+from dentaland.services.notifications import send_booking_confirmation
 from dentaland.services.requests import (
     OverlapError,
     RequestNotFoundError,

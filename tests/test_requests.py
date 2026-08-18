@@ -108,6 +108,52 @@ def test_confirm_request_postavlja_doktora_uslugu_vrijeme(
         assert appt.confirmed_at.utcoffset() is not None
 
 
+def test_confirm_request_salje_email_potvrde(
+    session_factory: sessionmaker[Session],
+    doctor_id: int,
+    service_id: int,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """confirm_request mora poslati email bez obzira ko ga poziva (backend
+    API ili desktop dashboard) — ožičeno u samoj servisnoj funkciji."""
+    from unittest.mock import MagicMock, patch
+
+    monkeypatch.setenv("DENTALAND_SMTP_HOST", "smtp.example.com")
+    dto = create_request(session_factory, "Ana", "061", "ana@example.com", date(2026, 8, 20))
+    start = datetime(2026, 8, 20, 9, 0, tzinfo=UTC)
+
+    instance = MagicMock()
+    instance.__enter__.return_value = instance
+    with patch(
+        "dentaland.services.notifications.smtplib.SMTP", return_value=instance
+    ) as mock_smtp:
+        confirm_request(session_factory, dto.id, doctor_id, service_id, start)
+
+    mock_smtp.assert_called_once()
+    instance.send_message.assert_called_once()
+    message = instance.send_message.call_args.args[0]
+    assert "ana@example.com" in message["To"]
+    assert "potvrđen" in message["Subject"].lower()
+
+
+def test_confirm_request_bez_emaila_ne_pokusava_slanje(
+    session_factory: sessionmaker[Session],
+    doctor_id: int,
+    service_id: int,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from unittest.mock import patch
+
+    monkeypatch.setenv("DENTALAND_SMTP_HOST", "smtp.example.com")
+    dto = create_request(session_factory, "Ana", "061", "", date(2026, 8, 20))
+    start = datetime(2026, 8, 20, 9, 0, tzinfo=UTC)
+
+    with patch("dentaland.services.notifications.smtplib.SMTP") as mock_smtp:
+        confirm_request(session_factory, dto.id, doctor_id, service_id, start)
+
+    mock_smtp.assert_not_called()
+
+
 def test_confirm_request_odbija_preklapanje(
     session_factory: sessionmaker[Session], doctor_id: int, service_id: int
 ) -> None:

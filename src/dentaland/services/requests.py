@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from dentaland.models import Appointment, AppointmentStatus, Service, utcnow
+from dentaland.services.notifications import send_appointment_confirmed
 
 
 class RequestNotFoundError(Exception):
@@ -104,7 +105,13 @@ def confirm_request(
         appt.end_time = end_time
         appt.status = AppointmentStatus.SCHEDULED
         appt.confirmed_at = utcnow()
+        patient_email = appt.email
         session.commit()
+
+    # Best-effort, van session konteksta (SMTP ishod ne zavisi od baze) —
+    # radi bez obzira ko poziva confirm_request (backend API ili desktop
+    # dashboard), jer je ožičeno ovdje, ne na pojedinačnom pozivnom mjestu.
+    send_appointment_confirmed(patient_email or "", start_time)
 
 
 def reject_request(session_factory: Callable[[], Session], request_id: int) -> None:

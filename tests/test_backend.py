@@ -78,7 +78,9 @@ def test_submit_sa_emailom_ne_pada_kad_smtp_pukne(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("DENTALAND_SMTP_HOST", "smtp.example.com")
-    with patch("backend.notifications.smtplib.SMTP", side_effect=OSError("konekcija pala")):
+    with patch(
+        "dentaland.services.notifications.smtplib.SMTP", side_effect=OSError("konekcija pala")
+    ):
         response = client.post(
             "/api/booking-requests",
             json={
