@@ -10,7 +10,15 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from dentaland.models import Appointment, AppointmentStatus, Base, Doctor, Service
+from dentaland.models import (
+    Appointment,
+    AppointmentStatus,
+    Base,
+    Doctor,
+    Service,
+    TimeOff,
+    WorkingHours,
+)
 from dentaland.services import AppointmentService, OverlapError, ensure_seed_data
 
 
@@ -201,6 +209,77 @@ def test_move_radi_za_termin_drugog_doktora(
     moved = appointment_service.move(dto.id, _at(11), _at(11, 30))
     assert moved.start == _at(11)
     assert moved.doctor_name == "Zorka"
+
+
+def test_dto_sadrzi_statusna_polja(appointment_service: AppointmentService) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    assert dto.status == AppointmentStatus.SCHEDULED
+    assert dto.confirmed_at is None
+    assert dto.arrived_at is None
+
+
+def test_mark_arrived_uspjeh(appointment_service: AppointmentService) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    arrived = appointment_service.mark_arrived(dto.id)
+    assert arrived.arrived_at is not None
+
+
+def test_mark_arrived_nepostojeci_id(appointment_service: AppointmentService) -> None:
+    with pytest.raises(ValueError, match="nije pronađen"):
+        appointment_service.mark_arrived(999)
+
+
+def test_odvojeni_upiti_cekaju_i_otkazani(
+    session_factory: sessionmaker[Session], appointment_service: AppointmentService
+) -> None:
+    waiting = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    cancelled = appointment_service.create("Marko", "", "", "Kontrola", "", _at(10), _at(10, 30))
+    with session_factory() as session:
+        row = session.get(Appointment, cancelled.id)
+        assert row is not None
+        row.status = AppointmentStatus.CANCELLED
+        session.commit()
+    assert [row.id for row in appointment_service.awaiting_confirmation()] == [waiting.id]
+    assert [row.id for row in appointment_service.cancelled_today(_at(9).date())] == [cancelled.id]
+
+
+def test_timeoff_i_split_shift_pauza(
+    session_factory: sessionmaker[Session], appointment_service: AppointmentService
+) -> None:
+    with session_factory() as session:
+        doctor = session.scalar(select(Doctor))
+        assert doctor is not None
+        session.add(
+            TimeOff(
+                doctor_id=doctor.id,
+                od_datetime=_at(10),
+                do_datetime=_at(11),
+                razlog="VAN ORDINACIJE",
+            )
+        )
+        session.add_all(
+            [
+                WorkingHours(
+                    doctor_id=doctor.id,
+                    dan_u_sedmici=1,
+                    od_local=datetime.min.time().replace(hour=8),
+                    do_local=datetime.min.time().replace(hour=12),
+                    timezone="Europe/Sarajevo",
+                ),
+                WorkingHours(
+                    doctor_id=doctor.id,
+                    dan_u_sedmici=1,
+                    od_local=datetime.min.time().replace(hour=13),
+                    do_local=datetime.min.time().replace(hour=18),
+                    timezone="Europe/Sarajevo",
+                ),
+            ]
+        )
+        session.commit()
+    assert appointment_service.time_off_for_week(_at(9).date())[0].label == "VAN ORDINACIJE"
+    pause = appointment_service.breaks_for_week(_at(9).date())[0]
+    assert pause.label == "PAUZA"
+    assert pause.start.hour == 12 and pause.end.hour == 13
 
 
 def _set_status(session_factory: sessionmaker[Session], status: AppointmentStatus) -> None:

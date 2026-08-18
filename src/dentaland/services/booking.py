@@ -24,12 +24,28 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from dentaland.models import Appointment, AppointmentStatus, Base, Doctor, Service
+from dentaland.models import (
+    Appointment,
+    AppointmentStatus,
+    Base,
+    Doctor,
+    Service,
+    TimeOff,
+    WorkingHours,
+    utcnow,
+)
+from dentaland.services.requests import (
+    RequestDTO,
+    confirm_request,
+    list_pending,
+    reject_request,
+)
 
 DEFAULT_DOCTORS = ["Ljubo", "Zorka", "Ana"]
 DEFAULT_SERVICES = [
@@ -59,12 +75,25 @@ class AppointmentDTO:
     end: datetime
     doctor_id: int
     doctor_name: str
+    status: AppointmentStatus
+    confirmed_at: datetime | None
+    arrived_at: datetime | None
 
 
 @dataclass
 class DoctorDTO:
     id: int
     ime: str
+
+
+@dataclass
+class CalendarBlockDTO:
+    """Neklikabilan raspon u kalendaru (odsustvo ili split-shift pauza)."""
+
+    start: datetime
+    end: datetime
+    doctor_id: int
+    label: str
 
 
 class OverlapError(Exception):
@@ -161,9 +190,128 @@ class AppointmentService:
         """Termini svih doktora odjednom (za kombinovani sedmični prikaz)."""
         with self._session_factory() as session:
             appts = session.scalars(
-                select(Appointment).order_by(Appointment.start_time)
+                select(Appointment)
+                .where(
+                    Appointment.start_time.is_not(None),
+                    Appointment.end_time.is_not(None),
+                    Appointment.doctor_id.is_not(None),
+                    Appointment.service_id.is_not(None),
+                    Appointment.status.not_in(
+                        [AppointmentStatus.PENDING, AppointmentStatus.REJECTED]
+                    ),
+                )
+                .order_by(Appointment.start_time)
             ).all()
             return [self._to_dto(a, self._service_name(a)) for a in appts]
+
+    def mark_arrived(self, appt_id: int) -> AppointmentDTO:
+        """Označi da je pacijent stigao; dozvoljeno samo za zakazan termin."""
+        with self._session_factory() as session:
+            appt = session.get(Appointment, appt_id)
+            if appt is None:
+                raise ValueError(f"termin {appt_id} nije pronađen")
+            if appt.status != AppointmentStatus.SCHEDULED:
+                raise ValueError("samo zakazan termin može biti označen kao stigao")
+            appt.arrived_at = utcnow()
+            session.commit()
+            return self._to_dto(appt, self._service_name(appt))
+
+    def awaiting_confirmation(self) -> list[AppointmentDTO]:
+        with self._session_factory() as session:
+            rows = session.scalars(
+                select(Appointment)
+                .where(
+                    Appointment.status == AppointmentStatus.SCHEDULED,
+                    Appointment.confirmed_at.is_(None),
+                    Appointment.start_time.is_not(None),
+                )
+                .order_by(Appointment.start_time)
+            ).all()
+            return [self._to_dto(row, self._service_name(row)) for row in rows]
+
+    def cancelled_today(self, day: date | None = None) -> list[AppointmentDTO]:
+        zone = ZoneInfo("Europe/Sarajevo")
+        day = day or datetime.now(zone).date()
+        start = datetime.combine(day, time.min, tzinfo=zone)
+        end = start + timedelta(days=1)
+        with self._session_factory() as session:
+            rows = session.scalars(
+                select(Appointment)
+                .where(
+                    Appointment.status.in_(
+                        [AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW]
+                    ),
+                    Appointment.start_time >= start,
+                    Appointment.start_time < end,
+                )
+                .order_by(Appointment.start_time)
+            ).all()
+            return [self._to_dto(row, self._service_name(row)) for row in rows]
+
+    def pending_requests(self) -> list[RequestDTO]:
+        return list_pending(self._session_factory)
+
+    def confirm_pending(
+        self, request_id: int, doctor_id: int, service_id: int, start: datetime
+    ) -> None:
+        confirm_request(self._session_factory, request_id, doctor_id, service_id, start)
+
+    def reject_pending(self, request_id: int) -> None:
+        reject_request(self._session_factory, request_id)
+
+    def service_choices(self) -> list[tuple[int, str]]:
+        with self._session_factory() as session:
+            rows = session.scalars(select(Service).order_by(Service.naziv)).all()
+            return [(row.id, row.naziv) for row in rows]
+
+    def time_off_for_week(self, week_start: date) -> list[CalendarBlockDTO]:
+        zone = ZoneInfo("Europe/Sarajevo")
+        start = datetime.combine(week_start, time.min, tzinfo=zone)
+        end = start + timedelta(days=7)
+        with self._session_factory() as session:
+            rows = session.scalars(
+                select(TimeOff)
+                .where(TimeOff.od_datetime < end, TimeOff.do_datetime > start)
+                .order_by(TimeOff.od_datetime)
+            ).all()
+            return [
+                CalendarBlockDTO(
+                    start=max(row.od_datetime, start),
+                    end=min(row.do_datetime, end),
+                    doctor_id=row.doctor_id,
+                    label=row.razlog or "VAN ORDINACIJE",
+                )
+                for row in rows
+            ]
+
+    def breaks_for_week(self, week_start: date) -> list[CalendarBlockDTO]:
+        doctors = self.doctors()
+        zone = ZoneInfo("Europe/Sarajevo")
+        blocks: list[CalendarBlockDTO] = []
+        with self._session_factory() as session:
+            for doctor in doctors:
+                rows = session.scalars(
+                    select(WorkingHours)
+                    .where(WorkingHours.doctor_id == doctor.id)
+                    .order_by(WorkingHours.dan_u_sedmici, WorkingHours.od_local)
+                ).all()
+                by_day: dict[int, list[WorkingHours]] = {}
+                for row in rows:
+                    by_day.setdefault(row.dan_u_sedmici, []).append(row)
+                for iso_day, periods in by_day.items():
+                    day = week_start + timedelta(days=iso_day - 1)
+                    for left, right in zip(periods, periods[1:], strict=False):
+                        if left.do_local >= right.od_local:
+                            continue
+                        blocks.append(
+                            CalendarBlockDTO(
+                                start=datetime.combine(day, left.do_local, tzinfo=zone),
+                                end=datetime.combine(day, right.od_local, tzinfo=zone),
+                                doctor_id=doctor.id,
+                                label="PAUZA",
+                            )
+                        )
+        return blocks
 
     def move(self, appt_id: int, new_start: datetime, new_end: datetime) -> AppointmentDTO:
         with self._session_factory() as session:
@@ -239,6 +387,9 @@ class AppointmentService:
             end=appt.end_time,
             doctor_id=appt.doctor_id,
             doctor_name=appt.doctor.ime,
+            status=appt.status,
+            confirmed_at=appt.confirmed_at,
+            arrived_at=appt.arrived_at,
         )
 
 

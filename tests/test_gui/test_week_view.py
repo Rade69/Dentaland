@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from types import SimpleNamespace
 
 import pytest
+from PySide6.QtCore import Qt
 
 from desktop.fake_data import SARAJEVO, FakeStore
-from desktop.views.week_view import WeekView
+from desktop.views.week_view import WeekView, status_icon
 
 
 @pytest.fixture()
@@ -17,9 +19,12 @@ def week_view(qtbot, store: FakeStore, week_start: date) -> WeekView:
     return view
 
 
-def test_sedmieni_prikaz_ima_sedam_dana(week_view: WeekView) -> None:
-    assert week_view.columnCount() == 7
-    assert week_view.rowCount() == 20  # 08:00–18:00, korak 30 min
+def test_sedmicni_prikaz_prati_novi_mokap(week_view: WeekView) -> None:
+    assert week_view.columnCount() == 6
+    assert week_view.rowCount() == 24  # 08:00–20:00, korak 30 min
+    assert week_view.verticalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+    assert week_view.horizontalHeaderItem(5).text().startswith("Sub")
+    assert week_view.horizontalHeader().height() == 46
 
 
 def test_klik_na_prazan_slot_emituje_vrijeme(week_view: WeekView) -> None:
@@ -127,3 +132,58 @@ def test_termin_od_30_min_nije_spojen(store: FakeStore, week_view: WeekView) -> 
     week_view.refresh()
 
     assert week_view.rowSpan(2, 0) == 1
+
+
+@pytest.mark.parametrize(
+    ("status", "confirmed", "arrived", "expected"),
+    [
+        ("SCHEDULED", object(), None, "✓"),
+        ("SCHEDULED", None, None, "🕐"),
+        ("SCHEDULED", object(), object(), "👤"),
+        ("COMPLETED", None, None, "💜"),
+        ("NO_SHOW", None, None, "✗"),
+    ],
+)
+def test_status_ikonice(status, confirmed, arrived, expected) -> None:
+    class Status:
+        value = status
+
+    class Appt:
+        pass
+
+    appt = Appt()
+    appt.status = Status()
+    appt.confirmed_at = confirmed
+    appt.arrived_at = arrived
+    assert status_icon(appt) == expected
+
+
+def test_set_week_start_mijenja_zaglavlje(store: FakeStore, week_view: WeekView) -> None:
+    week_view.set_week_start(date(2026, 8, 24))
+    assert "24.08." in week_view.horizontalHeaderItem(0).text()
+
+
+def test_blockout_je_spojen_i_ne_emituje_slobodan_slot(qtbot, week_start) -> None:
+    class BlockStore(FakeStore):
+        def time_off_for_week(self, _week_start):
+            return [
+                SimpleNamespace(
+                    start=datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+                    end=datetime(2026, 8, 17, 10, 0, tzinfo=SARAJEVO),
+                    doctor_id=1,
+                    label="VAN ORDINACIJE",
+                )
+            ]
+
+        def breaks_for_week(self, _week_start):
+            return []
+
+    view = WeekView(BlockStore(), week_start)
+    qtbot.addWidget(view)
+    emitted: list[datetime] = []
+    view.slot_selected.connect(emitted.append)
+
+    assert view.rowSpan(2, 0) == 2
+    assert view.item(2, 0).text() == "VAN ORDINACIJE"
+    view.cellClicked.emit(2, 0)
+    assert emitted == []

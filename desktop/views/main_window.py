@@ -2,21 +2,32 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
-from PySide6.QtGui import QAction
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QAction, QColor, QPalette
 from PySide6.QtWidgets import (
+    QApplication,
     QDialog,
+    QFrame,
+    QHBoxLayout,
     QInputDialog,
+    QLabel,
     QMainWindow,
+    QPushButton,
+    QSizePolicy,
+    QStackedWidget,
     QTabBar,
     QVBoxLayout,
     QWidget,
 )
 
 from dentaland.services import OverlapError
-from desktop.fake_data import DEFAULT_DURATION_MINUTES
+from desktop.fake_data import DEFAULT_DURATION_MINUTES, SARAJEVO
 from desktop.views.appointment_dialog import AppointmentDialog
+from desktop.views.requests_panel import DashboardPanels
+from desktop.views.sidebar import Sidebar, svg_icon
+from desktop.views.stub_page import StubPage
 from desktop.views.week_view import WeekView
 
 
@@ -29,29 +40,389 @@ class MainWindow(QMainWindow):
         self._current_doctor_id: int | None = None
         self._has_doctors = False
         self._doctors: list = []
-        self.setWindowTitle("Dentaland — Raspored")
+        self.setWindowTitle("Dentaland")
+        # Razumna restore veličina; entrypoint prozor otvara maksimizovan.
+        # Starih 1536x1000 prelazilo je radnu visinu na Windowsu pri 125% DPI.
+        self.resize(1280, 720)
 
         if week_start is None:
             today = date.today()
             week_start = today - timedelta(days=today.weekday())
 
+        self.week_start = week_start
         self.week_view = WeekView(store, week_start, parent=self)
         self.doctor_tabs = self._build_doctor_tabs()
+        self.sidebar = Sidebar(self)
+        self.dashboard_panels = DashboardPanels(store, self)
+        self.dashboard_panels.changed.connect(self._refresh_dashboard)
+        self.sidebar.route_selected.connect(self._show_route)
+
+        self.page_stack = QStackedWidget()
+        self.schedule_page = self._build_schedule_page()
+        self.page_stack.addWidget(self.schedule_page)
+        self._route_pages: dict[str, QWidget] = {"raspored": self.schedule_page}
+        for route, title in (
+            ("zahtjevi", "Novi zahtjevi"),
+            ("pacijenti", "Pacijenti"),
+            ("izvjestaji", "Izvještaji"),
+            ("postavke", "Postavke"),
+            ("blockout", "Blokiraj vrijeme"),
+            ("podsjetnici", "Podsjetnici"),
+        ):
+            page = StubPage(title)
+            self._route_pages[route] = page
+            self.page_stack.addWidget(page)
 
         central = QWidget()
-        layout = QVBoxLayout(central)
-        layout.setContentsMargins(0, 0, 0, 0)
-        if self.doctor_tabs is not None:
-            layout.addWidget(self.doctor_tabs)
-        layout.addWidget(self.week_view)
+        root = QHBoxLayout(central)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+        root.addWidget(self.sidebar)
+        root.addWidget(self.page_stack, 1)
         self.setCentralWidget(central)
 
-        toolbar = self.addToolBar("Alati")
         self.print_action = QAction("Štampaj raspored", self)
         self.print_action.triggered.connect(self._on_print)
-        toolbar.addAction(self.print_action)
+        self.addAction(self.print_action)
 
         self.week_view.slot_selected.connect(self._on_slot_selected)
+        self._apply_style()
+        self._refresh_dashboard()
+
+    def _build_schedule_page(self) -> QWidget:
+        page = QWidget()
+        page.setObjectName("schedulePage")
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(26, 18, 14, 14)
+        layout.setSpacing(13)
+
+        header_frame = QFrame()
+        header_frame.setObjectName("topHeader")
+        header = QHBoxLayout(header_frame)
+        header.setContentsMargins(0, 0, 0, 14)
+        header.setSpacing(10)
+        title_column = QVBoxLayout()
+        title_column.setSpacing(1)
+        title = QLabel("Raspored termina")
+        title.setObjectName("pageTitle")
+        subtitle = QLabel("Sedmični pregled zakazanih termina")
+        subtitle.setObjectName("pageSubtitle")
+        title_column.addWidget(title)
+        title_column.addWidget(subtitle)
+        header.addLayout(title_column)
+        header.addStretch()
+        today_button = QPushButton("Danas")
+        today_button.setObjectName("todayButton")
+        previous = QPushButton("‹")
+        previous.setObjectName("navArrow")
+        following = QPushButton("›")
+        following.setObjectName("navArrow")
+        self.range_label = QLabel()
+        self.range_label.setObjectName("rangeLabel")
+        self.range_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        today_button.clicked.connect(self._go_today)
+        previous.clicked.connect(lambda: self._move_week(-1))
+        following.clicked.connect(lambda: self._move_week(1))
+        header.addWidget(today_button)
+        header.addWidget(previous)
+        header.addWidget(following)
+        header.addWidget(self.range_label)
+        day_button = QPushButton("Dan")
+        day_button.setObjectName("viewSegment")
+        day_button.setEnabled(False)
+        week_button = QPushButton("Sedmica")
+        week_button.setObjectName("viewSegment")
+        week_button.setCheckable(True)
+        week_button.setChecked(True)
+        header.addWidget(day_button)
+        header.addWidget(week_button)
+        new_button = QPushButton("Novi termin")
+        new_button.setObjectName("primaryButton")
+        new_button.setIcon(svg_icon("plus", "#ffffff", 18))
+        new_button.setIconSize(QSize(18, 18))
+        new_button.clicked.connect(self._on_new_appointment)
+        print_button = QPushButton("Štampa  ⌄")
+        print_button.setObjectName("printButton")
+        print_button.setIcon(svg_icon("printer", "#10213d", 18))
+        print_button.setIconSize(QSize(18, 18))
+        print_button.clicked.connect(self._on_print)
+        header.addWidget(new_button)
+        header.addWidget(print_button)
+        layout.addWidget(header_frame)
+
+        filter_frame = QFrame()
+        filter_frame.setObjectName("filterBar")
+        filters = QHBoxLayout(filter_frame)
+        filters.setContentsMargins(0, 0, 0, 0)
+        filters.setSpacing(8)
+        filters.addWidget(QLabel("Doktor"))
+        if self.doctor_tabs is not None:
+            filters.addWidget(self.doctor_tabs)
+        filters.addSpacing(22)
+        filters.addWidget(QLabel("Prikaz:"))
+        by_doctor = QPushButton("Po doktoru")
+        by_doctor.setObjectName("filterActive")
+        by_doctor.setCheckable(True)
+        by_doctor.setChecked(True)
+        parallel = QPushButton("Paralelno")
+        parallel.setEnabled(False)
+        parallel.setToolTip("Način paralelnog prikaza čeka poslovnu odluku")
+        filters.addWidget(by_doctor)
+        filters.addWidget(parallel)
+        filters.addStretch()
+        for index, doctor in enumerate(self._doctors):
+            color = WeekView._DOCTOR_PALETTE[index % len(WeekView._DOCTOR_PALETTE)]
+            label = QLabel(f"● Dr {doctor.ime}")
+            label.setStyleSheet(f"color: {color}; font-weight: 600;")
+            filters.addWidget(label)
+        layout.addWidget(filter_frame)
+
+        content = QHBoxLayout()
+        content.setSpacing(14)
+        calendar_column = QVBoxLayout()
+        calendar_column.setSpacing(10)
+        calendar_column.addWidget(self.week_view, 1)
+        self.status_legend = QLabel(
+            "<span style='color:#149447'>●</span>&nbsp; Potvrđen"
+            "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#ff8a00'>◷</span>&nbsp; Čeka potvrdu"
+            "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#1473e6'>♙</span>&nbsp; Stigao"
+            "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#7c3aed'>●</span>&nbsp; Završen"
+            "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#ef334f'>●</span>&nbsp; Otkazan / No-show"
+        )
+        self.status_legend.setObjectName("statusLegend")
+        self.status_legend.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_legend.setSizePolicy(
+            QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Fixed,
+        )
+        self.status_legend.setFixedHeight(48)
+        calendar_column.addWidget(self.status_legend)
+        content.addLayout(calendar_column, 1)
+        content.addWidget(self.dashboard_panels)
+        layout.addLayout(content, 1)
+        self._update_range_label()
+        return page
+
+    def _show_route(self, route: str) -> None:
+        page = self._route_pages.get(route)
+        if page is not None:
+            self.page_stack.setCurrentWidget(page)
+
+    def _move_week(self, offset: int) -> None:
+        self.week_start += timedelta(days=7 * offset)
+        self.week_view.set_week_start(self.week_start)
+        self._update_range_label()
+
+    def _go_today(self) -> None:
+        today = date.today()
+        self.week_start = today - timedelta(days=today.weekday())
+        self.week_view.set_week_start(self.week_start)
+        self._update_range_label()
+
+    def _update_range_label(self) -> None:
+        end = self.week_start + timedelta(days=5)
+        months = [
+            "januar", "februar", "mart", "april", "maj", "juni",
+            "juli", "avgust", "septembar", "oktobar", "novembar", "decembar",
+        ]
+        if self.week_start.month == end.month:
+            text = f"{self.week_start.day} – {end.day}. {months[end.month - 1]} {end.year}"
+        else:
+            text = f"{self.week_start:%d.%m.} – {end:%d.%m.%Y}"
+        self.range_label.setText(f"▣   {text}   ▣")
+
+    def _refresh_dashboard(self) -> None:
+        self.dashboard_panels.refresh()
+        self.week_view.refresh()
+        pending = getattr(self.store, "pending_requests", None)
+        count = len(pending()) if callable(pending) else 0
+        self.sidebar.set_pending_count(count)
+
+    def _on_new_appointment(self) -> None:
+        now = datetime.now(SARAJEVO)
+        start = now.replace(second=0, microsecond=0)
+        start += timedelta(minutes=(-start.minute) % 30)
+        self._on_slot_selected(start)
+
+    def _apply_style(self) -> None:
+        app = QApplication.instance()
+        if isinstance(app, QApplication):
+            palette = QPalette()
+            palette.setColor(QPalette.ColorRole.Window, QColor("#ffffff"))
+            palette.setColor(QPalette.ColorRole.WindowText, QColor("#10213d"))
+            palette.setColor(QPalette.ColorRole.Base, QColor("#ffffff"))
+            palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#f7fafc"))
+            palette.setColor(QPalette.ColorRole.Text, QColor("#10213d"))
+            palette.setColor(QPalette.ColorRole.Button, QColor("#ffffff"))
+            palette.setColor(QPalette.ColorRole.ButtonText, QColor("#10213d"))
+            palette.setColor(QPalette.ColorRole.Highlight, QColor("#078f96"))
+            palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
+            palette.setColor(QPalette.ColorRole.PlaceholderText, QColor("#718096"))
+            app.setPalette(palette)
+        self.setStyleSheet(
+            """
+            QMainWindow, QWidget {
+                background-color: #ffffff;
+                color: #10213d;
+                font-family: "Segoe UI";
+                font-size: 13px;
+            }
+            QMainWindow { border: 0; }
+            #sidebar {
+                background-color: #fbfdfe;
+                border-right: 1px solid #d9e3ea;
+            }
+            #sidebarNavigation, #sidebarNavigationBody,
+            #sidebarNavigation > QWidget > QWidget {
+                background-color: #fbfdfe;
+                border: 0;
+            }
+            #sidebarBrand { background: transparent; }
+            #sidebarWordmark { color: #078f96; font-size: 10px; font-weight: 600; }
+            #quickTitle { font-size: 15px; font-weight: 700; padding: 8px; }
+            #sidebarStaff {
+                border-top: 1px solid #d9e3ea;
+                background: transparent;
+            }
+            #staffAvatar {
+                background-color: #078f96;
+                color: #ffffff;
+                border-radius: 19px;
+                font-weight: 600;
+            }
+            #pendingBadge {
+                min-width: 23px;
+                max-width: 23px;
+                min-height: 23px;
+                max-height: 23px;
+                border-radius: 11px;
+                background-color: #f02d4f;
+                color: #ffffff;
+                font-weight: 700;
+            }
+            #topHeader { border-bottom: 1px solid #e1e9ef; }
+            #pageTitle { font-size: 18px; font-weight: 700; }
+            #pageSubtitle { color: #31578a; font-size: 12px; }
+            #rangeLabel {
+                border: 1px solid #cad8e2;
+                border-radius: 7px;
+                min-width: 170px;
+                min-height: 38px;
+                font-weight: 600;
+            }
+            #primaryButton {
+                background-color: #078f96;
+                color: #ffffff;
+                border: 1px solid #078f96;
+                min-width: 110px;
+            }
+            QPushButton {
+                background-color: #ffffff;
+                color: #10213d;
+                border: 1px solid #cad8e2;
+                border-radius: 6px;
+                min-height: 34px;
+                padding: 2px 12px;
+            }
+            QPushButton:hover { background-color: #eef8f9; border-color: #078f96; }
+            QPushButton:checked { background-color: #078f96; color: #ffffff; }
+            QPushButton:disabled { background-color: #f5f7f9; color: #94a3b8; }
+            QPushButton[nav="true"] {
+                border: 0;
+                text-align: left;
+                min-height: 42px;
+                padding: 7px 12px;
+                font-size: 14px;
+            }
+            QPushButton[nav="true"]:hover { background-color: #eaf6f7; }
+            QPushButton[nav="true"][active="true"] {
+                background-color: #dff4f3;
+                color: #086a73;
+                border-radius: 8px;
+                font-weight: 600;
+            }
+            QPushButton[nav="true"][quick="true"] { min-height: 36px; }
+            #navArrow { min-width: 34px; max-width: 34px; padding: 0; font-size: 20px; }
+            #todayButton { min-width: 55px; font-weight: 600; }
+            #viewSegment { min-width: 55px; }
+            #printButton { min-width: 85px; font-weight: 600; }
+            #statusLegend {
+                background-color: #f4fafb;
+                border: 1px solid #c9dce3;
+                border-radius: 8px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+            QGroupBox {
+                background-color: #ffffff;
+                font-weight: 700;
+                border: 1px solid #d9e3ea;
+                border-radius: 9px;
+                margin-top: 12px;
+                padding-top: 12px;
+            }
+            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }
+            #dashboardPanels, #dashboardPanelContent { background-color: #ffffff; }
+            #dashboardBox { font-size: 12px; }
+            #dashboardBox QLabel { font-size: 11px; font-weight: 400; }
+            #dashboardListItem {
+                border-bottom: 1px solid #edf1f4;
+                padding: 3px 1px 7px 1px;
+            }
+            #confirmButton, #rejectButton {
+                min-height: 25px;
+                max-height: 25px;
+                padding: 0 7px;
+                font-size: 10px;
+            }
+            #confirmButton { color: #078f96; border-color: #59c7ca; }
+            #rejectButton { color: #ef334f; border-color: #ff8ba0; }
+            #nextFreePlaceholder { color: #31578a; padding: 4px 0; }
+            QTableWidget {
+                background-color: #ffffff;
+                alternate-background-color: #f8fbfc;
+                color: #10213d;
+                border: 1px solid #d9e3ea;
+                gridline-color: #e5edf2;
+                selection-background-color: #d9f1f2;
+                selection-color: #10213d;
+            }
+            QHeaderView::section {
+                background-color: #f7fafc;
+                color: #42526b;
+                border: 0;
+                border-right: 1px solid #e5edf2;
+                border-bottom: 1px solid #d9e3ea;
+                padding: 6px;
+            }
+            QTableCornerButton::section { background-color: #f7fafc; }
+            QTabBar::tab {
+                background-color: #ffffff;
+                color: #42526b;
+                border: 1px solid #cad8e2;
+                border-radius: 6px;
+                padding: 8px 16px;
+                margin-right: 4px;
+                font-weight: 600;
+            }
+            QTabBar::tab:selected { background-color: #078f96; color: #ffffff; }
+            QScrollArea, QScrollArea > QWidget > QWidget {
+                background-color: #ffffff;
+                border: 0;
+            }
+            QScrollBar:vertical { background: #f4f7f9; width: 10px; margin: 0; }
+            QScrollBar::handle:vertical { background: #bdcbd5; border-radius: 5px; }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+            QLineEdit, QComboBox, QDateTimeEdit {
+                background-color: #ffffff;
+                color: #10213d;
+                border: 1px solid #cad8e2;
+                border-radius: 5px;
+                min-height: 30px;
+                padding: 2px 8px;
+            }
+            """
+        )
 
     def _build_doctor_tabs(self) -> QTabBar | None:
         doctors_fn = getattr(self.store, "doctors", None)
@@ -64,7 +435,7 @@ class MainWindow(QMainWindow):
         tabs = QTabBar()
         tabs.addTab("Svi doktori")
         for doctor in self._doctors:
-            tabs.addTab(f"Dr {doctor.ime}")
+            tabs.addTab(doctor.ime)
         self._tab_doctor_ids: list[int | None] = [None] + [d.id for d in self._doctors]
         tabs.currentChanged.connect(self._on_tab_changed)
         return tabs
@@ -109,7 +480,7 @@ class MainWindow(QMainWindow):
             except OverlapError as exc:
                 self.statusBar().showMessage(str(exc), 5000)
                 return
-            self.week_view.refresh()
+            self._refresh_dashboard()
 
     def _on_print(self) -> None:
         # TODO: prava štampa (QPrinter/QTextDocument) — zaseban budući zadatak.
