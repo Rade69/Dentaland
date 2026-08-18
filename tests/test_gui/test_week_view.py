@@ -13,6 +13,20 @@ from desktop.fake_data import SARAJEVO, FakeStore
 from desktop.views.week_view import WeekView, status_icon
 
 
+class ArrivalAwareStore(FakeStore):
+    """FakeStore + mark_arrived/unmark_arrived, za testiranje kontekst menija."""
+
+    def mark_arrived(self, appt_id: int) -> None:
+        appt = self.get(appt_id)
+        assert appt is not None
+        appt.arrived_at = "2026-08-18T10:00:00"
+
+    def unmark_arrived(self, appt_id: int) -> None:
+        appt = self.get(appt_id)
+        assert appt is not None
+        appt.arrived_at = None
+
+
 @pytest.fixture()
 def week_view(qtbot, store: FakeStore, week_start: date) -> WeekView:
     view = WeekView(store, week_start)
@@ -216,6 +230,40 @@ def test_status_ikonice(status, confirmed, arrived, expected) -> None:
 def test_set_week_start_mijenja_zaglavlje(store: FakeStore, week_view: WeekView) -> None:
     week_view.set_week_start(date(2026, 8, 24))
     assert "24.08." in week_view.horizontalHeaderItem(0).text()
+
+
+def test_kontekst_meni_nudi_oznaci_stiglo_kad_jos_nije_stigao(qtbot, week_start) -> None:
+    store = ArrivalAwareStore()
+    appt = store.create(
+        "Ana Anić", "061/111-222", "ana@example.com", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    view = WeekView(store, week_start)
+    qtbot.addWidget(view)
+
+    assert view._arrived_action_label(appt.id) == "Označi stiglo"
+
+    view.mark_appointment_arrived(appt.id)
+
+    assert view._arrived_action_label(appt.id) == "Poništi (nije stiglo)"
+
+
+def test_unmark_appointment_arrived_poziva_store(qtbot, week_start) -> None:
+    store = ArrivalAwareStore()
+    appt = store.create(
+        "Ana Anić", "061/111-222", "ana@example.com", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    view = WeekView(store, week_start)
+    qtbot.addWidget(view)
+
+    view.mark_appointment_arrived(appt.id)
+    assert store.get(appt.id).arrived_at is not None
+
+    assert view.unmark_appointment_arrived(appt.id) is True
+    assert store.get(appt.id).arrived_at is None
 
 
 def test_blockout_je_spojen_i_ne_emituje_slobodan_slot(qtbot, week_start) -> None:

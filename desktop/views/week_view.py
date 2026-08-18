@@ -426,15 +426,28 @@ class WeekView(QTableWidget):
             self.slot_selected.emit(self._slot_datetime(row, col, self._pending_click_minutes))
 
     def mark_appointment_arrived(self, appt_id: int) -> bool:
-        mark = getattr(self.store, "mark_arrived", None)
-        if not callable(mark):
+        return self._call_status_method("mark_arrived", appt_id)
+
+    def unmark_appointment_arrived(self, appt_id: int) -> bool:
+        return self._call_status_method("unmark_arrived", appt_id)
+
+    def _call_status_method(self, method_name: str, appt_id: int) -> bool:
+        method = getattr(self.store, method_name, None)
+        if not callable(method):
             return False
         try:
-            mark(appt_id)
+            method(appt_id)
         except ValueError:
             return False
         self.refresh()
         return True
+
+    def _arrived_action_label(self, appt_id: int) -> str:
+        """Naziv akcije za 'stigao' — poništi ako je već označen, inače označi."""
+        getter = getattr(self.store, "get", None)
+        appt = getter(appt_id) if callable(getter) else None
+        already_arrived = getattr(appt, "arrived_at", None) is not None
+        return "Poništi (nije stiglo)" if already_arrived else "Označi stiglo"
 
     def _open_context_menu(self, position: QPoint) -> None:
         item = self.itemAt(position)
@@ -443,9 +456,14 @@ class WeekView(QTableWidget):
         appt_id = item.data(_APPT_ID_ROLE)
         if appt_id is None:
             return
+        label = self._arrived_action_label(appt_id)
+
         menu = QMenu(self)
-        action = QAction("Označi stiglo", menu)
-        action.triggered.connect(lambda: self.mark_appointment_arrived(appt_id))
+        action = QAction(label, menu)
+        if label == "Označi stiglo":
+            action.triggered.connect(lambda: self.mark_appointment_arrived(appt_id))
+        else:
+            action.triggered.connect(lambda: self.unmark_appointment_arrived(appt_id))
         menu.addAction(action)
         menu.exec(self.viewport().mapToGlobal(position))
 

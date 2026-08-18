@@ -69,6 +69,21 @@ def test_footer_ostaje_vidljiv_na_laptop_visini(
     assert window.sidebar.staff.geometry().bottom() <= window.sidebar.rect().bottom()
 
 
+def test_auto_refresh_tajmer_je_pokrenut_i_zove_refresh_dashboard(
+    window: MainWindow, store: FakeStore
+) -> None:
+    assert window._auto_refresh_timer.isActive()
+
+    store.create(
+        "Novi Pacijent", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    window._auto_refresh_timer.timeout.emit()
+
+    assert "Čeka potvrdu (1)" in window.status_legend.text()
+
+
 def test_footer_prikazuje_brojno_stanje_termina_prikazane_sedmice(
     window: MainWindow, store: FakeStore
 ) -> None:

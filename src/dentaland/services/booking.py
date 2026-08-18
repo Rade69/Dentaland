@@ -216,6 +216,16 @@ class AppointmentService:
             session.commit()
             return self._to_dto(appt, self._service_name(appt))
 
+    def unmark_arrived(self, appt_id: int) -> AppointmentDTO:
+        """Poništi "stigao" (npr. slučajan klik) — vrati termin na prethodni status."""
+        with self._session_factory() as session:
+            appt = session.get(Appointment, appt_id)
+            if appt is None:
+                raise ValueError(f"termin {appt_id} nije pronađen")
+            appt.arrived_at = None
+            session.commit()
+            return self._to_dto(appt, self._service_name(appt))
+
     def mark_confirmed(self, appt_id: int) -> AppointmentDTO:
         """Označi ručno unesen termin kao potvrđen (npr. nakon poziva pacijentu).
 

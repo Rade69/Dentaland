@@ -229,6 +229,18 @@ def test_mark_arrived_nepostojeci_id(appointment_service: AppointmentService) ->
         appointment_service.mark_arrived(999)
 
 
+def test_unmark_arrived_ponistava_slucajan_klik(appointment_service: AppointmentService) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    appointment_service.mark_arrived(dto.id)
+    reverted = appointment_service.unmark_arrived(dto.id)
+    assert reverted.arrived_at is None
+
+
+def test_unmark_arrived_nepostojeci_id(appointment_service: AppointmentService) -> None:
+    with pytest.raises(ValueError, match="nije pronađen"):
+        appointment_service.unmark_arrived(999)
+
+
 def test_mark_confirmed_uspjeh(appointment_service: AppointmentService) -> None:
     dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
     confirmed = appointment_service.mark_confirmed(dto.id)

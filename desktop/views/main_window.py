@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
-from PySide6.QtCore import QDate, QSize, Qt
+from PySide6.QtCore import QDate, QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QColor, QCursor, QPalette
 from PySide6.QtWidgets import (
     QApplication,
@@ -37,6 +37,7 @@ from desktop.views.stub_page import StubPage
 from desktop.views.week_view import STATUS_META, STATUS_ORDER, WeekView
 
 DEFAULT_MANUAL_DURATION_MINUTES = 60
+AUTO_REFRESH_INTERVAL_MS = 20_000
 
 
 class MainWindow(QMainWindow):
@@ -96,6 +97,14 @@ class MainWindow(QMainWindow):
         self.week_view.slot_selected.connect(self._on_slot_selected)
         self._apply_style()
         self._refresh_dashboard()
+
+        # Novi zahtjevi sa web forme (drugi proces, druga konekcija na istu
+        # bazu) se inače vide tek poslije ručnog restarta aplikacije —
+        # periodično osvježavanje umjesto toga.
+        self._auto_refresh_timer = QTimer(self)
+        self._auto_refresh_timer.setInterval(AUTO_REFRESH_INTERVAL_MS)
+        self._auto_refresh_timer.timeout.connect(self._refresh_dashboard)
+        self._auto_refresh_timer.start()
 
     def _build_schedule_page(self) -> QWidget:
         page = QWidget()
