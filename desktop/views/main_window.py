@@ -494,9 +494,10 @@ class MainWindow(QMainWindow):
         if doctor_id is not None and hasattr(self.store, "set_doctor"):
             self.store.set_doctor(doctor_id)
 
-        dialog = AppointmentDialog(self.store.services(), self)
+        dialog = AppointmentDialog(self.store.services(), start, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             data = dialog.get_data()
+            chosen_start = data["start"]
             try:
                 self.store.create(
                     patient_name=data["patient_name"],
@@ -504,8 +505,8 @@ class MainWindow(QMainWindow):
                     email=data["email"],
                     service=data["service"],
                     note=data["note"],
-                    start=start,
-                    end=start + timedelta(minutes=DEFAULT_MANUAL_DURATION_MINUTES),
+                    start=chosen_start,
+                    end=chosen_start + timedelta(minutes=DEFAULT_MANUAL_DURATION_MINUTES),
                 )
             except OverlapError as exc:
                 self.statusBar().showMessage(str(exc), 5000)

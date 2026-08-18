@@ -104,8 +104,9 @@ def test_unos_u_svi_doktori_trazi_doktora(
     qtbot, appointment_service, week_start, monkeypatch
 ) -> None:
     class FakeDialog:
-        def __init__(self, services, parent=None):
+        def __init__(self, services, start, parent=None):
             self.services = services
+            self.start = start
 
         def exec(self):
             return QDialog.DialogCode.Accepted
@@ -117,6 +118,7 @@ def test_unos_u_svi_doktori_trazi_doktora(
                 "email": "",
                 "service": "Kontrola",
                 "note": "",
+                "start": self.start,
             }
 
     class FakeInputDialog:
@@ -142,8 +144,9 @@ def test_unos_u_svi_doktori_trazi_doktora(
 
 def test_klik_na_slot_otvara_dijalog_i_dodaje_termin(qtbot, store, week_start, monkeypatch) -> None:
     class FakeDialog:
-        def __init__(self, services, parent=None):
+        def __init__(self, services, start, parent=None):
             self.services = services
+            self.start = start
 
         def exec(self):
             return QDialog.DialogCode.Accepted
@@ -155,6 +158,7 @@ def test_klik_na_slot_otvara_dijalog_i_dodaje_termin(qtbot, store, week_start, m
                 "email": "ana@example.com",
                 "service": "Kontrola",
                 "note": "bez napomene",
+                "start": self.start,
             }
 
     monkeypatch.setattr(main_window_mod, "AppointmentDialog", FakeDialog)
