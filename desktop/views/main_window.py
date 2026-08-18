@@ -4,16 +4,20 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QAction, QColor, QPalette
+from PySide6.QtCore import QDate, QSize, Qt
+from PySide6.QtGui import QAction, QColor, QCursor, QPalette
 from PySide6.QtWidgets import (
     QApplication,
+    QCalendarWidget,
     QDialog,
+    QDialogButtonBox,
+    QFileDialog,
     QFrame,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QMainWindow,
+    QMenu,
     QPushButton,
     QSizePolicy,
     QStackedWidget,
@@ -23,7 +27,9 @@ from PySide6.QtWidgets import (
 )
 
 from dentaland.services import OverlapError
+from dentaland.services.print_schedule import build_day_schedule, build_week_schedule
 from desktop.fake_data import SARAJEVO
+from desktop.print_document import build_day_document, build_week_document, preview_document
 from desktop.views.appointment_dialog import AppointmentDialog
 from desktop.views.requests_panel import DashboardPanels
 from desktop.views.sidebar import Sidebar, svg_icon
@@ -507,5 +513,56 @@ class MainWindow(QMainWindow):
             self._refresh_dashboard()
 
     def _on_print(self) -> None:
-        # TODO: prava štampa (QPrinter/QTextDocument) — zaseban budući zadatak.
-        self.statusBar().showMessage("Štampa rasporeda — TODO (stub)", 5000)
+        menu = QMenu(self)
+        week_action = menu.addAction("Štampaj prikazanu sedmicu")
+        day_action = menu.addAction("Štampaj jedan dan…")
+        pdf_action = menu.addAction("Sačuvaj kao PDF")
+        chosen = menu.exec(QCursor.pos())
+        if chosen == week_action:
+            self._print_week()
+        elif chosen == day_action:
+            self._print_day()
+        elif chosen == pdf_action:
+            self._save_pdf()
+
+    def _print_week(self) -> None:
+        schedule = build_week_schedule(self.store, self.week_start)
+        preview_document(self, build_week_document(schedule), landscape=True)
+
+    def _print_day(self) -> None:
+        day = self._pick_day()
+        if day is None:
+            return
+        schedule = build_day_schedule(self.store, day)
+        preview_document(self, build_day_document(schedule), landscape=False)
+
+    def _save_pdf(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Sačuvaj raspored kao PDF", "raspored.pdf", "PDF (*.pdf)"
+        )
+        if not path:
+            return
+        schedule = build_week_schedule(self.store, self.week_start)
+        preview_document(
+            self, build_week_document(schedule), landscape=True, pdf_path=path
+        )
+
+    def _pick_day(self) -> date | None:
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Izaberite dan za štampu")
+        calendar = QCalendarWidget(dialog)
+        calendar.setSelectedDate(
+            QDate(self.week_start.year, self.week_start.month, self.week_start.day)
+        )
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(calendar)
+        layout.addWidget(buttons)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        selected = calendar.selectedDate()
+        return date(selected.year(), selected.month(), selected.day())
