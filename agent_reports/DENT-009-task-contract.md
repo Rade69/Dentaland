@@ -238,6 +238,14 @@ zato mora otvoriti glavni prozor maksimizovan unutar Windows `availableGeometry`
 Dvoredno zaglavlje dana i datuma ne smije odsijecati donji dio datuma pri
 Windows skaliranju. Minimalna visina horizontalnog zaglavlja je 46 px.
 
+## Poravnanje desnog panela — korekcija 18.8.2026.
+
+Legenda doktora treba biti dio desne kolone i lijevom ivicom poravnata sa
+naslovima kartica „Novi zahtjevi“, „Čekaju potvrdu“ i ostalim panelima, umjesto
+da pluta desno u traci filtera. Naslovi `QGroupBox` kartica moraju biti blago
+iznad gornjeg obruba, sa bijelom pozadinom iza teksta, tako da linija ne prolazi
+kroz naslov.
+
 ## allowed_paths (PROŠIRENO u odnosu na prvobitnu verziju)
 
 ```yaml
@@ -291,6 +299,8 @@ jer se stanje mijenja).
 - `desktop.app.main()` otvara prozor maksimizovan tako da taskbar ne prekriva
   donji dio aplikacije; ponašanje je pokriveno testom entrypointa.
 - Naziv dana i puni datum vidljivi su u dvorednom zaglavlju bez odsijecanja.
+- Legenda doktora počinje na lijevoj ivici desne kolone, a naslov svake desne
+  kartice je čitljiv iznad obruba bez linije kroz tekst.
 - "Čekaju potvrdu" i "Otkazani danas" koriste ispravan, različit upit
   (ne isti kao "Novi zahtjevi").
 - Sve preostale `OUT_OF_SCOPE_FINDING` stavke iz ovog kontrakta (Paralelno

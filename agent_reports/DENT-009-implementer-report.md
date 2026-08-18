@@ -171,9 +171,17 @@ placeholderi, manuelni unos i `confirmed_at`) su i dalje razumno
 prijavljeni i dogovoreni sa Radovanom kao sljedeći koraci (vidi
 `CLAUDE.md`) — nijedan nije tiho riješen niti zaboravljen.
 
+**Follow-up implementacija (Codex, 18.8.2026) — poravnanje desne kolone.**
+Legenda doktora je izmještena iz globalne filter trake u vrh desne kolone i
+poravnata sa lijevom ivicom naslova dashboard kartica. Naslovi `QGroupBox`
+kartica podignuti su 3 px, uz povećan gornji margin i bijelu podlogu iza teksta,
+pa obrub više ne prolazi kroz naslov. Dodat je GUI geometrijski test poravnanja.
+Verifikacija: `pytest tests -q` → **108 passed**; `ruff check src/dentaland
+desktop tests` → PASS. Ova vizuelna korekcija čeka kratki follow-up review.
+
 ## Integration status
 
-`REVIEWED (Claude PASS, uklj. footer/DPI follow-up)` — spremno za merge.
+`IMPLEMENTED — poravnanje desne kolone čeka kratki follow-up review`.
 
 ## Odbačene opcije
 

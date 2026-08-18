@@ -73,6 +73,23 @@ def test_paralelni_prikaz_je_vidljiv_ali_neaktivan(window: MainWindow) -> None:
     assert not parallel.isEnabled()
 
 
+def test_legenda_doktora_je_poravnata_sa_desnim_panelima(
+    qtbot,
+    appointment_service,
+    week_start,
+) -> None:
+    window = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(window)
+    window.resize(1536, 760)
+    window.show()
+    qtbot.wait(20)
+
+    assert window.doctor_legend.isVisible()
+    assert window.doctor_legend.geometry().left() == window.dashboard_panels.geometry().left()
+    assert "top: -3px" in window.styleSheet()
+    assert "background-color: #ffffff" in window.styleSheet()
+
+
 def test_tabovi_za_doktore_postoje(qtbot, appointment_service, week_start) -> None:
     win = MainWindow(appointment_service, week_start)
     qtbot.addWidget(win)
