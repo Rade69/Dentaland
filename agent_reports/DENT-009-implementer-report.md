@@ -154,9 +154,26 @@ provjerava maksimizovano otvaranje. Verifikacija poslije izmjene:
 `pytest tests -q` → **107 passed**, `ruff check src/dentaland desktop tests` →
 PASS. Ova naknadna izmjena zahtijeva kratki follow-up review prije merge-a.
 
+**Follow-up review (Claude, 18.8.2026) — PASS.** Footer/DPI fix
+nezavisno provjeren: `desktop/app.py` sada zove `window.showMaximized()`
+umjesto fiksnog `resize()` — koristi punu radnu površinu iznad Windows
+taskbara, ispravno rješava nalaz sa Radovanovog ekrana. Novi test
+`test_main_otvara_prozor_maksimizovan` ispravno provjerava REDOSLIJED
+poziva (mock `QApplication`/`AppointmentService`/`MainWindow`, provjera
+da je `showMaximized()` pozvan prije `exec()`) — pravi test ponašanja,
+ne samo da metoda postoji. `pytest tests/ -q` → **107 passed**, `ruff
+check src/dentaland desktop tests` → PASS, `mypy src/dentaland desktop`
+→ **7 grešaka**, isti baseline, nula novih. Nema regresije.
+
+Svih šest `OUT_OF_SCOPE_FINDING` zapisa (Paralelno prikaz, Štampa/
+date-picker, sljedeći slobodan termin, Blokiraj vrijeme/ostali sidebar
+placeholderi, manuelni unos i `confirmed_at`) su i dalje razumno
+prijavljeni i dogovoreni sa Radovanom kao sljedeći koraci (vidi
+`CLAUDE.md`) — nijedan nije tiho riješen niti zaboravljen.
+
 ## Integration status
 
-`IMPLEMENTED — footer/DPI follow-up čeka kratki review`.
+`REVIEWED (Claude PASS, uklj. footer/DPI follow-up)` — spremno za merge.
 
 ## Odbačene opcije
 
