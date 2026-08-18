@@ -209,7 +209,9 @@ desktop/views/*.py` → prazno. Nema regresije.
 MERGED → INTEGRATION_VERIFIED → DONE. Prvobitna implementacija
 mergovana (107 passed poslije merge-a); follow-up (poravnanje desne
 kolone + srpski prevod statusa) nezavisno pregledan (PASS) i mergovan
-naknadno — pun post-merge test suite ispod.
+naknadno. Post-merge integration gate poslije follow-up merge-a: 108
+passed, ruff čist, mypy baseline nepromijenjen (7/7), nula SQLAlchemy
+importa u desktop/views/.
 
 ## Odbačene opcije
 
