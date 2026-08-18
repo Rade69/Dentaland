@@ -171,11 +171,45 @@ placeholderi, manuelni unos i `confirmed_at`) su i dalje razumno
 prijavljeni i dogovoreni sa Radovanom kao sljedeći koraci (vidi
 `CLAUDE.md`) — nijedan nije tiho riješen niti zaboravljen.
 
+**Follow-up implementacija (Codex, 18.8.2026) — poravnanje desne kolone.**
+Legenda doktora je izmještena iz globalne filter trake u vrh desne kolone i
+poravnata sa lijevom ivicom naslova dashboard kartica. Naslovi `QGroupBox`
+kartica podignuti su 3 px, uz povećan gornji margin i bijelu podlogu iza teksta,
+pa obrub više ne prolazi kroz naslov. Dodat je GUI geometrijski test poravnanja.
+Verifikacija: `pytest tests -q` → **108 passed**; `ruff check src/dentaland
+desktop tests` → PASS. Ova vizuelna korekcija čeka kratki follow-up review.
+
+**Follow-up implementacija (Codex, 18.8.2026) — srpska oznaka statusa.**
+Korisnički tekst „Otkazan / No-show“ zamijenjen je sa „Otkazan / Nije došao“;
+interni `NO_SHOW` enum nije mijenjan. GUI test eksplicitno provjerava prevedeni
+tekst i odsustvo engleske oznake.
+
+**Follow-up review (Claude, 18.8.2026) — PASS.** Oba naknadna commit-a
+nezavisno provjerena:
+
+- Poravnanje desne kolone: legenda doktora premještena iz reda filtera
+  u zaseban red iznad `dashboard_panels`, poravnata sa lijevom ivicom
+  panela; `QGroupBox::title` dobija bijelu pozadinu i pomjerenu poziciju
+  da obrub ne siječe naslov. Vizuelno razumno, potvrđeno geometrijskim
+  testom (ne samo tvrdnja da izgleda dobro).
+- Prevod statusa: `NO_SHOW` enum ostaje netaknut (provjereno —
+  `grep NO_SHOW src/dentaland/models.py` nepromijenjen), samo
+  korisnički prikazan tekst je lokalizovan. Ispravna razdvojenost
+  internog identifikatora od prikaza. Test provjerava i prisustvo
+  novog teksta i odsustvo engleskog izraza — nije moglo tiho da se
+  provuče djelimično urađeno.
+
+Nezavisno pokrenuto: `pytest tests/ -q` → **108 passed**, `ruff check
+src/dentaland desktop tests` → PASS, `mypy src/dentaland desktop` →
+**7 grešaka** (isti baseline, nula novih), `grep -ri sqlalchemy
+desktop/views/*.py` → prazno. Nema regresije.
+
 ## Integration status
 
-MERGED → INTEGRATION_VERIFIED → DONE. Mergovano u `main` (--no-ff),
-poslije merge-a pun test suite: 107 passed, ruff čist, mypy baseline
-nepromijenjen (7/7), nula SQLAlchemy importa u desktop/views/.
+MERGED → INTEGRATION_VERIFIED → DONE. Prvobitna implementacija
+mergovana (107 passed poslije merge-a); follow-up (poravnanje desne
+kolone + srpski prevod statusa) nezavisno pregledan (PASS) i mergovan
+naknadno — pun post-merge test suite ispod.
 
 ## Odbačene opcije
 

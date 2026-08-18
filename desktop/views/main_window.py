@@ -170,11 +170,6 @@ class MainWindow(QMainWindow):
         filters.addWidget(by_doctor)
         filters.addWidget(parallel)
         filters.addStretch()
-        for index, doctor in enumerate(self._doctors):
-            color = WeekView._DOCTOR_PALETTE[index % len(WeekView._DOCTOR_PALETTE)]
-            label = QLabel(f"● Dr {doctor.ime}")
-            label.setStyleSheet(f"color: {color}; font-weight: 600;")
-            filters.addWidget(label)
         layout.addWidget(filter_frame)
 
         content = QHBoxLayout()
@@ -187,7 +182,8 @@ class MainWindow(QMainWindow):
             "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#ff8a00'>◷</span>&nbsp; Čeka potvrdu"
             "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#1473e6'>♙</span>&nbsp; Stigao"
             "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#7c3aed'>●</span>&nbsp; Završen"
-            "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#ef334f'>●</span>&nbsp; Otkazan / No-show"
+            "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#ef334f'>●</span>&nbsp; "
+            "Otkazan / Nije došao"
         )
         self.status_legend.setObjectName("statusLegend")
         self.status_legend.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -198,7 +194,25 @@ class MainWindow(QMainWindow):
         self.status_legend.setFixedHeight(48)
         calendar_column.addWidget(self.status_legend)
         content.addLayout(calendar_column, 1)
-        content.addWidget(self.dashboard_panels)
+
+        right_column = QVBoxLayout()
+        right_column.setContentsMargins(0, 0, 0, 0)
+        right_column.setSpacing(6)
+        self.doctor_legend = QFrame()
+        self.doctor_legend.setObjectName("doctorLegend")
+        legend_layout = QHBoxLayout(self.doctor_legend)
+        legend_layout.setContentsMargins(10, 0, 0, 0)
+        legend_layout.setSpacing(10)
+        for index, doctor in enumerate(self._doctors):
+            color = WeekView._DOCTOR_PALETTE[index % len(WeekView._DOCTOR_PALETTE)]
+            label = QLabel(f"● Dr {doctor.ime}")
+            label.setStyleSheet(f"color: {color}; font-weight: 600;")
+            legend_layout.addWidget(label)
+        legend_layout.addStretch()
+        self.doctor_legend.setVisible(bool(self._doctors))
+        right_column.addWidget(self.doctor_legend)
+        right_column.addWidget(self.dashboard_panels, 1)
+        content.addLayout(right_column)
         layout.addLayout(content, 1)
         self._update_range_label()
         return page
@@ -358,10 +372,18 @@ class MainWindow(QMainWindow):
                 font-weight: 700;
                 border: 1px solid #d9e3ea;
                 border-radius: 9px;
-                margin-top: 12px;
-                padding-top: 12px;
+                margin-top: 16px;
+                padding-top: 14px;
             }
-            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 10px;
+                top: -3px;
+                padding: 0 5px;
+                background-color: #ffffff;
+            }
+            #doctorLegend { background-color: #ffffff; min-height: 26px; }
             #dashboardPanels, #dashboardPanelContent { background-color: #ffffff; }
             #dashboardBox { font-size: 12px; }
             #dashboardBox QLabel { font-size: 11px; font-weight: 400; }

@@ -62,6 +62,8 @@ def test_footer_ostaje_vidljiv_na_laptop_visini(
 
     assert window.status_legend.isVisible()
     assert window.status_legend.height() >= 48
+    assert "Otkazan / Nije došao" in window.status_legend.text()
+    assert "No-show" not in window.status_legend.text()
     assert window.status_legend.geometry().bottom() <= window.schedule_page.rect().bottom()
     assert window.sidebar.staff.isVisible()
     assert window.sidebar.staff.geometry().bottom() <= window.sidebar.rect().bottom()
@@ -71,6 +73,23 @@ def test_paralelni_prikaz_je_vidljiv_ali_neaktivan(window: MainWindow) -> None:
     buttons = window.schedule_page.findChildren(main_window_mod.QPushButton)
     parallel = next(button for button in buttons if button.text() == "Paralelno")
     assert not parallel.isEnabled()
+
+
+def test_legenda_doktora_je_poravnata_sa_desnim_panelima(
+    qtbot,
+    appointment_service,
+    week_start,
+) -> None:
+    window = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(window)
+    window.resize(1536, 760)
+    window.show()
+    qtbot.wait(20)
+
+    assert window.doctor_legend.isVisible()
+    assert window.doctor_legend.geometry().left() == window.dashboard_panels.geometry().left()
+    assert "top: -3px" in window.styleSheet()
+    assert "background-color: #ffffff" in window.styleSheet()
 
 
 def test_tabovi_za_doktore_postoje(qtbot, appointment_service, week_start) -> None:
