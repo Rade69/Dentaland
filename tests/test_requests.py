@@ -104,6 +104,8 @@ def test_confirm_request_postavlja_doktora_uslugu_vrijeme(
         assert appt.service_id == service_id
         assert appt.start_time == start
         assert appt.end_time == datetime(2026, 8, 20, 9, 30, tzinfo=UTC)  # 30 min trajanje
+        assert appt.confirmed_at is not None
+        assert appt.confirmed_at.utcoffset() is not None
 
 
 def test_confirm_request_odbija_preklapanje(

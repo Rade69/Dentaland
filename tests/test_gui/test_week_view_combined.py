@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date, datetime
 
 import pytest
-from PySide6.QtGui import QColor
 
 from desktop.fake_data import SARAJEVO
 from desktop.views.week_view import WeekView
@@ -56,14 +55,11 @@ def test_kombinovani_prikaz_prikazuje_oba_doktora(week_view: WeekView) -> None:
 
 
 def test_boje_po_doktoru_se_razlikuju(week_view: WeekView, doctor_ids: dict[str, int]) -> None:
-    ljubo_item = week_view.item(2, 0)  # pon 09:00 → Ljubo
-    zorka_item = week_view.item(4, 1)  # uto 10:00 → Zorka
-    assert ljubo_item is not None and zorka_item is not None
-    ljubo_color = ljubo_item.background().color()
-    zorka_color = zorka_item.background().color()
-    assert ljubo_color != zorka_color
-    assert ljubo_color != QColor(255, 255, 255)
-    assert zorka_color != QColor(255, 255, 255)
+    ljubo_card = week_view.cellWidget(2, 0)  # pon 09:00 → Ljubo
+    zorka_card = week_view.cellWidget(4, 1)  # uto 10:00 → Zorka
+    assert ljubo_card is not None and zorka_card is not None
+    assert "#ebf8ed" in ljubo_card.styleSheet()
+    assert "#fff0f2" in zorka_card.styleSheet()
 
 
 def test_filter_prikazuje_samo_jednog_doktora(

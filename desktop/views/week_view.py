@@ -13,11 +13,16 @@ from __future__ import annotations
 
 import math
 from datetime import date, datetime, timedelta
+from typing import Any
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QPoint, Qt, Signal
+from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QHeaderView,
+    QLabel,
+    QMenu,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
 )
@@ -26,6 +31,35 @@ from dentaland.services import AppointmentDTO, OverlapError
 from desktop.fake_data import SARAJEVO
 
 _APPT_ID_ROLE = Qt.ItemDataRole.UserRole
+_BLOCK_ROLE = Qt.ItemDataRole.UserRole + 1
+
+
+def status_icon(appt: AppointmentDTO) -> str:
+    """Čisto prezentaciono mapiranje statusnih podataka na ikonicu."""
+    status = getattr(getattr(appt, "status", None), "value", None)
+    if status in {"CANCELLED", "NO_SHOW"}:
+        return "✗"
+    if status == "COMPLETED":
+        return "💜"
+    if getattr(appt, "arrived_at", None) is not None:
+        return "👤"
+    if getattr(appt, "confirmed_at", None) is not None:
+        return "✓"
+    return "🕐"
+
+
+def _status_visual(appt: AppointmentDTO) -> tuple[str, str]:
+    """Kompaktan simbol i boja za karticu termina."""
+    status = getattr(getattr(appt, "status", None), "value", None)
+    if status in {"CANCELLED", "NO_SHOW"}:
+        return "●", "#ef334f"
+    if status == "COMPLETED":
+        return "●", "#7c3aed"
+    if getattr(appt, "arrived_at", None) is not None:
+        return "●", "#1473e6"
+    if getattr(appt, "confirmed_at", None) is not None:
+        return "●", "#149447"
+    return "◷", "#ff8a00"
 
 
 class WeekView(QTableWidget):
@@ -34,16 +68,21 @@ class WeekView(QTableWidget):
     slot_selected = Signal(object)  # datetime početka praznog slota
     appointment_moved = Signal(object)  # Appointment koji je pomjeren
 
-    DAY_NAMES = [
-        "Ponedjeljak", "Utorak", "Srijeda", "Četvrtak",
-        "Petak", "Subota", "Nedjelja",
-    ]
-    DAY_COUNT = 7
+    DAY_NAMES = ["Pon", "Uto", "Sri", "Čet", "Pet", "Sub"]
+    DAY_COUNT = 6
     DAY_START_HOUR = 8
-    DAY_END_HOUR = 18
+    DAY_END_HOUR = 20
     SLOT_MINUTES = 30
 
-    _DOCTOR_PALETTE = ["#A5D6A7", "#EF9A9A", "#90CAF9", "#FFE082", "#CE93D8", "#80DEEA"]
+    _DOCTOR_PALETTE = ["#16a34a", "#f43f5e", "#3b82f6", "#d4a017", "#8b5cf6", "#0891b2"]
+    _DOCTOR_CARD_PALETTE = [
+        ("#ebf8ed", "#9bd5a4", "#174d26"),
+        ("#fff0f2", "#ff9aaa", "#6b1e2c"),
+        ("#edf4ff", "#8ab7ff", "#153b73"),
+        ("#fff8df", "#e8cb67", "#634c00"),
+        ("#f5efff", "#b9a0ef", "#49307d"),
+        ("#e9fbff", "#88d9e8", "#15505d"),
+    ]
 
     def __init__(self, store, week_start: date, parent=None):
         super().__init__(parent)
@@ -64,11 +103,26 @@ class WeekView(QTableWidget):
             self._format_minutes(self.DAY_START_HOUR * 60 + i * self.SLOT_MINUTES)
             for i in range(rows)
         ])
+        self.horizontalHeader().setStretchLastSection(True)
+        for column in range(self.columnCount()):
+            self.horizontalHeader().setSectionResizeMode(
+                column, QHeaderView.ResizeMode.Stretch
+            )
+        self.verticalHeader().setMinimumSectionSize(20)
+        self.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.horizontalHeader().setFixedHeight(46)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored)
+        self.setMinimumHeight(300)
+        self.setWordWrap(True)
 
         self.setDragDropMode(QTableWidget.DragDrop)
         self.setDefaultDropAction(Qt.DropAction.MoveAction)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._open_context_menu)
         self.cellClicked.connect(self._on_cell_clicked)
         self.refresh()
 
@@ -86,6 +140,14 @@ class WeekView(QTableWidget):
     def set_filter(self, doctor_id: int | None) -> None:
         """Prikaži samo termine datog doktora (``None`` = svi doktori)."""
         self._filter_doctor_id = doctor_id
+        self.refresh()
+
+    def set_week_start(self, week_start: date) -> None:
+        self.week_start = week_start
+        self.setHorizontalHeaderLabels([
+            f"{name}\n{(week_start + timedelta(days=i)).strftime('%d.%m.')}"
+            for i, name in enumerate(self.DAY_NAMES)
+        ])
         self.refresh()
 
     # ---- mapiranje slot ↔ vrijeme ----
@@ -151,12 +213,42 @@ class WeekView(QTableWidget):
                 result.setdefault((r, col), []).append(appt)
         return result
 
+    def _fetch_blocks(self) -> list:
+        blocks: list = []
+        for method_name in ("time_off_for_week", "breaks_for_week"):
+            method = getattr(self.store, method_name, None)
+            if callable(method):
+                blocks.extend(method(self.week_start))
+        return blocks
+
+    def _block_cell_span(self, block: Any) -> tuple[tuple[int, int], int] | None:
+        local_start = block.start.astimezone(SARAJEVO)
+        local_end = block.end.astimezone(SARAJEVO)
+        col = (local_start.date() - self.week_start).days
+        if col < 0 or col >= self.DAY_COUNT:
+            return None
+        start_minutes = local_start.hour * 60 + local_start.minute
+        end_minutes = local_end.hour * 60 + local_end.minute
+        first = self.DAY_START_HOUR * 60
+        last = self.DAY_END_HOUR * 60
+        start_minutes = max(start_minutes, first)
+        end_minutes = min(end_minutes, last)
+        if end_minutes <= start_minutes:
+            return None
+        row = max(0, (start_minutes - first) // self.SLOT_MINUTES)
+        span = max(1, math.ceil((end_minutes - start_minutes) / self.SLOT_MINUTES))
+        return (row, col), min(span, self.rowCount() - row)
+
     # ---- prikaz ----
 
     def refresh(self) -> None:
         self.clearSpans()
         for row in range(self.rowCount()):
             for col in range(self.columnCount()):
+                old_widget = self.cellWidget(row, col)
+                self.removeCellWidget(row, col)
+                if old_widget is not None:
+                    old_widget.deleteLater()
                 item = QTableWidgetItem("")
                 item.setFlags(
                     Qt.ItemFlag.ItemIsEnabled
@@ -164,6 +256,30 @@ class WeekView(QTableWidget):
                     | Qt.ItemFlag.ItemIsDropEnabled
                 )
                 self.setItem(row, col, item)
+
+        for block in self._fetch_blocks():
+            if self._filter_doctor_id is not None and block.doctor_id != self._filter_doctor_id:
+                continue
+            span_info = self._block_cell_span(block)
+            if span_info is None:
+                continue
+            (row, col), span = span_info
+            if span > 1:
+                self.setSpan(row, col, span, 1)
+            block_item = self.item(row, col)
+            assert block_item is not None
+            block_item.setText(block.label)
+            block_item.setBackground(QColor("#ffffff"))
+            block_item.setData(_BLOCK_ROLE, True)
+            block_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+            block_card = QLabel(block.label)
+            block_card.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            block_card.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+            block_card.setStyleSheet(
+                "background:#f1f3f5; color:#1f2937; border:1px solid #cfd6dd; "
+                "border-radius:7px; margin:5px 9px; padding:5px; font-weight:600;"
+            )
+            self.setCellWidget(row, col, block_card)
 
         grouped: dict[tuple[int, int], tuple[int, list[AppointmentDTO]]] = {}
         for (row, col), span, appt in self._visible_appointments():
@@ -179,7 +295,9 @@ class WeekView(QTableWidget):
             for appt in appts:
                 doctor = getattr(appt, "doctor_name", None)
                 suffix = f" [{doctor}]" if doctor and self._filter_doctor_id is None else ""
-                lines.append(f"{appt.patient_name} — {appt.service}{suffix}")
+                lines.append(
+                    f"{status_icon(appt)} {appt.patient_name} — {appt.service}{suffix}"
+                )
             cell_item.setText("\n".join(lines))
             cell_item.setFlags(
                 Qt.ItemFlag.ItemIsEnabled
@@ -188,15 +306,65 @@ class WeekView(QTableWidget):
             )
             cell_item.setData(_APPT_ID_ROLE, appts[0].id)
             if len(appts) == 1:
-                color = self._doctor_colors.get(getattr(appts[0], "doctor_id", None))
-                if color is not None:
-                    cell_item.setBackground(color)
+                cell_item.setForeground(QColor(0, 0, 0, 0))
+                doctor_id = getattr(appts[0], "doctor_id", None)
+                doctor_ids = list(self._doctor_colors)
+                color_index = doctor_ids.index(doctor_id) if doctor_id in doctor_ids else 0
+                background, border, text_color = self._DOCTOR_CARD_PALETTE[
+                    color_index % len(self._DOCTOR_CARD_PALETTE)
+                ]
+                appt = appts[0]
+                local_start = appt.start.astimezone(SARAJEVO)
+                local_end = appt.end.astimezone(SARAJEVO)
+                symbol, status_color = _status_visual(appt)
+                doctor = getattr(appt, "doctor_name", None) or "Doktor"
+                card = QLabel(
+                    f"<b>{appt.patient_name}</b><br>"
+                    f"{local_start:%H:%M} – {local_end:%H:%M}<br>"
+                    f"<span style='color:{status_color}'>{symbol}</span>&nbsp; Dr {doctor}"
+                )
+                card.setTextFormat(Qt.TextFormat.RichText)
+                card.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+                card.setStyleSheet(
+                    f"background:{background}; color:{text_color}; border:1px solid {border}; "
+                    "border-radius:7px; margin:5px 9px; padding:5px 9px; font-size:11px;"
+                )
+                self.setCellWidget(row, col, card)
 
     # ---- interakcije ----
 
     def _on_cell_clicked(self, row: int, col: int) -> None:
-        if not self._appointments_by_cell().get((row, col)):
+        item = self.item(row, col)
+        if (
+            not self._appointments_by_cell().get((row, col))
+            and item is not None
+            and not item.data(_BLOCK_ROLE)
+        ):
             self.slot_selected.emit(self._slot_datetime(row, col))
+
+    def mark_appointment_arrived(self, appt_id: int) -> bool:
+        mark = getattr(self.store, "mark_arrived", None)
+        if not callable(mark):
+            return False
+        try:
+            mark(appt_id)
+        except ValueError:
+            return False
+        self.refresh()
+        return True
+
+    def _open_context_menu(self, position: QPoint) -> None:
+        item = self.itemAt(position)
+        if item is None:
+            return
+        appt_id = item.data(_APPT_ID_ROLE)
+        if appt_id is None:
+            return
+        menu = QMenu(self)
+        action = QAction("Označi stiglo", menu)
+        action.triggered.connect(lambda: self.mark_appointment_arrived(appt_id))
+        menu.addAction(action)
+        menu.exec(self.viewport().mapToGlobal(position))
 
     def move_appointment_to_slot(self, appt_id: int, row: int, col: int) -> bool:
         appt = self.store.get(appt_id)

@@ -19,7 +19,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from dentaland.models import Appointment, AppointmentStatus, Service
+from dentaland.models import Appointment, AppointmentStatus, Service, utcnow
 
 
 class RequestNotFoundError(Exception):
@@ -103,6 +103,7 @@ def confirm_request(
         appt.start_time = start_time
         appt.end_time = end_time
         appt.status = AppointmentStatus.SCHEDULED
+        appt.confirmed_at = utcnow()
         session.commit()
 
 

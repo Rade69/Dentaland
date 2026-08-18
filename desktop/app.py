@@ -20,7 +20,8 @@ def main() -> int:
     app = QApplication(sys.argv)
     service = AppointmentService.from_sqlite("dentaland.db")
     window = MainWindow(service)
-    window.show()
+    # Maksimizovan prozor koristi radnu površinu iznad Windows taskbara.
+    window.showMaximized()
     return app.exec()
 
 
