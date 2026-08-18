@@ -259,6 +259,8 @@ orijentir rasporeda i ne propisuje medicinsko trajanje pregleda. Stvarno
 trajanje određuje doktor; kartica prikazuje sačuvano početno i završno vrijeme.
 Postojeći kraći termini ostaju vidljivi u satnoj ćeliji u kojoj počinju, a
 termini koji prelaze granicu sata obuhvataju sve pogođene satne redove.
+Kartica termina do jednog sata koristi kompaktan dvoredni prikaz kako puni
+vremenski raspon ne bi bio odsječen na donjoj ivici satne rubrike.
 
 ## allowed_paths (PROŠIRENO u odnosu na prvobitnu verziju)
 
@@ -319,6 +321,8 @@ jer se stanje mijenja).
   `No-show`.
 - Raspored od 08:00 do 20:00 ima 12 satnih redova, bez odvojene polusatne
   ćelije za unos.
+- Kartica termina do jednog sata prikazuje puni vremenski raspon bez
+  odsijecanja.
 - Lijeva vremenska skala prikazuje neodsječene pune sate u zaglavlju širine
   najmanje 60 px.
 - Nijedan tekst ni poslovno pravilo ne tvrdi da prvi pregled traje 30, 60 ili

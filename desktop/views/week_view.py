@@ -329,7 +329,7 @@ class WeekView(QTableWidget):
                 symbol, status_color = _status_visual(appt)
                 doctor = getattr(appt, "doctor_name", None) or "Doktor"
                 duration_minutes = (appt.end - appt.start).total_seconds() / 60
-                compact = duration_minutes < self.SLOT_MINUTES
+                compact = duration_minutes <= self.SLOT_MINUTES
                 if compact:
                     card_text = (
                         f"<b>{appt.patient_name}</b><br>"
