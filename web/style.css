@@ -242,6 +242,7 @@ h1 {
   min-height: 558px;
   padding: 18px 20px 16px;
   box-shadow: 0 1px 2px rgba(16, 33, 63, 0.02);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .card-heading {
@@ -643,6 +644,30 @@ h1 {
 .confirmation-hero {
   text-align: center;
   padding: 4px 0 12px;
+}
+
+/* Na desktopu su sve tri kolone već vidljive, pa prelazak na korak 3 bez
+   ovoga prolazi skoro neprimjetno (samo suptilna promjena ivice kartice) —
+   korisnik nema jasan znak da je zahtjev zaista poslan. */
+@media (prefers-reduced-motion: no-preference) {
+  .confirmation-card.current-step .confirmation-hero {
+    animation: confirmation-pop 0.45s ease-out;
+  }
+}
+
+@keyframes confirmation-pop {
+  0% {
+    transform: scale(0.92);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .message-icon {

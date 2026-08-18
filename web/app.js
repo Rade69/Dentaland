@@ -266,6 +266,14 @@ form.addEventListener("submit", async (event) => {
   try {
     await submitBookingRequest();
     setStep(3);
+    // Uvijek skroluj na potvrdu (ne samo na mobilnom) — na desktopu su sve
+    // tri kolone već vidljive, pa je promjena inače lako neprimjetna (samo
+    // suptilna ivica treće kartice) i korisnik ne dobija jasan znak da je
+    // zahtjev zaista poslan.
+    document.querySelector('[data-step-card="3"]').scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   } catch (error) {
     showSubmitError(error instanceof Error ? error.message : "Zahtjev nije uspio.");
   } finally {
