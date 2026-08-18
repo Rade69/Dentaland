@@ -229,6 +229,24 @@ raspored od 08:00 do 20:00 ima 12 redova. Satni red nije tvrdnja o trajanju
 pregleda: kartica prikazuje stvarni sačuvani vremenski raspon, a trajanje
 određuje doktor. Ne postoji pravilo „prvi pregled traje 30 minuta“.
 
+**Follow-up review (Claude, 18.8.2026) — PASS.** Nezavisno provjereno:
+`SLOT_MINUTES` (stvarna granularnost grida) je NEPROMIJENJEN — samo je
+prikaz vremenske oznake u zaglavlju smanjen na svaki drugi red (puni
+sat, `i % 2 == 0`) uz širi (64px), desno poravnat stubac oznaka, i
+kartica termina sad ima dva vizuelna režima: kompaktan dvoredni prikaz
+za termine ≤ `SLOT_MINUTES`, detaljan troredni za duže. Ovo je čisto
+prezentaciona izmjena, ne dira logiku trajanja/preklapanja termina —
+potvrđeno čitanjem diffa (nema izmjene u `_check_overlap`/`_to_dto`/
+`SLOT_MINUTES` definiciji). Ispravka teksta u evidence/kontrakt fajlu
+(uklonjena netačna tvrdnja o "60 minuta podrazumijevano") je ispravna
+samoispravka — takvo pravilo nikad nije odlučeno, dobro da nije ostalo
+upisano kao činjenica.
+
+`pytest tests/ -q` → **108 passed**, `ruff check src/dentaland desktop
+tests` → PASS, `mypy src/dentaland desktop` → **7 grešaka** (isti
+baseline, nula novih), `grep -ri sqlalchemy desktop/views/*.py` →
+prazno. Nema regresije.
+
 ## Odbačene opcije
 
 - Nije napravljen novi kalendarski grid: proširen je postojeći `WeekView` i
