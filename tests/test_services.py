@@ -229,6 +229,26 @@ def test_mark_arrived_nepostojeci_id(appointment_service: AppointmentService) ->
         appointment_service.mark_arrived(999)
 
 
+def test_mark_confirmed_uspjeh(appointment_service: AppointmentService) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    confirmed = appointment_service.mark_confirmed(dto.id)
+    assert confirmed.confirmed_at is not None
+
+
+def test_mark_confirmed_uklanja_iz_cekaju_potvrdu(
+    appointment_service: AppointmentService,
+) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    assert [row.id for row in appointment_service.awaiting_confirmation()] == [dto.id]
+    appointment_service.mark_confirmed(dto.id)
+    assert appointment_service.awaiting_confirmation() == []
+
+
+def test_mark_confirmed_nepostojeci_id(appointment_service: AppointmentService) -> None:
+    with pytest.raises(ValueError, match="nije pronađen"):
+        appointment_service.mark_confirmed(999)
+
+
 def test_odvojeni_upiti_cekaju_i_otkazani(
     session_factory: sessionmaker[Session], appointment_service: AppointmentService
 ) -> None:

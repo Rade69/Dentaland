@@ -126,7 +126,7 @@ class DashboardPanels(QScrollArea):
         awaiting = self._call("awaiting_confirmation")
         cancelled = self._call("cancelled_today")
         self._fill_pending(pending)
-        self._fill_appointments(self.awaiting_box, "Čekaju potvrdu", awaiting)
+        self._fill_appointments(self.awaiting_box, "Čekaju potvrdu", awaiting, confirmable=True)
         self._fill_appointments(self.cancelled_box, "Otkazani danas", cancelled)
 
     def _call(self, name: str) -> list:
@@ -180,7 +180,9 @@ class DashboardPanels(QScrollArea):
             row_layout.addLayout(actions)
             layout.addWidget(row)
 
-    def _fill_appointments(self, box: QGroupBox, title: str, rows: list) -> None:
+    def _fill_appointments(
+        self, box: QGroupBox, title: str, rows: list, *, confirmable: bool = False
+    ) -> None:
         box.setTitle(f"{title} ({len(rows)})")
         layout = self._replace_layout(box)
         if not rows:
@@ -188,12 +190,29 @@ class DashboardPanels(QScrollArea):
             return
         for appt in rows:
             local = appt.start.astimezone(ZoneInfo("Europe/Sarajevo"))
-            item = QLabel(
+            row = QWidget()
+            row.setObjectName("dashboardListItem")
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setSpacing(5)
+            details = QLabel(
                 f"<b>{appt.patient_name}</b><br>"
                 f"<span style='color:#31578a'>{local:%d.%m. u %H:%M} · {appt.service}</span>"
             )
-            item.setObjectName("dashboardListItem")
-            layout.addWidget(item)
+            row_layout.addWidget(details, 1)
+            if confirmable:
+                confirm = QPushButton("Potvrdi")
+                confirm.setObjectName("confirmButton")
+                confirm.clicked.connect(
+                    lambda _checked=False, item=appt: self._confirm_scheduled(item.id)
+                )
+                row_layout.addWidget(confirm)
+            layout.addWidget(row)
+
+    def _confirm_scheduled(self, appt_id: int) -> None:
+        self.store.mark_confirmed(appt_id)
+        self.refresh()
+        self.changed.emit()
 
     def _confirm(self, request: Any) -> None:
         doctors = self._call("doctors")

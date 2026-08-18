@@ -34,7 +34,7 @@ from desktop.views.appointment_dialog import AppointmentDialog
 from desktop.views.requests_panel import DashboardPanels
 from desktop.views.sidebar import Sidebar, svg_icon
 from desktop.views.stub_page import StubPage
-from desktop.views.week_view import WeekView
+from desktop.views.week_view import STATUS_META, STATUS_ORDER, WeekView
 
 DEFAULT_MANUAL_DURATION_MINUTES = 60
 
@@ -185,14 +185,12 @@ class MainWindow(QMainWindow):
         calendar_column = QVBoxLayout()
         calendar_column.setSpacing(10)
         calendar_column.addWidget(self.week_view, 1)
-        self.status_legend = QLabel(
-            "<span style='color:#149447'>●</span>&nbsp; Potvrđen"
-            "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#ff8a00'>◷</span>&nbsp; Čeka potvrdu"
-            "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#1473e6'>♙</span>&nbsp; Stigao"
-            "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#7c3aed'>●</span>&nbsp; Završen"
-            "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#ef334f'>●</span>&nbsp; "
-            "Otkazan / Nije došao"
+        legend_html = "&nbsp;&nbsp;&nbsp;&nbsp;".join(
+            f"<span style='color:{STATUS_META[key][1]}; font-size:14px; "
+            f"font-weight:700'>{STATUS_META[key][0]}</span>&nbsp; {STATUS_META[key][2]}"
+            for key in STATUS_ORDER
         )
+        self.status_legend = QLabel(legend_html)
         self.status_legend.setObjectName("statusLegend")
         self.status_legend.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_legend.setSizePolicy(

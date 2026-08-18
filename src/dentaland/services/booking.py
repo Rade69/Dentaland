@@ -216,6 +216,23 @@ class AppointmentService:
             session.commit()
             return self._to_dto(appt, self._service_name(appt))
 
+    def mark_confirmed(self, appt_id: int) -> AppointmentDTO:
+        """Označi ručno unesen termin kao potvrđen (npr. nakon poziva pacijentu).
+
+        Odvojeno od ``confirm_request`` (DENT-007) — ovo je za termine koje je
+        osoblje unijelo direktno u kalendar (bez web zahtjeva), pa ``confirmed_at``
+        nikad nije postavljen pri kreiranju (vidi ``create()``).
+        """
+        with self._session_factory() as session:
+            appt = session.get(Appointment, appt_id)
+            if appt is None:
+                raise ValueError(f"termin {appt_id} nije pronađen")
+            if appt.status != AppointmentStatus.SCHEDULED:
+                raise ValueError("samo zakazan termin može biti označen kao potvrđen")
+            appt.confirmed_at = utcnow()
+            session.commit()
+            return self._to_dto(appt, self._service_name(appt))
+
     def awaiting_confirmation(self) -> list[AppointmentDTO]:
         with self._session_factory() as session:
             rows = session.scalars(

@@ -34,32 +34,41 @@ _APPT_ID_ROLE = Qt.ItemDataRole.UserRole
 _BLOCK_ROLE = Qt.ItemDataRole.UserRole + 1
 
 
-def status_icon(appt: AppointmentDTO) -> str:
-    """Čisto prezentaciono mapiranje statusnih podataka na ikonicu."""
+# Jedan izvor istine za status simbol/boju/naziv — dijele ga legenda
+# (main_window.py), kartica jednog termina i tekstualna lista više termina
+# u istoj ćeliji, da simboli nikad ne izgube sinhronizaciju.
+STATUS_META: dict[str, tuple[str, str, str]] = {
+    "confirmed": ("✓", "#149447", "Potvrđen"),
+    "waiting": ("🕐", "#ff8a00", "Čeka potvrdu"),
+    "arrived": ("👤", "#1473e6", "Stigao"),
+    "completed": ("💜", "#7c3aed", "Završen"),
+    "cancelled": ("✗", "#ef334f", "Otkazan / Nije došao"),
+}
+STATUS_ORDER = ["confirmed", "waiting", "arrived", "completed", "cancelled"]
+
+
+def _status_key(appt: AppointmentDTO) -> str:
     status = getattr(getattr(appt, "status", None), "value", None)
     if status in {"CANCELLED", "NO_SHOW"}:
-        return "✗"
+        return "cancelled"
     if status == "COMPLETED":
-        return "💜"
+        return "completed"
     if getattr(appt, "arrived_at", None) is not None:
-        return "👤"
+        return "arrived"
     if getattr(appt, "confirmed_at", None) is not None:
-        return "✓"
-    return "🕐"
+        return "confirmed"
+    return "waiting"
+
+
+def status_icon(appt: AppointmentDTO) -> str:
+    """Čisto prezentaciono mapiranje statusnih podataka na ikonicu."""
+    return STATUS_META[_status_key(appt)][0]
 
 
 def _status_visual(appt: AppointmentDTO) -> tuple[str, str]:
-    """Kompaktan simbol i boja za karticu termina."""
-    status = getattr(getattr(appt, "status", None), "value", None)
-    if status in {"CANCELLED", "NO_SHOW"}:
-        return "●", "#ef334f"
-    if status == "COMPLETED":
-        return "●", "#7c3aed"
-    if getattr(appt, "arrived_at", None) is not None:
-        return "●", "#1473e6"
-    if getattr(appt, "confirmed_at", None) is not None:
-        return "●", "#149447"
-    return "◷", "#ff8a00"
+    """Simbol i boja za karticu termina — isti izvor kao ``status_icon``."""
+    symbol, color, _label = STATUS_META[_status_key(appt)]
+    return symbol, color
 
 
 class WeekView(QTableWidget):
@@ -357,25 +366,29 @@ class WeekView(QTableWidget):
                         f"<b>{appt.patient_name}</b><br>"
                         f"<span style='font-size:9px'>{local_start:%H:%M} – "
                         f"{local_end:%H:%M}&nbsp; "
-                        f"<span style='color:{status_color}'>{symbol}</span>"
+                        f"<span style='color:{status_color}; font-size:13px; "
+                        f"font-weight:700'>{symbol}</span>"
                         f"&nbsp; Dr {doctor}</span>"
                     )
                     card_style = (
                         f"background:{background}; color:{text_color}; "
-                        f"border:1px solid {border}; border-radius:5px; "
-                        "margin:1px 3px; padding:0 5px; font-size:10px;"
+                        f"border:1px solid {border}; "
+                        f"border-left:4px solid {status_color}; border-radius:5px; "
+                        "margin:1px 3px; padding:0 5px 0 6px; font-size:10px;"
                     )
                 else:
                     card_text = (
                         f"<b>{appt.patient_name}</b><br>"
                         f"{local_start:%H:%M} – {local_end:%H:%M}<br>"
-                        f"<span style='color:{status_color}'>{symbol}</span>"
+                        f"<span style='color:{status_color}; font-size:14px; "
+                        f"font-weight:700'>{symbol}</span>"
                         f"&nbsp; Dr {doctor}"
                     )
                     card_style = (
                         f"background:{background}; color:{text_color}; "
-                        f"border:1px solid {border}; border-radius:7px; "
-                        "margin:4px 7px; padding:4px 7px; font-size:11px;"
+                        f"border:1px solid {border}; "
+                        f"border-left:4px solid {status_color}; border-radius:7px; "
+                        "margin:4px 7px; padding:4px 7px 4px 8px; font-size:11px;"
                     )
                 card = QLabel(card_text)
                 card.setTextFormat(Qt.TextFormat.RichText)
