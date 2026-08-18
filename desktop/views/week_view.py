@@ -72,7 +72,7 @@ class WeekView(QTableWidget):
     DAY_COUNT = 6
     DAY_START_HOUR = 8
     DAY_END_HOUR = 20
-    SLOT_MINUTES = 30
+    SLOT_MINUTES = 60
 
     _DOCTOR_PALETTE = ["#16a34a", "#f43f5e", "#3b82f6", "#d4a017", "#8b5cf6", "#0891b2"]
     _DOCTOR_CARD_PALETTE = [
@@ -101,7 +101,6 @@ class WeekView(QTableWidget):
         ])
         self.setVerticalHeaderLabels([
             self._format_minutes(self.DAY_START_HOUR * 60 + i * self.SLOT_MINUTES)
-            if i % 2 == 0 else ""
             for i in range(rows)
         ])
         self.horizontalHeader().setStretchLastSection(True)
@@ -179,7 +178,7 @@ class WeekView(QTableWidget):
             return None
         minutes = local.hour * 60 + local.minute
         offset = minutes - self.DAY_START_HOUR * 60
-        if offset < 0 or offset % self.SLOT_MINUTES != 0:
+        if offset < 0:
             return None
         row = offset // self.SLOT_MINUTES
         if row >= self.rowCount():
@@ -191,8 +190,11 @@ class WeekView(QTableWidget):
         if cell is None:
             return None
         row, col = cell
+        local = appt.start.astimezone(SARAJEVO)
         duration_minutes = (appt.end - appt.start).total_seconds() / 60
-        span = int(math.ceil(duration_minutes / self.SLOT_MINUTES))
+        start_minutes = local.hour * 60 + local.minute
+        offset_in_slot = (start_minutes - self.DAY_START_HOUR * 60) % self.SLOT_MINUTES
+        span = int(math.ceil((offset_in_slot + duration_minutes) / self.SLOT_MINUTES))
         span = max(span, 1)
         return (row, col), min(span, self.rowCount() - row)
 
@@ -327,7 +329,7 @@ class WeekView(QTableWidget):
                 symbol, status_color = _status_visual(appt)
                 doctor = getattr(appt, "doctor_name", None) or "Doktor"
                 duration_minutes = (appt.end - appt.start).total_seconds() / 60
-                compact = duration_minutes <= self.SLOT_MINUTES
+                compact = duration_minutes < self.SLOT_MINUTES
                 if compact:
                     card_text = (
                         f"<b>{appt.patient_name}</b><br>"

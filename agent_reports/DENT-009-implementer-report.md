@@ -190,7 +190,7 @@ marginskim i unutrašnjim razmakom unutar jednog reda od 30 minuta. Kartica od
 jednog slota sada koristi kompaktan dvoredni prikaz: ime pacijenta u prvom redu,
 a puni vremenski raspon, status i doktor u drugom; kartice od 60+ minuta
 zadržavaju detaljni troredni prikaz. Vremenska skala i dalje ima funkcionalne
-polusatne redove, ali tekst prikazuje samo na pune sate, uz zaglavlje širine
+polusatne redove, ali tekst prikazuje samo uz pune sate, uz zaglavlje širine
 64 px i desno poravnanje, pa oznake više nisu zbijene niti odsječene. Testovi
 provjeravaju sadržaj i geometriju oba režima te oznake vremenske skale.
 `pytest tests -q` → **108 passed**; `ruff check src/dentaland desktop tests` →
