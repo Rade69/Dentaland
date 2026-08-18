@@ -39,6 +39,29 @@ def test_klik_na_prazan_slot_emituje_vrijeme(week_view: WeekView) -> None:
     assert emitted == [datetime(2026, 8, 17, 8, 0, tzinfo=SARAJEVO)]
 
 
+def test_klik_u_gornju_polovinu_celije_bira_pun_sat(week_view: WeekView) -> None:
+    """Vizuelni red je pun sat, ali klik i dalje bira granularnost od pola sata."""
+    top = week_view.rowViewportPosition(0)
+    assert week_view._half_slot_minutes_at(top + 1, 0) == 0
+
+
+def test_klik_u_donju_polovinu_celije_bira_pola_sata(week_view: WeekView) -> None:
+    top = week_view.rowViewportPosition(0)
+    height = week_view.rowHeight(0)
+    assert week_view._half_slot_minutes_at(top + height - 1, 0) == 30
+
+
+def test_klik_donja_polovina_emituje_vrijeme_na_pola_sata(week_view: WeekView) -> None:
+    top = week_view.rowViewportPosition(0)
+    height = week_view.rowHeight(0)
+    week_view._pending_click_minutes = week_view._half_slot_minutes_at(top + height - 1, 0)
+
+    emitted: list[datetime] = []
+    week_view.slot_selected.connect(emitted.append)
+    week_view.cellClicked.emit(0, 0)  # ponedjeljak, donja polovina 08:00 reda
+    assert emitted == [datetime(2026, 8, 17, 8, 30, tzinfo=SARAJEVO)]
+
+
 def test_prevlacenje_termina_azurira_vrijeme(store: FakeStore, week_view: WeekView) -> None:
     appt = store.create(
         "Ana Anić", "061/111-222", "ana@example.com", "Kontrola", "",

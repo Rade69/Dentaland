@@ -84,6 +84,10 @@ class WeekView(QTableWidget):
         ("#e9fbff", "#88d9e8", "#15505d"),
     ]
 
+    # Vizuelni red je pun sat (SLOT_MINUTES), ali klik i dalje bira
+    # pola sata — gornja/donja polovina ćelije određuje :00 ili :30.
+    CLICK_MINUTES = 30
+
     def __init__(self, store, week_start: date, parent=None):
         super().__init__(parent)
         self.store = store
@@ -91,6 +95,7 @@ class WeekView(QTableWidget):
         self._drag_appt_id: int | None = None
         self._filter_doctor_id: int | None = None
         self._doctor_colors = self._build_doctor_colors()
+        self._pending_click_minutes = 0
 
         rows = int((self.DAY_END_HOUR - self.DAY_START_HOUR) * 60 / self.SLOT_MINUTES)
         self.setRowCount(rows)
@@ -163,9 +168,26 @@ class WeekView(QTableWidget):
     def _format_minutes(minutes: int) -> str:
         return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
-    def _slot_datetime(self, row: int, col: int) -> datetime:
+    def _half_slot_minutes_at(self, y: int, row: int) -> int:
+        """Gornja/donja polovina ćelije reda -> 0 ili CLICK_MINUTES.
+
+        Vizuelni red i dalje predstavlja pun sat (SLOT_MINUTES), ali klik
+        bira finiju granularnost (CLICK_MINUTES) na osnovu toga gdje
+        unutar ćelije korisnik klikne — gornja polovina je puni sat,
+        donja polovina je pola sata kasnije.
+        """
+        row_top = self.rowViewportPosition(row)
+        row_height = self.rowHeight(row)
+        if row_height <= 0:
+            return 0
+        fraction = (y - row_top) / row_height
+        steps_per_row = max(int(self.SLOT_MINUTES // self.CLICK_MINUTES), 1)
+        step = min(int(fraction * steps_per_row), steps_per_row - 1)
+        return max(step, 0) * self.CLICK_MINUTES
+
+    def _slot_datetime(self, row: int, col: int, extra_minutes: int = 0) -> datetime:
         day = self.week_start + timedelta(days=col)
-        minutes = self.DAY_START_HOUR * 60 + row * self.SLOT_MINUTES
+        minutes = self.DAY_START_HOUR * 60 + row * self.SLOT_MINUTES + extra_minutes
         return datetime(
             day.year, day.month, day.day,
             minutes // 60, minutes % 60, tzinfo=SARAJEVO,
@@ -375,7 +397,7 @@ class WeekView(QTableWidget):
             and item is not None
             and not item.data(_BLOCK_ROLE)
         ):
-            self.slot_selected.emit(self._slot_datetime(row, col))
+            self.slot_selected.emit(self._slot_datetime(row, col, self._pending_click_minutes))
 
     def mark_appointment_arrived(self, appt_id: int) -> bool:
         mark = getattr(self.store, "mark_arrived", None)
@@ -422,10 +444,12 @@ class WeekView(QTableWidget):
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
-            row = self.rowAt(event.position().toPoint().y())
+            y = event.position().toPoint().y()
+            row = self.rowAt(y)
             col = self.columnAt(event.position().toPoint().x())
             appts = self._appointments_by_cell().get((row, col), [])
             self._drag_appt_id = appts[0].id if appts else None
+            self._pending_click_minutes = self._half_slot_minutes_at(y, row) if row >= 0 else 0
         super().mousePressEvent(event)
 
     def dropEvent(self, event) -> None:
