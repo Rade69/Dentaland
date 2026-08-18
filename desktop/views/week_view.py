@@ -72,7 +72,7 @@ class WeekView(QTableWidget):
     DAY_COUNT = 6
     DAY_START_HOUR = 8
     DAY_END_HOUR = 20
-    SLOT_MINUTES = 30
+    SLOT_MINUTES = 60
 
     _DOCTOR_PALETTE = ["#16a34a", "#f43f5e", "#3b82f6", "#d4a017", "#8b5cf6", "#0891b2"]
     _DOCTOR_CARD_PALETTE = [
@@ -110,6 +110,13 @@ class WeekView(QTableWidget):
             )
         self.verticalHeader().setMinimumSectionSize(20)
         self.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.verticalHeader().setFixedWidth(64)
+        self.verticalHeader().setDefaultAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        self.verticalHeader().setStyleSheet(
+            "QHeaderView::section { padding: 0 8px 0 2px; }"
+        )
         self.horizontalHeader().setFixedHeight(46)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -171,7 +178,7 @@ class WeekView(QTableWidget):
             return None
         minutes = local.hour * 60 + local.minute
         offset = minutes - self.DAY_START_HOUR * 60
-        if offset < 0 or offset % self.SLOT_MINUTES != 0:
+        if offset < 0:
             return None
         row = offset // self.SLOT_MINUTES
         if row >= self.rowCount():
@@ -183,8 +190,11 @@ class WeekView(QTableWidget):
         if cell is None:
             return None
         row, col = cell
+        local = appt.start.astimezone(SARAJEVO)
         duration_minutes = (appt.end - appt.start).total_seconds() / 60
-        span = int(math.ceil(duration_minutes / self.SLOT_MINUTES))
+        start_minutes = local.hour * 60 + local.minute
+        offset_in_slot = (start_minutes - self.DAY_START_HOUR * 60) % self.SLOT_MINUTES
+        span = int(math.ceil((offset_in_slot + duration_minutes) / self.SLOT_MINUTES))
         span = max(span, 1)
         return (row, col), min(span, self.rowCount() - row)
 
@@ -318,17 +328,42 @@ class WeekView(QTableWidget):
                 local_end = appt.end.astimezone(SARAJEVO)
                 symbol, status_color = _status_visual(appt)
                 doctor = getattr(appt, "doctor_name", None) or "Doktor"
-                card = QLabel(
-                    f"<b>{appt.patient_name}</b><br>"
-                    f"{local_start:%H:%M} – {local_end:%H:%M}<br>"
-                    f"<span style='color:{status_color}'>{symbol}</span>&nbsp; Dr {doctor}"
-                )
+                duration_minutes = (appt.end - appt.start).total_seconds() / 60
+                compact = duration_minutes < self.SLOT_MINUTES
+                if compact:
+                    card_text = (
+                        f"<b>{appt.patient_name}</b><br>"
+                        f"<span style='font-size:9px'>{local_start:%H:%M} – "
+                        f"{local_end:%H:%M}&nbsp; "
+                        f"<span style='color:{status_color}'>{symbol}</span>"
+                        f"&nbsp; Dr {doctor}</span>"
+                    )
+                    card_style = (
+                        f"background:{background}; color:{text_color}; "
+                        f"border:1px solid {border}; border-radius:5px; "
+                        "margin:1px 3px; padding:0 5px; font-size:10px;"
+                    )
+                else:
+                    card_text = (
+                        f"<b>{appt.patient_name}</b><br>"
+                        f"{local_start:%H:%M} – {local_end:%H:%M}<br>"
+                        f"<span style='color:{status_color}'>{symbol}</span>"
+                        f"&nbsp; Dr {doctor}"
+                    )
+                    card_style = (
+                        f"background:{background}; color:{text_color}; "
+                        f"border:1px solid {border}; border-radius:7px; "
+                        "margin:4px 7px; padding:4px 7px; font-size:11px;"
+                    )
+                card = QLabel(card_text)
                 card.setTextFormat(Qt.TextFormat.RichText)
-                card.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-                card.setStyleSheet(
-                    f"background:{background}; color:{text_color}; border:1px solid {border}; "
-                    "border-radius:7px; margin:5px 9px; padding:5px 9px; font-size:11px;"
+                card.setAlignment(
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
                 )
+                card.setWordWrap(False)
+                card.setProperty("compact", compact)
+                card.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+                card.setStyleSheet(card_style)
                 self.setCellWidget(row, col, card)
 
     # ---- interakcije ----

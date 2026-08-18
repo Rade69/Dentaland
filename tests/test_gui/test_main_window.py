@@ -168,3 +168,6 @@ def test_klik_na_slot_otvara_dijalog_i_dodaje_termin(qtbot, store, week_start, m
     assert len(appts) == 1
     assert appts[0].patient_name == "Ana Anić"
     assert appts[0].start == start
+    assert appts[0].end == start + timedelta(hours=1)
+    assert win.week_view.rowSpan(0, 0) == 1
+    assert win.week_view.rowCount() == 12

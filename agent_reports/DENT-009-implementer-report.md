@@ -184,6 +184,20 @@ Korisnički tekst „Otkazan / No-show“ zamijenjen je sa „Otkazan / Nije do�
 interni `NO_SHOW` enum nije mijenjan. GUI test eksplicitno provjerava prevedeni
 tekst i odsustvo engleske oznake.
 
+**Follow-up implementacija (Codex, 18.8.2026) — čitljivost kartice termina.**
+Uzrok nečitkog prikaza nakon zakazivanja bio je sadržaj sa prevelikim marginama
+i unutrašnjim razmakom u niskoj kartici. Kraći termin sada koristi kompaktan
+dvoredni prikaz: ime pacijenta u prvom redu, a puni vremenski raspon, status i
+doktor u drugom; duži termini zadržavaju detaljni prikaz. Vremenska skala ima
+12 satnih redova, uz zaglavlje širine 64 px i desno poravnanje, pa oznake više
+nisu zbijene niti odsječene. Testovi provjeravaju sadržaj i geometriju oba
+režima te oznake vremenske skale.
+`pytest tests -q` → **108 passed**; `ruff check src/dentaland desktop tests` →
+PASS. GitNexus je
+centralni `WeekView.refresh()` označio kao CRITICAL blast-radius (13 direktnih
+pozivalaca), zbog čega je izvršen puni test paket. Korekcija čeka kratki
+follow-up review.
+
 **Follow-up review (Claude, 18.8.2026) — PASS.** Oba naknadna commit-a
 nezavisno provjerena:
 
@@ -206,12 +220,36 @@ desktop/views/*.py` → prazno. Nema regresije.
 
 ## Integration status
 
+**Follow-up implementacija (Codex, 18.8.2026) — satne ćelije.** Prva
+interpretacija screenshota bila je pogrešna: mreža je ostala podijeljena na
+dvije polusatne ćelije. Ispravka sada postavlja satne vizuelne redove, pa
+raspored od 08:00 do 20:00 ima 12 redova. Satni red nije tvrdnja o trajanju
+pregleda: kartica prikazuje stvarni sačuvani vremenski raspon, a trajanje
+određuje doktor. Ne postoji pravilo „prvi pregled traje 30 minuta“.
+
+**Follow-up review (Claude, 18.8.2026) — PASS.** Nezavisno provjereno:
+`SLOT_MINUTES` (stvarna granularnost grida) je NEPROMIJENJEN — samo je
+prikaz vremenske oznake u zaglavlju smanjen na svaki drugi red (puni
+sat, `i % 2 == 0`) uz širi (64px), desno poravnat stubac oznaka, i
+kartica termina sad ima dva vizuelna režima: kompaktan dvoredni prikaz
+za termine ≤ `SLOT_MINUTES`, detaljan troredni za duže. Ovo je čisto
+prezentaciona izmjena, ne dira logiku trajanja/preklapanja termina —
+potvrđeno čitanjem diffa (nema izmjene u `_check_overlap`/`_to_dto`/
+`SLOT_MINUTES` definiciji). Ispravka teksta u evidence/kontrakt fajlu
+(uklonjena netačna tvrdnja o "60 minuta podrazumijevano") je ispravna
+samoispravka — takvo pravilo nikad nije odlučeno, dobro da nije ostalo
+upisano kao činjenica.
+
+`pytest tests/ -q` → **108 passed**, `ruff check src/dentaland desktop
+tests` → PASS, `mypy src/dentaland desktop` → **7 grešaka** (isti
+baseline, nula novih), `grep -ri sqlalchemy desktop/views/*.py` →
+prazno. Nema regresije.
+
 MERGED → INTEGRATION_VERIFIED → DONE. Prvobitna implementacija
-mergovana (107 passed poslije merge-a); follow-up (poravnanje desne
-kolone + srpski prevod statusa) nezavisno pregledan (PASS) i mergovan
-naknadno. Post-merge integration gate poslije follow-up merge-a: 108
-passed, ruff čist, mypy baseline nepromijenjen (7/7), nula SQLAlchemy
-importa u desktop/views/.
+mergovana (107 passed); follow-up "poravnanje desne kolone + srpski
+prevod statusa" mergovan naknadno (108 passed); follow-up "čitljivost
+kartica + satni red kalendara" mergovan naknadno — pun post-merge test
+suite ispod.
 
 ## Odbačene opcije
 

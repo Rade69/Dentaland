@@ -251,6 +251,15 @@ kroz naslov.
 Korisnički vidljiva oznaka `No-show` u statusnoj legendi prevodi se na srpski
 kao „Nije došao“. Interni enum `NO_SHOW` ostaje nepromijenjen.
 
+## Satne ćelije rasporeda — korekcija 18.8.2026.
+
+Svaki red mreže predstavlja jedan puni sat: 08:00, 09:00, 10:00 itd. Ne postoje
+dvije odvojene polusatne ćelije unutar istog sata. Satni red je samo vizuelni
+orijentir rasporeda i ne propisuje medicinsko trajanje pregleda. Stvarno
+trajanje određuje doktor; kartica prikazuje sačuvano početno i završno vrijeme.
+Postojeći kraći termini ostaju vidljivi u satnoj ćeliji u kojoj počinju, a
+termini koji prelaze granicu sata obuhvataju sve pogođene satne redove.
+
 ## allowed_paths (PROŠIRENO u odnosu na prvobitnu verziju)
 
 ```yaml
@@ -308,6 +317,12 @@ jer se stanje mijenja).
   kartice je čitljiv iznad obruba bez linije kroz tekst.
 - Statusna legenda prikazuje „Otkazan / Nije došao“ i ne sadrži engleski izraz
   `No-show`.
+- Raspored od 08:00 do 20:00 ima 12 satnih redova, bez odvojene polusatne
+  ćelije za unos.
+- Lijeva vremenska skala prikazuje neodsječene pune sate u zaglavlju širine
+  najmanje 60 px.
+- Nijedan tekst ni poslovno pravilo ne tvrdi da prvi pregled traje 30, 60 ili
+  drugi fiksni broj minuta; satni red je samo vizuelni orijentir.
 - "Čekaju potvrdu" i "Otkazani danas" koriste ispravan, različit upit
   (ne isti kao "Novi zahtjevi").
 - Sve preostale `OUT_OF_SCOPE_FINDING` stavke iz ovog kontrakta (Paralelno

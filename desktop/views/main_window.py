@@ -23,12 +23,14 @@ from PySide6.QtWidgets import (
 )
 
 from dentaland.services import OverlapError
-from desktop.fake_data import DEFAULT_DURATION_MINUTES, SARAJEVO
+from desktop.fake_data import SARAJEVO
 from desktop.views.appointment_dialog import AppointmentDialog
 from desktop.views.requests_panel import DashboardPanels
 from desktop.views.sidebar import Sidebar, svg_icon
 from desktop.views.stub_page import StubPage
 from desktop.views.week_view import WeekView
+
+DEFAULT_MANUAL_DURATION_MINUTES = 60
 
 
 class MainWindow(QMainWindow):
@@ -497,7 +499,7 @@ class MainWindow(QMainWindow):
                     service=data["service"],
                     note=data["note"],
                     start=start,
-                    end=start + timedelta(minutes=DEFAULT_DURATION_MINUTES),
+                    end=start + timedelta(minutes=DEFAULT_MANUAL_DURATION_MINUTES),
                 )
             except OverlapError as exc:
                 self.statusBar().showMessage(str(exc), 5000)
