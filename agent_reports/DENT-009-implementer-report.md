@@ -248,8 +248,10 @@ prazno. Nema regresije.
 MERGED → INTEGRATION_VERIFIED → DONE. Prvobitna implementacija
 mergovana (107 passed); follow-up "poravnanje desne kolone + srpski
 prevod statusa" mergovan naknadno (108 passed); follow-up "čitljivost
-kartica + satni red kalendara" mergovan naknadno — pun post-merge test
-suite ispod.
+kartica + satni red kalendara" mergovan naknadno. Post-merge
+integration gate poslije zadnjeg follow-up merge-a: 108 passed, ruff
+čist, mypy baseline nepromijenjen (7/7), nula SQLAlchemy importa u
+desktop/views/.
 
 ## Odbačene opcije
 
