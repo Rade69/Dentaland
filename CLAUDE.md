@@ -88,13 +88,21 @@ Ko je Implementer se mijenja sa risk nivoom zadatka — agenti su fiksni po alat
 
 | Risk | Implementer | Reviewer 1 | Reviewer 2 |
 |---|---|---|---|
-| LOW | Crush / Pi (ili Codex kao worker) | Claude | — |
-| MEDIUM | Crush / Pi (ili Codex kao worker) | Claude | Codex — opciono, kad treba dodatna relevantnost pregleda, ne obavezno |
-| HIGH | **Claude** | Codex | Crush / Pi |
+| LOW | Crush / Pi | Claude | — |
+| MEDIUM | Crush / Pi | Claude | — |
+| HIGH | **Claude** | Crush ili Pi | Pi ili Crush (onaj koji nije Reviewer 1) |
+
+**Codex privremeno nedostupan (18.8.2026, isticanje kredita).** Dok se
+ne obnovi, Codex se ne dodjeljuje kao Implementer ni Reviewer na
+nijednom novom zadatku — svi zadaci (uključujući frontend/GUI, gdje se
+ranije pokazao jači) idu na Crush/Pi. Ako je Codex usred nedovršenog
+zadatka kad kredit istekne, taj zadatak se ili završava kroz drugog
+agenta (novi Task Contract, ne nastavak u istom kontekstu) ili čeka
+Radovanovu odluku — ne pretpostavljati automatski.
 
 - **Claude implementira HIGH-risk zadatke direktno** (šema/migracije, `EXCLUDE` constraint, autentifikacija, token generisanje, javni API endpointi, razdvajanje osjetljivih podataka) — najstabilnija ruka na najkritičnijem poslu, na eksplicitan zahtjev (16.8.2026).
-- **Codex može biti Implementer na LOW/MEDIUM** (16.8.2026, izmjena — ranije isključivo reviewer) kad se za konkretnu vrstu posla pokazao jači od Crush/Pi (npr. frontend/GUI, na osnovu Radovanovog ponovljenog iskustva) — nije pravilo "nikad", nego procjena po zadatku. I dalje ostaje dostupan kao Reviewer (obavezan Reviewer 1 na HIGH, opciono na MEDIUM) na zadacima koje ne implementira on sam.
-- **Crush i Pi su Implementeri na LOW/MEDIUM** (worker agenti), i **Reviewer na HIGH** kad Claude implementira (obično jedan od njih, ne oba na svakom HIGH zadatku — dovoljan je jedan uz Codexa, drugi je slobodan za paralelan LOW/MEDIUM rad).
+- **Crush i Pi su Implementeri na LOW/MEDIUM** (worker agenti). Na HIGH zadacima, dok je Claude implementer, **oba** (Crush i Pi) rade kao nezavisni Reviewer 1/2 — prije Codex-ovog izostanka je bio dovoljan jedan od njih uz Codexa kao obaveznog drugog reviewera; sad popunjavaju oba mjesta.
+- Ako se Codex vrati, ova tabela se vraća na prethodnu verziju (Codex opciono na LOW/MEDIUM implementaciji frontend/GUI posla, obavezan Reviewer 1 na HIGH) — nije trajna promjena procesa, samo privremena adaptacija na dostupnost agenta.
 - **Radovan** (čovjek) — zadnja riječ prije merge-a; rješava neslaganje reviewera; jedina instanca koja odlučuje poslovna/pravna pitanja (npr. emergency-override tumačenje, tekst pristanka).
 
 **Implementer nikad nije isti agent/sesija/kontekst kao Reviewer za taj isti zadatak.** Agent koji je nešto upravo napisao ima sistemsku slijepu tačku za sopstvene greške — nezavisan par očiju to hvata. Ovo se primjenjuje bez izuzetka, čak i za LOW zadatke (samo je tok laganiji, ne izostavljen). Kad Claude implementira HIGH zadatak, Reviewer 1/2 (Codex/Crush) moraju biti nezavisni od te sesije — Claude se ne vraća da "sam sebe" pregleda u istom kontekstu.
