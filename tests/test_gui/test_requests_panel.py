@@ -13,6 +13,7 @@ from desktop.views.requests_panel import DashboardPanels
 class DashboardStore:
     def __init__(self) -> None:
         self.confirmed_ids: list[int] = []
+        self.cancelled_ids: list[int] = []
         self._awaiting = [
             SimpleNamespace(
                 id=7,
@@ -41,6 +42,17 @@ class DashboardStore:
         self.confirmed_ids.append(appt_id)
         self._awaiting = [a for a in self._awaiting if a.id != appt_id]
 
+    def cancel(self, appt_id: int) -> None:
+        self.cancelled_ids.append(appt_id)
+        self._awaiting = [a for a in self._awaiting if a.id != appt_id]
+
+
+def _button(box, text: str) -> QPushButton:
+    for button in box.findChildren(QPushButton):
+        if button.text() == text:
+            return button
+    raise AssertionError(f"dugme '{text}' nije pronađeno")
+
 
 def _labels(box) -> str:
     return "\n".join(label.text() for label in box.findChildren(QLabel))
@@ -63,11 +75,12 @@ def test_paneli_ne_mijesaju_zahtjeve_i_termine(qtbot) -> None:
     assert "Pregled" in _labels(panels.cancelled_box)
 
 
-def test_cekaju_potvrdu_ima_dugme_potvrdi_a_otkazani_nemaju(qtbot) -> None:
+def test_cekaju_potvrdu_ima_potvrdi_i_odbaci_a_otkazani_nemaju(qtbot) -> None:
     panels = DashboardPanels(DashboardStore())
     qtbot.addWidget(panels)
 
-    assert panels.awaiting_box.findChildren(QPushButton)
+    assert _button(panels.awaiting_box, "Potvrdi") is not None
+    assert _button(panels.awaiting_box, "Odbaci") is not None
     assert not panels.cancelled_box.findChildren(QPushButton)
 
 
@@ -76,10 +89,22 @@ def test_klik_na_potvrdi_zove_mark_confirmed_i_uklanja_stavku(qtbot) -> None:
     panels = DashboardPanels(store)
     qtbot.addWidget(panels)
 
-    button = panels.awaiting_box.findChildren(QPushButton)[0]
-    qtbot.mouseClick(button, Qt.MouseButton.LeftButton)
+    qtbot.mouseClick(_button(panels.awaiting_box, "Potvrdi"), Qt.MouseButton.LeftButton)
     qtbot.wait(10)  # dovrši deleteLater() od stare stavke (deferred delete event)
 
     assert store.confirmed_ids == [7]
+    assert panels.awaiting_box.title() == "Čekaju potvrdu (0)"
+    assert "Marko Bošnjak" not in _labels(panels.awaiting_box)
+
+
+def test_klik_na_odbaci_zove_cancel_i_uklanja_stavku(qtbot) -> None:
+    store = DashboardStore()
+    panels = DashboardPanels(store)
+    qtbot.addWidget(panels)
+
+    qtbot.mouseClick(_button(panels.awaiting_box, "Odbaci"), Qt.MouseButton.LeftButton)
+    qtbot.wait(10)
+
+    assert store.cancelled_ids == [7]
     assert panels.awaiting_box.title() == "Čekaju potvrdu (0)"
     assert "Marko Bošnjak" not in _labels(panels.awaiting_box)

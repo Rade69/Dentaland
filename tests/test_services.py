@@ -249,6 +249,23 @@ def test_mark_confirmed_nepostojeci_id(appointment_service: AppointmentService) 
         appointment_service.mark_confirmed(999)
 
 
+def test_cancel_postavlja_status_cancelled(appointment_service: AppointmentService) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    cancelled = appointment_service.cancel(dto.id)
+    assert cancelled.status == AppointmentStatus.CANCELLED
+
+
+def test_cancel_uklanja_iz_cekaju_potvrdu(appointment_service: AppointmentService) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    appointment_service.cancel(dto.id)
+    assert appointment_service.awaiting_confirmation() == []
+
+
+def test_cancel_nepostojeci_id(appointment_service: AppointmentService) -> None:
+    with pytest.raises(ValueError, match="nije pronađen"):
+        appointment_service.cancel(999)
+
+
 def test_odvojeni_upiti_cekaju_i_otkazani(
     session_factory: sessionmaker[Session], appointment_service: AppointmentService
 ) -> None:

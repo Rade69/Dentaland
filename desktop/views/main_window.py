@@ -185,12 +185,7 @@ class MainWindow(QMainWindow):
         calendar_column = QVBoxLayout()
         calendar_column.setSpacing(10)
         calendar_column.addWidget(self.week_view, 1)
-        legend_html = "&nbsp;&nbsp;&nbsp;&nbsp;".join(
-            f"<span style='color:{STATUS_META[key][1]}; font-size:14px; "
-            f"font-weight:700'>{STATUS_META[key][0]}</span>&nbsp; {STATUS_META[key][2]}"
-            for key in STATUS_ORDER
-        )
-        self.status_legend = QLabel(legend_html)
+        self.status_legend = QLabel()
         self.status_legend.setObjectName("statusLegend")
         self.status_legend.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_legend.setSizePolicy(
@@ -232,12 +227,14 @@ class MainWindow(QMainWindow):
         self.week_start += timedelta(days=7 * offset)
         self.week_view.set_week_start(self.week_start)
         self._update_range_label()
+        self._update_status_legend()
 
     def _go_today(self) -> None:
         today = date.today()
         self.week_start = today - timedelta(days=today.weekday())
         self.week_view.set_week_start(self.week_start)
         self._update_range_label()
+        self._update_status_legend()
 
     def _update_range_label(self) -> None:
         end = self.week_start + timedelta(days=5)
@@ -257,6 +254,17 @@ class MainWindow(QMainWindow):
         pending = getattr(self.store, "pending_requests", None)
         count = len(pending()) if callable(pending) else 0
         self.sidebar.set_pending_count(count)
+        self._update_status_legend()
+
+    def _update_status_legend(self) -> None:
+        counts = self.week_view.visible_status_counts()
+        legend_html = "&nbsp;&nbsp;&nbsp;&nbsp;".join(
+            f"<span style='color:{STATUS_META[key][1]}; font-size:14px; "
+            f"font-weight:700'>{STATUS_META[key][0]}</span>&nbsp; "
+            f"{STATUS_META[key][2]} ({counts[key]})"
+            for key in STATUS_ORDER
+        )
+        self.status_legend.setText(legend_html)
 
     def _on_new_appointment(self) -> None:
         now = datetime.now(SARAJEVO)
@@ -472,6 +480,7 @@ class MainWindow(QMainWindow):
         doctor_id = self._tab_doctor_ids[index]
         self._current_doctor_id = doctor_id
         self.week_view.set_filter(doctor_id)
+        self._update_status_legend()
 
     def _doctor_for_new_appointment(self) -> int | None:
         """Odredi doktora za novi termin; ``None`` znači "nema doktora/odustao"."""

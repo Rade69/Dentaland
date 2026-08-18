@@ -37,11 +37,17 @@ _BLOCK_ROLE = Qt.ItemDataRole.UserRole + 1
 # Jedan izvor istine za status simbol/boju/naziv — dijele ga legenda
 # (main_window.py), kartica jednog termina i tekstualna lista više termina
 # u istoj ćeliji, da simboli nikad ne izgube sinhronizaciju.
+#
+# Namjerno OBIČNI Unicode dingbat/geometrijski simboli (ne slikovni emoji
+# poput 🕐/👤/💜) — slikovni emoji zahtijevaju posebni font boje (Segoe UI
+# Emoji) koji se u malom QLabel HTML tekstu ne mora učitati, pa su znali
+# ispasti prazni/nečitljivi. Ovi simboli su i oblikom različiti (ne samo
+# bojom) — čitljivo i bez oslanjanja na boju.
 STATUS_META: dict[str, tuple[str, str, str]] = {
     "confirmed": ("✓", "#149447", "Potvrđen"),
-    "waiting": ("🕐", "#ff8a00", "Čeka potvrdu"),
-    "arrived": ("👤", "#1473e6", "Stigao"),
-    "completed": ("💜", "#7c3aed", "Završen"),
+    "waiting": ("◷", "#ff8a00", "Čeka potvrdu"),
+    "arrived": ("▲", "#1473e6", "Stigao"),
+    "completed": ("★", "#7c3aed", "Završen"),
     "cancelled": ("✗", "#ef334f", "Otkazan / Nije došao"),
 }
 STATUS_ORDER = ["confirmed", "waiting", "arrived", "completed", "cancelled"]
@@ -246,6 +252,13 @@ class WeekView(QTableWidget):
                 cell, span = span_info
                 visible.append((cell, span, appt))
         return visible
+
+    def visible_status_counts(self) -> dict[str, int]:
+        """Broj termina po statusu, samo za trenutno prikazanu sedmicu (i filter doktora)."""
+        counts = dict.fromkeys(STATUS_META, 0)
+        for _cell, _span, appt in self._visible_appointments():
+            counts[_status_key(appt)] += 1
+        return counts
 
     def _appointments_by_cell(self) -> dict[tuple[int, int], list[AppointmentDTO]]:
         result: dict[tuple[int, int], list[AppointmentDTO]] = {}

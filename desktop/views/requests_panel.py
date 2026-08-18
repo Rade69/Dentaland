@@ -207,10 +207,21 @@ class DashboardPanels(QScrollArea):
                     lambda _checked=False, item=appt: self._confirm_scheduled(item.id)
                 )
                 row_layout.addWidget(confirm)
+                cancel = QPushButton("Odbaci")
+                cancel.setObjectName("rejectButton")
+                cancel.clicked.connect(
+                    lambda _checked=False, item=appt: self._cancel_scheduled(item.id)
+                )
+                row_layout.addWidget(cancel)
             layout.addWidget(row)
 
     def _confirm_scheduled(self, appt_id: int) -> None:
         self.store.mark_confirmed(appt_id)
+        self.refresh()
+        self.changed.emit()
+
+    def _cancel_scheduled(self, appt_id: int) -> None:
+        self.store.cancel(appt_id)
         self.refresh()
         self.changed.emit()
 

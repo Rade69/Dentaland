@@ -69,6 +69,21 @@ def test_footer_ostaje_vidljiv_na_laptop_visini(
     assert window.sidebar.staff.geometry().bottom() <= window.sidebar.rect().bottom()
 
 
+def test_footer_prikazuje_brojno_stanje_termina_prikazane_sedmice(
+    window: MainWindow, store: FakeStore
+) -> None:
+    assert "Čeka potvrdu (0)" in window.status_legend.text()
+
+    store.create(
+        "Ana", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    window._refresh_dashboard()
+
+    assert "Čeka potvrdu (1)" in window.status_legend.text()
+
+
 def test_paralelni_prikaz_je_vidljiv_ali_neaktivan(window: MainWindow) -> None:
     buttons = window.schedule_page.findChildren(main_window_mod.QPushButton)
     parallel = next(button for button in buttons if button.text() == "Paralelno")

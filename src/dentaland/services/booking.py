@@ -233,6 +233,18 @@ class AppointmentService:
             session.commit()
             return self._to_dto(appt, self._service_name(appt))
 
+    def cancel(self, appt_id: int) -> AppointmentDTO:
+        """Otkaži zakazan termin (npr. pacijent odustao ili greška pri unosu)."""
+        with self._session_factory() as session:
+            appt = session.get(Appointment, appt_id)
+            if appt is None:
+                raise ValueError(f"termin {appt_id} nije pronađen")
+            if appt.status != AppointmentStatus.SCHEDULED:
+                raise ValueError("samo zakazan termin može biti otkazan")
+            appt.status = AppointmentStatus.CANCELLED
+            session.commit()
+            return self._to_dto(appt, self._service_name(appt))
+
     def awaiting_confirmation(self) -> list[AppointmentDTO]:
         with self._session_factory() as session:
             rows = session.scalars(

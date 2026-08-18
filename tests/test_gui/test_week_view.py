@@ -193,9 +193,9 @@ def test_termin_od_30_min_nije_spojen(
     ("status", "confirmed", "arrived", "expected"),
     [
         ("SCHEDULED", object(), None, "✓"),
-        ("SCHEDULED", None, None, "🕐"),
-        ("SCHEDULED", object(), object(), "👤"),
-        ("COMPLETED", None, None, "💜"),
+        ("SCHEDULED", None, None, "◷"),
+        ("SCHEDULED", object(), object(), "▲"),
+        ("COMPLETED", None, None, "★"),
         ("NO_SHOW", None, None, "✗"),
     ],
 )
