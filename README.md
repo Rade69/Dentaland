@@ -13,7 +13,7 @@ samo praktično uputstvo za lokalno pokretanje i testiranje.
   podfoldera — backend i desktop app dijele istu `dentaland.db` SQLite
   bazu preko relativne putanje.
 
-## Lokalno testiranje javne forme (bez interneta, bez Netlify-ja)
+## Lokalno testiranje — SVE jednom komandom
 
 Javna forma (`web/`) šalje zahtjeve na `http://127.0.0.1:8000` — to je
 backend koji trenutno radi **isključivo lokalno** (nema javnog
@@ -21,33 +21,38 @@ hostinga, vidi `CLAUDE.md`). Netlify hostuje samo statične fajlove
 (HTML/CSS/JS) — bez lokalno pokrenutog backend-a, forma na Netlify-ju
 ne može stvarno sačuvati zahtjev.
 
-Za pun lokalni test (forma → backend → baza), jednom komandom:
+Za pun lokalni test (forma → backend → baza → desktop app), jednom
+komandom, iz korijena repoa:
 
 ```bash
 python scripts/dev_local.py
 ```
 
-Ovo pokreće:
+Ovo pokreće SVE troje odjednom, sa ispravnim PYTHONPATH za svako:
 - backend na `http://127.0.0.1:8000`
 - javnu formu na `http://127.0.0.1:8080/index.html`
+- desktop aplikaciju (poseban prozor)
 
-Otvori formu, pošalji test-zahtjev, provjeri da treći korak ("ZAHTJEV
-PRIMLJEN!") stvarno bude prikazan. Ctrl+C zaustavlja oba servera.
+Sve troje dijele istu `dentaland.db` u tom folderu — zahtjev poslat
+kroz formu treba da bude vidljiv u desktop aplikaciji (panel "Novi
+zahtjevi", kad taj dio dashboarda bude gotov). Backend automatski
+kreira `dentaland.db` (i tabele) ako ne postoji — nije potreban ručni
+`alembic upgrade` za osnovno testiranje.
 
-Backend automatski kreira `dentaland.db` (i tabele) ako ne postoji —
-nije potreban ručni `alembic upgrade` za osnovno testiranje.
-
-## Desktop aplikacija
-
-Odvojeno, u drugom terminalu (blokirajući GUI proces, ne server):
+Ctrl+C zaustavlja backend i web server (desktop prozor zatvoriti ručno
+ako je i dalje otvoren). Za samo backend + forma, bez desktop app-a:
 
 ```bash
-python -m desktop.app
+python scripts/dev_local.py --no-desktop
 ```
 
-Koristi istu `dentaland.db` bazu kao backend — zahtjev poslat preko
-javne forme dok je backend pokrenut treba da bude vidljiv u desktop
-aplikaciji (panel "Novi zahtjevi", kad taj dio dashboarda bude gotov).
+**Testiranje zadatka koji je još u toku (git worktree, npr. DENT-009):**
+pokreni potpuno istu komandu, ali iz tog worktree-a
+(`cd Dentaland-worktrees\DENT-009-...` pa `python scripts/dev_local.py`)
+— skripta sama računa putanje u odnosu na svoju lokaciju, pa automatski
+koristi kod i `dentaland.db` IZ TOG worktree-a, ne iz `main`-a. Nema
+potrebe ručno mijenjati foldere/PYTHONPATH između testiranja različitih
+grana.
 
 ## Testovi i provjera koda
 
