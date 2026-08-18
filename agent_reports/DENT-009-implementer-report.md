@@ -184,9 +184,29 @@ Korisnički tekst „Otkazan / No-show“ zamijenjen je sa „Otkazan / Nije do�
 interni `NO_SHOW` enum nije mijenjan. GUI test eksplicitno provjerava prevedeni
 tekst i odsustvo engleske oznake.
 
+**Follow-up review (Claude, 18.8.2026) — PASS.** Oba naknadna commit-a
+nezavisno provjerena:
+
+- Poravnanje desne kolone: legenda doktora premještena iz reda filtera
+  u zaseban red iznad `dashboard_panels`, poravnata sa lijevom ivicom
+  panela; `QGroupBox::title` dobija bijelu pozadinu i pomjerenu poziciju
+  da obrub ne siječe naslov. Vizuelno razumno, potvrđeno geometrijskim
+  testom (ne samo tvrdnja da izgleda dobro).
+- Prevod statusa: `NO_SHOW` enum ostaje netaknut (provjereno —
+  `grep NO_SHOW src/dentaland/models.py` nepromijenjen), samo
+  korisnički prikazan tekst je lokalizovan. Ispravna razdvojenost
+  internog identifikatora od prikaza. Test provjerava i prisustvo
+  novog teksta i odsustvo engleskog izraza — nije moglo tiho da se
+  provuče djelimično urađeno.
+
+Nezavisno pokrenuto: `pytest tests/ -q` → **108 passed**, `ruff check
+src/dentaland desktop tests` → PASS, `mypy src/dentaland desktop` →
+**7 grešaka** (isti baseline, nula novih), `grep -ri sqlalchemy
+desktop/views/*.py` → prazno. Nema regresije.
+
 ## Integration status
 
-`IMPLEMENTED — poravnanje desne kolone čeka kratki follow-up review`.
+`REVIEWED (Claude PASS — poravnanje + srpski prevod)` — spremno za merge.
 
 ## Odbačene opcije
 
