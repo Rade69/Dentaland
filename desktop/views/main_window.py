@@ -182,7 +182,8 @@ class MainWindow(QMainWindow):
             "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#ff8a00'>◷</span>&nbsp; Čeka potvrdu"
             "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#1473e6'>♙</span>&nbsp; Stigao"
             "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#7c3aed'>●</span>&nbsp; Završen"
-            "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#ef334f'>●</span>&nbsp; Otkazan / No-show"
+            "&nbsp;&nbsp;&nbsp;&nbsp; <span style='color:#ef334f'>●</span>&nbsp; "
+            "Otkazan / Nije došao"
         )
         self.status_legend.setObjectName("statusLegend")
         self.status_legend.setAlignment(Qt.AlignmentFlag.AlignCenter)

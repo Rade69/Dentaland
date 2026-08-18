@@ -246,6 +246,11 @@ da pluta desno u traci filtera. Naslovi `QGroupBox` kartica moraju biti blago
 iznad gornjeg obruba, sa bijelom pozadinom iza teksta, tako da linija ne prolazi
 kroz naslov.
 
+## Terminologija statusa — korekcija 18.8.2026.
+
+Korisnički vidljiva oznaka `No-show` u statusnoj legendi prevodi se na srpski
+kao „Nije došao“. Interni enum `NO_SHOW` ostaje nepromijenjen.
+
 ## allowed_paths (PROŠIRENO u odnosu na prvobitnu verziju)
 
 ```yaml
@@ -301,6 +306,8 @@ jer se stanje mijenja).
 - Naziv dana i puni datum vidljivi su u dvorednom zaglavlju bez odsijecanja.
 - Legenda doktora počinje na lijevoj ivici desne kolone, a naslov svake desne
   kartice je čitljiv iznad obruba bez linije kroz tekst.
+- Statusna legenda prikazuje „Otkazan / Nije došao“ i ne sadrži engleski izraz
+  `No-show`.
 - "Čekaju potvrdu" i "Otkazani danas" koriste ispravan, različit upit
   (ne isti kao "Novi zahtjevi").
 - Sve preostale `OUT_OF_SCOPE_FINDING` stavke iz ovog kontrakta (Paralelno

@@ -179,6 +179,11 @@ pa obrub više ne prolazi kroz naslov. Dodat je GUI geometrijski test poravnanja
 Verifikacija: `pytest tests -q` → **108 passed**; `ruff check src/dentaland
 desktop tests` → PASS. Ova vizuelna korekcija čeka kratki follow-up review.
 
+**Follow-up implementacija (Codex, 18.8.2026) — srpska oznaka statusa.**
+Korisnički tekst „Otkazan / No-show“ zamijenjen je sa „Otkazan / Nije došao“;
+interni `NO_SHOW` enum nije mijenjan. GUI test eksplicitno provjerava prevedeni
+tekst i odsustvo engleske oznake.
+
 ## Integration status
 
 `IMPLEMENTED — poravnanje desne kolone čeka kratki follow-up review`.

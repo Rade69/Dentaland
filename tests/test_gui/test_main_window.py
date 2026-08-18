@@ -62,6 +62,8 @@ def test_footer_ostaje_vidljiv_na_laptop_visini(
 
     assert window.status_legend.isVisible()
     assert window.status_legend.height() >= 48
+    assert "Otkazan / Nije došao" in window.status_legend.text()
+    assert "No-show" not in window.status_legend.text()
     assert window.status_legend.geometry().bottom() <= window.schedule_page.rect().bottom()
     assert window.sidebar.staff.isVisible()
     assert window.sidebar.staff.geometry().bottom() <= window.sidebar.rect().bottom()
