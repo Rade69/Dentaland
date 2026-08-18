@@ -173,7 +173,9 @@ prijavljeni i dogovoreni sa Radovanom kao sljedeći koraci (vidi
 
 ## Integration status
 
-`REVIEWED (Claude PASS, uklj. footer/DPI follow-up)` — spremno za merge.
+MERGED → INTEGRATION_VERIFIED → DONE. Mergovano u `main` (--no-ff),
+poslije merge-a pun test suite: 107 passed, ruff čist, mypy baseline
+nepromijenjen (7/7), nula SQLAlchemy importa u desktop/views/.
 
 ## Odbačene opcije
 
