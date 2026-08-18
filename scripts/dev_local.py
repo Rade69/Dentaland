@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 import time
@@ -31,6 +32,41 @@ ROOT = Path(__file__).resolve().parent.parent
 WEB_DIR = ROOT / "web"
 BACKEND_PORT = 8000
 WEB_PORT = 8080
+
+
+def _free_port(port: int) -> None:
+    """Ugasi bilo šta što već sluša na ovom portu prije pokretanja.
+
+    Ranije verzije ove skripte su ostavljale procese da rade preko
+    Ctrl+C prekida ili zatvaranja terminala, pa je sljedeće pokretanje
+    padalo na "port already in use" — korisnik je onda morao ručno da
+    traži i gasi te procese. Ovo je namjerno automatsko: cilj skripte je
+    "jedno pokretanje za sve", bez ručnog čišćenja prije svakog testa.
+    """
+    if sys.platform != "win32":
+        return  # netstat/taskkill parsiranje ispod je Windows-specifično
+    try:
+        result = subprocess.run(
+            ["netstat", "-ano"], capture_output=True, text=True, timeout=10
+        )
+    except (subprocess.SubprocessError, OSError):
+        return
+    pids: set[str] = set()
+    pattern = re.compile(rf":{port}\s+.*LISTENING\s+(\d+)\s*$")
+    for line in result.stdout.splitlines():
+        match = pattern.search(line.strip())
+        if match:
+            pids.add(match.group(1))
+    for pid in pids:
+        print(f"  port {port} već zauzet (PID {pid}) — gasim taj proces...")
+        subprocess.run(
+            ["taskkill", "/PID", pid, "/F"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    if pids:
+        time.sleep(0.5)
 
 
 def _build_env() -> dict[str, str]:
@@ -65,6 +101,9 @@ def main() -> int:
     print(f"Radni folder: {ROOT}")
     print()
 
+    _free_port(BACKEND_PORT)
+    _free_port(WEB_PORT)
+
     print(f"Pokrećem backend na http://127.0.0.1:{BACKEND_PORT} ...")
     backend = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "backend.main:app", "--port", str(BACKEND_PORT)],
@@ -91,7 +130,10 @@ def main() -> int:
     print()
     print("Spremno. Otvori u browseru:")
     print(f"  http://127.0.0.1:{WEB_PORT}/index.html   (javna forma za zakazivanje)")
-    print(f"  http://127.0.0.1:{BACKEND_PORT}/docs       (FastAPI dokumentacija/testiranje endpointa)")
+    print(
+        f"  http://127.0.0.1:{BACKEND_PORT}/docs       "
+        "(FastAPI dokumentacija/testiranje endpointa)"
+    )
     if desktop is not None:
         print("Desktop aplikacija se otvara u posebnom prozoru.")
     print()
