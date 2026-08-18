@@ -227,6 +227,11 @@ raspored od 08:00 do 20:00 ima 12 redova. Satni red nije tvrdnja o trajanju
 pregleda: kartica prikazuje stvarni sačuvani vremenski raspon, a trajanje
 određuje doktor. Ne postoji pravilo „prvi pregled traje 30 minuta“.
 
+**Follow-up implementacija (Codex, 18.8.2026) — odsječeno vrijeme.** Kartica
+termina do jednog sata sada koristi kompaktan dvoredni layout: ime je u prvom,
+a puni vremenski raspon/status/doktor u drugom redu. Geometrijski GUI test
+provjerava da kartica prima najmanje dvije linije teksta.
+
 **Follow-up review (Claude, 18.8.2026) — PASS.** Nezavisno provjereno:
 `SLOT_MINUTES` (stvarna granularnost grida) je NEPROMIJENJEN — samo je
 prikaz vremenske oznake u zaglavlju smanjen na svaki drugi red (puni

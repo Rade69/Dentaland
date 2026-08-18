@@ -71,7 +71,7 @@ def test_zauzet_slot_prikazuje_ime_i_uslugu(store: FakeStore, week_view: WeekVie
 
 
 def test_termin_od_60_min_zauzima_jednu_satnu_celiju(
-    store: FakeStore, week_view: WeekView
+    store: FakeStore, week_view: WeekView, qtbot
 ) -> None:
     store.create(
         "Ana Anić", "061/111-222", "ana@example.com", "Plomba", "",
@@ -79,12 +79,18 @@ def test_termin_od_60_min_zauzima_jednu_satnu_celiju(
         datetime(2026, 8, 17, 10, 0, tzinfo=SARAJEVO),
     )
     week_view.refresh()
+    week_view.resize(1100, 700)
+    week_view.show()
+    qtbot.wait(20)
 
     assert week_view.rowSpan(1, 0) == 1  # ponedjeljak 09:00–10:00
     card = week_view.cellWidget(1, 0)
     assert isinstance(card, QLabel)
-    assert card.property("compact") is False
-    assert "<br>" in card.text()
+    assert card.property("compact") is True
+    assert card.text().count("<br>") == 1
+    assert "09:00" in card.text()
+    assert "10:00" in card.text()
+    assert card.height() >= card.fontMetrics().height() * 2
 
 
 def test_termin_od_90_min_je_spojen_preko_dva_satna_slota(
