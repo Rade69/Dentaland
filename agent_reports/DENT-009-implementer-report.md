@@ -184,6 +184,21 @@ Korisnički tekst „Otkazan / No-show“ zamijenjen je sa „Otkazan / Nije do�
 interni `NO_SHOW` enum nije mijenjan. GUI test eksplicitno provjerava prevedeni
 tekst i odsustvo engleske oznake.
 
+**Follow-up implementacija (Codex, 18.8.2026) — čitljivost kartice termina.**
+Uzrok nečitkog prikaza nakon zakazivanja bio je troredni sadržaj sa velikim
+marginskim i unutrašnjim razmakom unutar jednog reda od 30 minuta. Kartica od
+jednog slota sada koristi kompaktan dvoredni prikaz: ime pacijenta u prvom redu,
+a puni vremenski raspon, status i doktor u drugom; kartice od 60+ minuta
+zadržavaju detaljni troredni prikaz. Vremenska skala i dalje ima funkcionalne
+polusatne redove, ali tekst prikazuje samo na pune sate, uz zaglavlje širine
+64 px i desno poravnanje, pa oznake više nisu zbijene niti odsječene. Testovi
+provjeravaju sadržaj i geometriju oba režima te oznake vremenske skale.
+`pytest tests -q` → **108 passed**; `ruff check src/dentaland desktop tests` →
+PASS. GitNexus je
+centralni `WeekView.refresh()` označio kao CRITICAL blast-radius (13 direktnih
+pozivalaca), zbog čega je izvršen puni test paket. Korekcija čeka kratki
+follow-up review.
+
 **Follow-up review (Claude, 18.8.2026) — PASS.** Oba naknadna commit-a
 nezavisno provjerena:
 
@@ -206,7 +221,15 @@ desktop/views/*.py` → prazno. Nema regresije.
 
 ## Integration status
 
-`REVIEWED (Claude PASS — poravnanje + srpski prevod)` — spremno za merge.
+`IMPLEMENTED — čitljivost kartice termina čeka kratki follow-up review`.
+
+**Follow-up implementacija (Codex, 18.8.2026) — satne ćelije.** Prva
+interpretacija screenshota bila je pogrešna: promijenjeno je samo trajanje
+termina, dok je mreža ostala podijeljena na dvije polusatne ćelije. Ispravka
+sada postavlja `WeekView.SLOT_MINUTES = 60`, pa raspored od 08:00 do 20:00 ima
+12 punih satnih redova. Novi ručni termin traje 60 minuta i zauzima jednu
+satnu ćeliju; postojeći termini na pola sata ostaju vidljivi u odgovarajućem
+satnom redu. Testovi provjeravaju broj redova, satne oznake i trajanje unosa.
 
 ## Odbačene opcije
 

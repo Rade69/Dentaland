@@ -55,8 +55,8 @@ def test_kombinovani_prikaz_prikazuje_oba_doktora(week_view: WeekView) -> None:
 
 
 def test_boje_po_doktoru_se_razlikuju(week_view: WeekView, doctor_ids: dict[str, int]) -> None:
-    ljubo_card = week_view.cellWidget(2, 0)  # pon 09:00 → Ljubo
-    zorka_card = week_view.cellWidget(4, 1)  # uto 10:00 → Zorka
+    ljubo_card = week_view.cellWidget(1, 0)  # pon 09:00 → Ljubo
+    zorka_card = week_view.cellWidget(2, 1)  # uto 10:00 → Zorka
     assert ljubo_card is not None and zorka_card is not None
     assert "#ebf8ed" in ljubo_card.styleSheet()
     assert "#fff0f2" in zorka_card.styleSheet()
@@ -79,7 +79,7 @@ def test_filter_none_vraca_sve(week_view: WeekView) -> None:
     assert "Marko Marković" in joined
 
 
-def test_termin_od_60_min_spojen_preko_dva_slota(
+def test_termin_od_60_min_zauzima_jednu_satnu_celiju(
     week_view: WeekView, appointment_service, doctor_ids: dict[str, int]
 ) -> None:
     appointment_service.set_doctor(doctor_ids["Ljubo"])
@@ -88,4 +88,4 @@ def test_termin_od_60_min_spojen_preko_dva_slota(
     )
     week_view.refresh()
 
-    assert week_view.rowSpan(2, 2) == 2  # srijeda 09:00–10:00
+    assert week_view.rowSpan(1, 2) == 1  # srijeda 09:00–10:00

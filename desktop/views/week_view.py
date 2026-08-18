@@ -101,6 +101,7 @@ class WeekView(QTableWidget):
         ])
         self.setVerticalHeaderLabels([
             self._format_minutes(self.DAY_START_HOUR * 60 + i * self.SLOT_MINUTES)
+            if i % 2 == 0 else ""
             for i in range(rows)
         ])
         self.horizontalHeader().setStretchLastSection(True)
@@ -110,6 +111,13 @@ class WeekView(QTableWidget):
             )
         self.verticalHeader().setMinimumSectionSize(20)
         self.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.verticalHeader().setFixedWidth(64)
+        self.verticalHeader().setDefaultAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        self.verticalHeader().setStyleSheet(
+            "QHeaderView::section { padding: 0 8px 0 2px; }"
+        )
         self.horizontalHeader().setFixedHeight(46)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -318,17 +326,42 @@ class WeekView(QTableWidget):
                 local_end = appt.end.astimezone(SARAJEVO)
                 symbol, status_color = _status_visual(appt)
                 doctor = getattr(appt, "doctor_name", None) or "Doktor"
-                card = QLabel(
-                    f"<b>{appt.patient_name}</b><br>"
-                    f"{local_start:%H:%M} – {local_end:%H:%M}<br>"
-                    f"<span style='color:{status_color}'>{symbol}</span>&nbsp; Dr {doctor}"
-                )
+                duration_minutes = (appt.end - appt.start).total_seconds() / 60
+                compact = duration_minutes <= self.SLOT_MINUTES
+                if compact:
+                    card_text = (
+                        f"<b>{appt.patient_name}</b><br>"
+                        f"<span style='font-size:9px'>{local_start:%H:%M} – "
+                        f"{local_end:%H:%M}&nbsp; "
+                        f"<span style='color:{status_color}'>{symbol}</span>"
+                        f"&nbsp; Dr {doctor}</span>"
+                    )
+                    card_style = (
+                        f"background:{background}; color:{text_color}; "
+                        f"border:1px solid {border}; border-radius:5px; "
+                        "margin:1px 3px; padding:0 5px; font-size:10px;"
+                    )
+                else:
+                    card_text = (
+                        f"<b>{appt.patient_name}</b><br>"
+                        f"{local_start:%H:%M} – {local_end:%H:%M}<br>"
+                        f"<span style='color:{status_color}'>{symbol}</span>"
+                        f"&nbsp; Dr {doctor}"
+                    )
+                    card_style = (
+                        f"background:{background}; color:{text_color}; "
+                        f"border:1px solid {border}; border-radius:7px; "
+                        "margin:4px 7px; padding:4px 7px; font-size:11px;"
+                    )
+                card = QLabel(card_text)
                 card.setTextFormat(Qt.TextFormat.RichText)
-                card.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-                card.setStyleSheet(
-                    f"background:{background}; color:{text_color}; border:1px solid {border}; "
-                    "border-radius:7px; margin:5px 9px; padding:5px 9px; font-size:11px;"
+                card.setAlignment(
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
                 )
+                card.setWordWrap(False)
+                card.setProperty("compact", compact)
+                card.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+                card.setStyleSheet(card_style)
                 self.setCellWidget(row, col, card)
 
     # ---- interakcije ----
