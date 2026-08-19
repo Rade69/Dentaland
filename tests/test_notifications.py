@@ -152,3 +152,57 @@ def test_potvrda_smtp_greska_ne_baca(monkeypatch: pytest.MonkeyPatch) -> None:
         notifications.send_appointment_confirmed(
             "ana@x.com", datetime(2026, 8, 20, 9, 0, tzinfo=UTC)
         )
+
+
+# ---- send_appointment_reminder (podsjetnik na zakazan termin, DENT-017) ----
+
+
+def test_podsjetnik_bez_emaila_ne_poziva_smtp() -> None:
+    with patch("dentaland.services.notifications.smtplib.SMTP") as mock_smtp:
+        notifications.send_appointment_reminder(
+            "", datetime(2026, 8, 20, 9, 0, tzinfo=UTC)
+        )
+    mock_smtp.assert_not_called()
+
+
+def test_podsjetnik_salje_email_kada_konfigurisano(monkeypatch: pytest.MonkeyPatch) -> None:
+    _postavi_smtp(monkeypatch)
+    instance = _smtp_mock()
+    with patch("dentaland.services.notifications.smtplib.SMTP", return_value=instance):
+        notifications.send_appointment_reminder(
+            "ana@x.com", datetime(2026, 8, 20, 9, 0, tzinfo=UTC)
+        )
+    instance.send_message.assert_called_once()
+    message = instance.send_message.call_args.args[0]
+    assert "ana@x.com" in message["To"]
+    assert "podsjetnik" in message["Subject"].lower()
+
+
+def test_poruka_podsjetnik_sadrzi_tacno_vrijeme_ali_ne_uslugu_ni_doktora(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _postavi_smtp(monkeypatch)
+    instance = _smtp_mock()
+    with patch("dentaland.services.notifications.smtplib.SMTP", return_value=instance):
+        notifications.send_appointment_reminder(
+            "ana@x.com", datetime(2026, 8, 20, 9, 0, tzinfo=UTC)
+        )
+
+    body = instance.send_message.call_args.args[0].get_content().lower()
+    assert "dentaland" in body
+    assert "20.08.2026" in body
+    assert "11:00" in body  # UTC 09:00 -> Europe/Sarajevo ljetno (UTC+2)
+    assert "zakazan" in body
+    for zabranjeno in ("kontrola", "ljubo", "zorka", "usluga", "doktor"):
+        assert zabranjeno not in body
+
+
+def test_podsjetnik_smtp_greska_ne_baca(monkeypatch: pytest.MonkeyPatch) -> None:
+    _postavi_smtp(monkeypatch)
+    with patch(
+        "dentaland.services.notifications.smtplib.SMTP",
+        side_effect=OSError("konekcija pala"),
+    ):
+        notifications.send_appointment_reminder(
+            "ana@x.com", datetime(2026, 8, 20, 9, 0, tzinfo=UTC)
+        )
