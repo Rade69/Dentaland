@@ -87,6 +87,20 @@ class DoctorDTO:
 
 
 @dataclass
+class ServiceOptionDTO:
+    """Stabilan read-model usluge za GUI (id, naziv, trajanje, buffer).
+
+    Trajanje dolazi iz ``Service.trajanje_min`` — nikad se ne izmišlja ni
+    hardkoduje na strani GUI-ja (Faza A redizajna).
+    """
+
+    id: int
+    naziv: str
+    trajanje_min: int
+    buffer_min: int
+
+
+@dataclass
 class CalendarBlockDTO:
     """Neklikabilan raspon u kalendaru (odsustvo ili split-shift pauza)."""
 
@@ -164,6 +178,47 @@ class AppointmentService:
                 status=AppointmentStatus.SCHEDULED,
             )
             session.add(appt)
+            session.commit()
+            return self._to_dto(appt, service_obj.naziv)
+
+    def update(
+        self,
+        appt_id: int,
+        *,
+        patient_name: str,
+        phone: str,
+        email: str,
+        doctor_id: int,
+        service: str,
+        note: str,
+        start: datetime,
+        end: datetime,
+    ) -> AppointmentDTO:
+        """Uredi postojeći termin — sva polja, sa overlap provjerom za novog doktora.
+
+        Dozvoljeno samo za ``SCHEDULED`` termin (terminalna stanja su
+        read-only). ``exclude_id=appt_id`` osigurava da termin pri editovanju
+        ne vidi sam sebe kao preklapanje (isti obrazac kao ``move()``).
+        """
+        with self._session_factory() as session:
+            appt = session.get(Appointment, appt_id)
+            if appt is None:
+                raise ValueError(f"termin {appt_id} nije pronađen")
+            if appt.status != AppointmentStatus.SCHEDULED:
+                raise ValueError("samo zakazan termin može biti uređen")
+            doctor = session.get(Doctor, doctor_id)
+            if doctor is None:
+                raise ValueError(f"nepoznat doktor: {doctor_id}")
+            service_obj = self._get_service(session, service)
+            self._check_overlap(session, doctor_id, start, end, exclude_id=appt_id)
+            appt.ime = patient_name
+            appt.telefon = phone
+            appt.email = email
+            appt.doctor_id = doctor_id
+            appt.service_id = service_obj.id
+            appt.napomena = note
+            appt.start_time = start
+            appt.end_time = end
             session.commit()
             return self._to_dto(appt, service_obj.naziv)
 
@@ -255,6 +310,30 @@ class AppointmentService:
             session.commit()
             return self._to_dto(appt, self._service_name(appt))
 
+    def mark_completed(self, appt_id: int) -> AppointmentDTO:
+        """Označi termin kao završen; dozvoljeno samo za zakazan termin."""
+        with self._session_factory() as session:
+            appt = session.get(Appointment, appt_id)
+            if appt is None:
+                raise ValueError(f"termin {appt_id} nije pronađen")
+            if appt.status != AppointmentStatus.SCHEDULED:
+                raise ValueError("samo zakazan termin može biti označen kao završen")
+            appt.status = AppointmentStatus.COMPLETED
+            session.commit()
+            return self._to_dto(appt, self._service_name(appt))
+
+    def mark_no_show(self, appt_id: int) -> AppointmentDTO:
+        """Označi termin kao 'nije došao'; dozvoljeno samo za zakazan termin."""
+        with self._session_factory() as session:
+            appt = session.get(Appointment, appt_id)
+            if appt is None:
+                raise ValueError(f"termin {appt_id} nije pronađen")
+            if appt.status != AppointmentStatus.SCHEDULED:
+                raise ValueError("samo zakazan termin može biti označen kao 'nije došao'")
+            appt.status = AppointmentStatus.NO_SHOW
+            session.commit()
+            return self._to_dto(appt, self._service_name(appt))
+
     def awaiting_confirmation(self) -> list[AppointmentDTO]:
         with self._session_factory() as session:
             rows = session.scalars(
@@ -302,6 +381,20 @@ class AppointmentService:
         with self._session_factory() as session:
             rows = session.scalars(select(Service).order_by(Service.naziv)).all()
             return [(row.id, row.naziv) for row in rows]
+
+    def service_options(self) -> list[ServiceOptionDTO]:
+        """Usluge sa trajanjem i bufferom (za GUI editor — trajanje se ne izmišlja)."""
+        with self._session_factory() as session:
+            rows = session.scalars(select(Service).order_by(Service.naziv)).all()
+            return [
+                ServiceOptionDTO(
+                    id=row.id,
+                    naziv=row.naziv,
+                    trajanje_min=row.trajanje_min,
+                    buffer_min=row.buffer_min,
+                )
+                for row in rows
+            ]
 
     def time_off_for_week(self, week_start: date) -> list[CalendarBlockDTO]:
         zone = ZoneInfo("Europe/Sarajevo")

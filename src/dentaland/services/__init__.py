@@ -5,6 +5,7 @@ from dentaland.services.booking import (
     AppointmentService,
     DoctorDTO,
     OverlapError,
+    ServiceOptionDTO,
     ensure_seed_data,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "AppointmentService",
     "DoctorDTO",
     "OverlapError",
+    "ServiceOptionDTO",
     "ensure_seed_data",
 ]
