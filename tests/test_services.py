@@ -331,6 +331,214 @@ def test_timeoff_i_split_shift_pauza(
     assert pause.start.hour == 12 and pause.end.hour == 13
 
 
+def test_update_mijenja_podatke(appointment_service: AppointmentService) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+
+    updated = appointment_service.update(
+        dto.id,
+        patient_name="Ana Anić",
+        phone="061",
+        email="ana@x.com",
+        doctor_id=appointment_service.doctor_id,
+        service="Kontrola",
+        note="napomena",
+        start=_at(9),
+        end=_at(9, 30),
+    )
+    assert updated.patient_name == "Ana Anić"
+    assert updated.phone == "061"
+    assert updated.email == "ana@x.com"
+    assert updated.note == "napomena"
+
+
+def test_update_mijenja_doktora(
+    session_factory: sessionmaker[Session],
+    appointment_service: AppointmentService,
+) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    with session_factory() as session:
+        zorka_id = _make_doctor(session, "Zorka")
+        session.commit()
+
+    updated = appointment_service.update(
+        dto.id,
+        patient_name="Ana",
+        phone="",
+        email="",
+        doctor_id=zorka_id,
+        service="Kontrola",
+        note="",
+        start=_at(9),
+        end=_at(9, 30),
+    )
+    assert updated.doctor_id == zorka_id
+    assert updated.doctor_name == "Zorka"
+
+
+def test_update_mijenja_vrijeme(appointment_service: AppointmentService) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+
+    updated = appointment_service.update(
+        dto.id,
+        patient_name="Ana",
+        phone="",
+        email="",
+        doctor_id=appointment_service.doctor_id,
+        service="Kontrola",
+        note="",
+        start=_at(11),
+        end=_at(11, 30),
+    )
+    assert updated.start == _at(11)
+    assert updated.end == _at(11, 30)
+
+
+def test_update_mijenja_uslugu(
+    session_factory: sessionmaker[Session],
+    appointment_service: AppointmentService,
+) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    with session_factory() as session:
+        session.add(Service(naziv="Plomba", trajanje_min=60, buffer_min=15))
+        session.commit()
+
+    updated = appointment_service.update(
+        dto.id,
+        patient_name="Ana",
+        phone="",
+        email="",
+        doctor_id=appointment_service.doctor_id,
+        service="Plomba",
+        note="",
+        start=_at(9),
+        end=_at(9, 30),
+    )
+    assert updated.service == "Plomba"
+
+
+def test_update_odbija_pravi_overlap(appointment_service: AppointmentService) -> None:
+    first = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    appointment_service.create("Marko", "", "", "Kontrola", "", _at(10), _at(10, 30))
+
+    with pytest.raises(OverlapError):
+        appointment_service.update(
+            first.id,
+            patient_name="Ana",
+            phone="",
+            email="",
+            doctor_id=appointment_service.doctor_id,
+            service="Kontrola",
+            note="",
+            start=_at(10, 15),
+            end=_at(10, 45),
+        )
+
+
+def test_update_ne_vidi_sam_sebe_kao_overlap(appointment_service: AppointmentService) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+
+    # Isto vrijeme, samo promjena imena — exclude_id=appt_id mora spriječiti lažni overlap.
+    updated = appointment_service.update(
+        dto.id,
+        patient_name="Ana A.",
+        phone="",
+        email="",
+        doctor_id=appointment_service.doctor_id,
+        service="Kontrola",
+        note="",
+        start=_at(9),
+        end=_at(9, 30),
+    )
+    assert updated.patient_name == "Ana A."
+
+
+def test_update_nepostojeci_id(appointment_service: AppointmentService) -> None:
+    with pytest.raises(ValueError, match="nije pronađen"):
+        appointment_service.update(
+            999,
+            patient_name="Ana",
+            phone="",
+            email="",
+            doctor_id=appointment_service.doctor_id,
+            service="Kontrola",
+            note="",
+            start=_at(9),
+            end=_at(9, 30),
+        )
+
+
+def test_update_odbija_terminalni_termin(appointment_service: AppointmentService) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    appointment_service.cancel(dto.id)
+
+    with pytest.raises(ValueError, match="samo zakazan"):
+        appointment_service.update(
+            dto.id,
+            patient_name="Ana",
+            phone="",
+            email="",
+            doctor_id=appointment_service.doctor_id,
+            service="Kontrola",
+            note="",
+            start=_at(9),
+            end=_at(9, 30),
+        )
+
+
+def test_mark_completed_uspjeh(appointment_service: AppointmentService) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    completed = appointment_service.mark_completed(dto.id)
+    assert completed.status == AppointmentStatus.COMPLETED
+
+
+def test_mark_no_show_uspjeh(appointment_service: AppointmentService) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    no_show = appointment_service.mark_no_show(dto.id)
+    assert no_show.status == AppointmentStatus.NO_SHOW
+
+
+def test_mark_completed_odbija_nevalidnu_tranziciju(
+    appointment_service: AppointmentService,
+) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    appointment_service.cancel(dto.id)
+    with pytest.raises(ValueError, match="samo zakazan"):
+        appointment_service.mark_completed(dto.id)
+
+
+def test_mark_no_show_odbija_nevalidnu_tranziciju(
+    appointment_service: AppointmentService,
+) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    appointment_service.mark_completed(dto.id)
+    with pytest.raises(ValueError, match="samo zakazan"):
+        appointment_service.mark_no_show(dto.id)
+
+
+def test_mark_completed_nepostojeci_id(appointment_service: AppointmentService) -> None:
+    with pytest.raises(ValueError, match="nije pronađen"):
+        appointment_service.mark_completed(999)
+
+
+def test_mark_no_show_nepostojeci_id(appointment_service: AppointmentService) -> None:
+    with pytest.raises(ValueError, match="nije pronađen"):
+        appointment_service.mark_no_show(999)
+
+
+def test_service_options_vraca_trajanje_i_buffer(
+    session_factory: sessionmaker[Session], appointment_service: AppointmentService
+) -> None:
+    with session_factory() as session:
+        session.add(Service(naziv="Plomba", trajanje_min=60, buffer_min=15))
+        session.commit()
+
+    options = {o.naziv: o for o in appointment_service.service_options()}
+    assert options["Kontrola"].trajanje_min == 30
+    assert options["Kontrola"].buffer_min == 0
+    assert options["Plomba"].trajanje_min == 60
+    assert options["Plomba"].buffer_min == 15
+
+
 def _set_status(session_factory: sessionmaker[Session], status: AppointmentStatus) -> None:
     with session_factory() as session:
         appt = session.scalar(select(Appointment))
