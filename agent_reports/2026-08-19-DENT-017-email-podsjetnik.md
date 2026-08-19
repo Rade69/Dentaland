@@ -1,6 +1,13 @@
 # Implementer izveštaj — DENT-017 (email podsjetnik)
 
-Task: DENT-017 | Risk: LOW | Implementer: pi | Status: IMPLEMENTED (čeka review)
+Task: DENT-017 | Risk: LOW | Implementer: pi | Status: MERGED → INTEGRATION_VERIFIED
+
+## Integration status
+
+`MERGED → INTEGRATION_VERIFIED → DONE` (2026-08-19). Review: Claude PASS
+(`2026-08-19-DENT-017-review-claude.md`). Human approval: Radovan (19.8.2026,
+"uradi sve kako si mi napisao"). Post-merge: `pytest tests/ -q` na čistom
+`main` → **206 passed** (202 + 4 nova testa za reminder, nula regresije).
 
 ## Validacija `.agent/` navigacionog sloja (prije prve izmjene koda)
 
