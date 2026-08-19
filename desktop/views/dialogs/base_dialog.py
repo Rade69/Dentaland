@@ -74,6 +74,14 @@ class BaseDialog(QDialog):
         self._footer.addWidget(button)
         return button
 
+    def add_footer_button(self, text: str, object_name: str = "") -> QPushButton:
+        """Dugme u footeru BEZ automatskog accept/reject — pozivalac povezuje signal."""
+        button = QPushButton(text)
+        if object_name:
+            button.setObjectName(object_name)
+        self._footer.addWidget(button)
+        return button
+
     def make_icon_label(
         self, icon_name: str, color: str = "#078f96", size: int = 16
     ) -> QLabel:

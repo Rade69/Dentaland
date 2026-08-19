@@ -2,17 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time
-from typing import Any, cast
+from typing import Any
 from zoneinfo import ZoneInfo
 
-from PySide6.QtCore import QDate, QDateTime, Qt, QTime, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QComboBox,
-    QDateTimeEdit,
-    QDialog,
-    QDialogButtonBox,
-    QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -22,57 +16,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-
-class ConfirmationDialog(QDialog):
-    """Osoblje bira stvarnog doktora, uslugu i vrijeme prije potvrde."""
-
-    def __init__(
-        self,
-        request: Any,
-        doctors: list[Any],
-        services: list[tuple[int, str]],
-        parent: QWidget | None = None,
-    ) -> None:
-        super().__init__(parent)
-        self.setWindowTitle("Potvrdi zahtjev")
-        self._doctor_ids = [int(doctor.id) for doctor in doctors]
-        self._service_ids = [service_id for service_id, _name in services]
-        self.doctor = QComboBox()
-        self.doctor.addItems([doctor.ime for doctor in doctors])
-        self.service = QComboBox()
-        self.service.addItems([name for _service_id, name in services])
-        self.start = QDateTimeEdit()
-        zone = ZoneInfo("Europe/Sarajevo")
-        initial = datetime.combine(request.requested_date, time(9), tzinfo=zone)
-        self.start.setDateTime(
-            QDateTime(
-                QDate(initial.year, initial.month, initial.day),
-                QTime(initial.hour, initial.minute),
-            )
-        )
-        self.start.setCalendarPopup(True)
-        form = QFormLayout()
-        form.addRow("Doktor", self.doctor)
-        form.addRow("Usluga", self.service)
-        form.addRow("Datum i vrijeme", self.start)
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        layout = QVBoxLayout(self)
-        layout.addLayout(form)
-        layout.addWidget(buttons)
-
-    def values(self) -> tuple[int, int, datetime]:
-        start = cast(datetime, self.start.dateTime().toPython())
-        if start.tzinfo is None:
-            start = start.replace(tzinfo=ZoneInfo("Europe/Sarajevo"))
-        return (
-            self._doctor_ids[self.doctor.currentIndex()],
-            self._service_ids[self.service.currentIndex()],
-            start,
-        )
+# confirm_pending baca requests.OverlapError (duplirani izuzetak u requests.py),
+# NE booking.OverlapError — zato import direktno iz requests.
+from dentaland.services.requests import OverlapError
+from desktop.views.dialogs.process_request import ProcessRequestDialog
 
 
 class DashboardPanels(QScrollArea):
@@ -95,28 +42,14 @@ class DashboardPanels(QScrollArea):
         self.pending_box = QGroupBox()
         self.awaiting_box = QGroupBox()
         self.cancelled_box = QGroupBox()
-        self.next_free_box = QGroupBox("Sljedeći slobodan termin")
-        for box in (
-            self.pending_box,
-            self.awaiting_box,
-            self.cancelled_box,
-            self.next_free_box,
-        ):
+        for box in (self.pending_box, self.awaiting_box, self.cancelled_box):
             box.setObjectName("dashboardBox")
+        today_title = QLabel("DANAS")
+        today_title.setObjectName("dashboardSectionTitle")
+        self.content_layout.addWidget(today_title)
         self.content_layout.addWidget(self.pending_box)
         self.content_layout.addWidget(self.awaiting_box)
         self.content_layout.addWidget(self.cancelled_box)
-        next_free_layout = QVBoxLayout(self.next_free_box)
-        next_free_layout.setSpacing(5)
-        next_free = QLabel("Pretraga prvog slobodnog termina\nbiće dostupna uskoro.")
-        next_free.setObjectName("nextFreePlaceholder")
-        next_free.setWordWrap(True)
-        next_free_layout.addWidget(next_free)
-        make_button = QPushButton("Napravi termin")
-        make_button.setEnabled(False)
-        make_button.setToolTip("Pretraga slobodnih termina biće dodana zasebno")
-        next_free_layout.addWidget(make_button)
-        self.content_layout.addWidget(self.next_free_box)
         self.content_layout.addStretch()
         self.setWidget(container)
         self.refresh()
@@ -154,7 +87,7 @@ class DashboardPanels(QScrollArea):
         self.pending_box.setTitle(f"Novi zahtjevi ({len(rows)})")
         layout = self._replace_layout(self.pending_box)
         if not rows:
-            layout.addWidget(QLabel("Nema novih zahtjeva"))
+            layout.addWidget(QLabel("Sve je obrađeno."))
             return
         for request in rows:
             row = QWidget()
@@ -167,17 +100,10 @@ class DashboardPanels(QScrollArea):
                 f"<span style='color:#31578a'>{request.requested_date:%d.%m.%Y.}</span>"
             )
             row_layout.addWidget(details, 1)
-            actions = QHBoxLayout()
-            actions.setSpacing(4)
-            confirm = QPushButton("Potvrdi")
-            confirm.setObjectName("confirmButton")
-            reject = QPushButton("Odbij")
-            reject.setObjectName("rejectButton")
-            confirm.clicked.connect(lambda _checked=False, item=request: self._confirm(item))
-            reject.clicked.connect(lambda _checked=False, item=request: self._reject(item.id))
-            actions.addWidget(confirm)
-            actions.addWidget(reject)
-            row_layout.addLayout(actions)
+            process = QPushButton("Obradi")
+            process.setObjectName("processButton")
+            process.clicked.connect(lambda _checked=False, item=request: self._confirm(item))
+            row_layout.addWidget(process)
             layout.addWidget(row)
 
     def _fill_appointments(
@@ -226,19 +152,23 @@ class DashboardPanels(QScrollArea):
         self.changed.emit()
 
     def _confirm(self, request: Any) -> None:
-        doctors = self._call("doctors")
+        doctors = [(d.id, d.ime) for d in self._call("doctors")]
         services = self._call("service_choices")
         if not doctors or not services:
             return
-        dialog = ConfirmationDialog(request, doctors, services, self)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        doctor_id, service_id, start = dialog.values()
-        self.store.confirm_pending(request.id, doctor_id, service_id, start)
-        self.refresh()
-        self.changed.emit()
-
-    def _reject(self, request_id: int) -> None:
-        self.store.reject_pending(request_id)
+        dialog = ProcessRequestDialog(request, doctors, services, self)
+        while True:
+            dialog.exec()
+            action = dialog.selected_action()
+            if action == "confirm":
+                doctor_id, service_id, start = dialog.values()
+                try:
+                    self.store.confirm_pending(request.id, doctor_id, service_id, start)
+                except (OverlapError, ValueError) as exc:
+                    dialog.show_error(str(exc))
+                    continue
+            elif action == "reject":
+                self.store.reject_pending(request.id)
+            break
         self.refresh()
         self.changed.emit()
