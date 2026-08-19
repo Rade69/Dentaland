@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from contextlib import suppress
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QDate, QSize, Qt, QTimer
-from PySide6.QtGui import QAction, QColor, QCursor, QPalette
+from PySide6.QtGui import QAction, QColor, QCursor, QIcon, QPalette
 from PySide6.QtWidgets import (
     QApplication,
     QCalendarWidget,
@@ -55,6 +56,9 @@ class MainWindow(QMainWindow):
         self._has_doctors = False
         self._doctors: list = []
         self.setWindowTitle("Dentaland")
+        self.setWindowIcon(
+            QIcon(str(Path(__file__).resolve().parents[2] / "web" / "assets" / "logo.png"))
+        )
         # Razumna restore veličina; entrypoint prozor otvara maksimizovan.
         # Starih 1536x1000 prelazilo je radnu visinu na Windowsu pri 125% DPI.
         self.resize(1280, 720)

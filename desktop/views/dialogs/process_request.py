@@ -30,7 +30,7 @@ class ProcessRequestDialog(BaseDialog):
         services: list[tuple[int, str]],
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__("Obradi zahtjev", parent)
+        super().__init__("Obradi zahtjev", parent, icon="calendar")
         self.request = request
         self._selected_action: str | None = None
         self._doctor_ids = [doctor_id for doctor_id, _name in doctors]

@@ -31,7 +31,7 @@ class MoveAppointmentDialog(BaseDialog):
     """Novi datum/vrijeme za postojeći termin; trajanje ostaje vidljivo."""
 
     def __init__(self, appointment: Any, parent: QWidget | None = None) -> None:
-        super().__init__("Pomjeri termin", parent)
+        super().__init__("Pomjeri termin", parent, icon="clock")
         self.appointment = appointment
 
         start = appointment.start.astimezone(SARAJEVO)
