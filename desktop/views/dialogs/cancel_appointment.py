@@ -21,7 +21,7 @@ class CancelAppointmentDialog(BaseDialog):
     """Potvrda otkazivanja — pacijent + vrijeme + napomena o istoriji."""
 
     def __init__(self, appointment: Any, parent: QWidget | None = None) -> None:
-        super().__init__("Otkaži termin", parent)
+        super().__init__("Otkaži termin", parent, icon="alert")
 
         start = appointment.start.astimezone(SARAJEVO)
         end = appointment.end.astimezone(SARAJEVO)

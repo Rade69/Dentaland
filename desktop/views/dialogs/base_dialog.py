@@ -8,7 +8,10 @@ error → footer (akcije).
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -18,19 +21,30 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+# Repo korijen = parents[3] (dialogs/ je jedan nivo dublje od sidebar.py).
+_LOGO_PATH = Path(__file__).resolve().parents[3] / "web" / "assets" / "logo.png"
+
 
 class BaseDialog(QDialog):
     """Zajednička osnova za glavne modalne tokove — bez emoji, bez generičkog OK/Cancel."""
 
-    def __init__(self, title: str, parent: QWidget | None = None) -> None:
+    def __init__(
+        self, title: str, parent: QWidget | None = None, icon: str = "calendar"
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
+        self.setWindowIcon(QIcon(str(_LOGO_PATH)))
         self.setModal(True)
         self.setObjectName("baseDialog")
         self.setMinimumWidth(430)
 
+        header = QHBoxLayout()
+        header.setSpacing(10)
+        header.addWidget(self.make_icon_label(icon, size=20))
         self._title_label = QLabel(title)
         self._title_label.setObjectName("dialogTitle")
+        header.addWidget(self._title_label, 1)
+        header.addStretch()
 
         self._body = QVBoxLayout()
         self._body.setContentsMargins(0, 0, 0, 0)
@@ -49,7 +63,7 @@ class BaseDialog(QDialog):
         root = QVBoxLayout(self)
         root.setContentsMargins(22, 18, 22, 18)
         root.setSpacing(14)
-        root.addWidget(self._title_label)
+        root.addLayout(header)
         root.addLayout(self._body)
         root.addWidget(self._error_label)
         root.addLayout(self._footer)

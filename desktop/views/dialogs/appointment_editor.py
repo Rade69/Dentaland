@@ -55,7 +55,7 @@ class AppointmentEditorDialog(BaseDialog):
         parent: QWidget | None = None,
     ) -> None:
         is_edit = appointment is not None
-        super().__init__("Uredi termin" if is_edit else "Novi termin", parent)
+        super().__init__("Uredi termin" if is_edit else "Novi termin", parent, icon="calendar")
 
         self._doctors = doctors
         self._service_durations = {name: duration for name, duration in service_options}

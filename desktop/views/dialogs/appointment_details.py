@@ -33,7 +33,7 @@ class AppointmentDetailsDialog(BaseDialog):
     """Prikaz termina + status highlight + uslovne akcije (dvokolonski)."""
 
     def __init__(self, appointment: Any, parent: QWidget | None = None) -> None:
-        super().__init__("Detalji termina", parent)
+        super().__init__("Detalji termina", parent, icon="calendar")
         self.appointment = appointment
         self._selected_action: str | None = None
         self._action_buttons: list[QPushButton] = []
