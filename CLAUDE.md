@@ -187,6 +187,8 @@ blocking_findings: []
 
 `REJECT` mora imati tačnu lokaciju i pravilo koje je prekršeno u `blocking_findings` — implementer dobija konkretnu stavku, ne "popravi review".
 
+Za samo izvršenje Reviewer uloge (metoda, ne proces) koristiti globalni skill `independent-review` — čita ovaj format (`verdict`/`blocking_findings`) i koristi ga umjesto generičkog PASS/FAIL, proaktivno se aktivira kad se rad proglasi gotovim, ne treba ga ručno zvati. Za Implementer stranu (bug-fix i nova funkcionalnost) postoje `prime-bug`/`prime-feature` — minimalan kontekst + podsjetnik na reprodukciju/obim prije koda, takođe automatski.
+
 ## Konflikt između reviewera i hijerarhija autoriteta
 
 Ne rješava se glasanjem. Svaki blocking finding provjerava se prema Task Contractu, kodu i testovima — ako je tvrdnja objektivno testabilna, pravi se test.
