@@ -49,7 +49,12 @@ AUTO_REFRESH_INTERVAL_MS = 20_000
 class MainWindow(QMainWindow):
     """Sedmični raspored + filter tabovi doktora + alatna traka (štampa stub)."""
 
-    def __init__(self, store, week_start: date | None = None, parent=None):
+    def __init__(
+        self,
+        store: Any,
+        week_start: date | None = None,
+        parent: QWidget | None = None,
+    ):
         super().__init__(parent)
         self.store = store
         self._current_doctor_id: int | None = None
@@ -537,7 +542,7 @@ class MainWindow(QMainWindow):
             return [(name, DEFAULT_MANUAL_DURATION_MINUTES) for name in services()]
         return []
 
-    def _on_slot_selected(self, start) -> None:
+    def _on_slot_selected(self, start: datetime) -> None:
         dialog = AppointmentEditorDialog(
             [(d.id, d.ime) for d in self._doctors],
             self._service_options(),
