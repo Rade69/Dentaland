@@ -3,7 +3,7 @@ task_id: DENT-DESKTOP-B3
 risk: LOW
 implementer: pi
 reviewer: claude
-status: REVIEWED PASS_WITH_NOTES — čeka human approval; vidi agent_reports/2026-08-19-DENT-DESKTOP-B3-ikonice.md
+status: MERGED → INTEGRATION_VERIFIED → DONE (merge 3f300c0); vidi agent_reports/2026-08-19-DENT-DESKTOP-B3-ikonice.md
 created_at: 2026-08-19
 ---
 
