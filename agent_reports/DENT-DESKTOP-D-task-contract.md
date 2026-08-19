@@ -3,7 +3,7 @@ task_id: DENT-DESKTOP-D
 risk: MEDIUM
 implementer: pi
 reviewer: radovan (Reviewer 1)
-status: REVIEWED PASS — čeka human approval; vidi agent_reports/2026-08-19-DENT-DESKTOP-D-online-zahtjevi.md
+status: MERGED → INTEGRATION_VERIFIED → DONE (merge 126801b); vidi agent_reports/2026-08-19-DENT-DESKTOP-D-online-zahtjevi.md
 created_at: 2026-08-19
 ---
 
