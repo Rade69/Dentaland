@@ -3,7 +3,7 @@ task_id: DENT-DESKTOP-F
 risk: HIGH
 implementer: claude
 reviewers: [crush, pi]
-status: IMPLEMENTED — čeka nezavisan review (Crush + Pi), zatim human approval
+status: "Reviewer Pi: PASS (vidi agent_reports/2026-08-19-DENT-DESKTOP-F-review-pi.md). Čeka Reviewer Crush (obavezan dok je Codex nedostupan), zatim human approval."
 created_at: 2026-08-19
 ---
 
