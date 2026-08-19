@@ -16,7 +16,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from PySide6.QtCore import QPoint, Qt, Signal
-from PySide6.QtGui import QAction, QColor
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
@@ -81,6 +81,8 @@ class WeekView(QTableWidget):
     """Mreža sedmičnog rasporeda (redovi = vrijeme, kolone = dani)."""
 
     slot_selected = Signal(object)  # datetime početka praznog slota
+    appointment_clicked = Signal(int)  # klik na postojeći termin -> Detalji
+    appointment_action_requested = Signal(int, str)  # akcija iz kontekst menija
     appointment_moved = Signal(object)  # Appointment koji je pomjeren
 
     DAY_NAMES = ["Pon", "Uto", "Sri", "Čet", "Pet", "Sub"]
@@ -417,37 +419,23 @@ class WeekView(QTableWidget):
     # ---- interakcije ----
 
     def _on_cell_clicked(self, row: int, col: int) -> None:
+        appts = self._appointments_by_cell().get((row, col), [])
+        if appts:
+            self.appointment_clicked.emit(appts[0].id)
+            return
         item = self.item(row, col)
-        if (
-            not self._appointments_by_cell().get((row, col))
-            and item is not None
-            and not item.data(_BLOCK_ROLE)
-        ):
+        if item is not None and not item.data(_BLOCK_ROLE):
             self.slot_selected.emit(self._slot_datetime(row, col, self._pending_click_minutes))
 
-    def mark_appointment_arrived(self, appt_id: int) -> bool:
-        return self._call_status_method("mark_arrived", appt_id)
-
-    def unmark_appointment_arrived(self, appt_id: int) -> bool:
-        return self._call_status_method("unmark_arrived", appt_id)
-
-    def _call_status_method(self, method_name: str, appt_id: int) -> bool:
-        method = getattr(self.store, method_name, None)
-        if not callable(method):
-            return False
-        try:
-            method(appt_id)
-        except ValueError:
-            return False
-        self.refresh()
-        return True
-
-    def _arrived_action_label(self, appt_id: int) -> str:
-        """Naziv akcije za 'stigao' — poništi ako je već označen, inače označi."""
+    def _get_appointment(self, appt_id: int) -> Any:
         getter = getattr(self.store, "get", None)
-        appt = getter(appt_id) if callable(getter) else None
-        already_arrived = getattr(appt, "arrived_at", None) is not None
-        return "Poništi (nije stiglo)" if already_arrived else "Označi stiglo"
+        return getter(appt_id) if callable(getter) else None
+
+    def _add_menu_action(self, menu: QMenu, label: str, appt_id: int, action: str) -> None:
+        qaction = menu.addAction(label)
+        qaction.triggered.connect(
+            lambda: self.appointment_action_requested.emit(appt_id, action)
+        )
 
     def _open_context_menu(self, position: QPoint) -> None:
         item = self.itemAt(position)
@@ -456,15 +444,31 @@ class WeekView(QTableWidget):
         appt_id = item.data(_APPT_ID_ROLE)
         if appt_id is None:
             return
-        label = self._arrived_action_label(appt_id)
+
+        appt = self._get_appointment(appt_id)
+        status_key = _status_key(appt) if appt is not None else "waiting"
+        terminal = status_key in {"completed", "cancelled"}
 
         menu = QMenu(self)
-        action = QAction(label, menu)
-        if label == "Označi stiglo":
-            action.triggered.connect(lambda: self.mark_appointment_arrived(appt_id))
-        else:
-            action.triggered.connect(lambda: self.unmark_appointment_arrived(appt_id))
-        menu.addAction(action)
+        self._add_menu_action(menu, "Otvori detalje", appt_id, "open_details")
+
+        if not terminal:
+            menu.addSeparator()
+            if status_key != "confirmed":
+                self._add_menu_action(menu, "Potvrdi termin", appt_id, "confirm")
+            already_arrived = getattr(appt, "arrived_at", None) is not None
+            if already_arrived:
+                self._add_menu_action(menu, "Poništi (nije stiglo)", appt_id, "unarrived")
+            else:
+                self._add_menu_action(menu, "Pacijent je stigao", appt_id, "arrived")
+            self._add_menu_action(menu, "Označi kao završen", appt_id, "completed")
+            self._add_menu_action(menu, "Označi 'nije došao'", appt_id, "no_show")
+            menu.addSeparator()
+            self._add_menu_action(menu, "Uredi termin", appt_id, "edit")
+            self._add_menu_action(menu, "Pomjeri termin", appt_id, "move")
+            menu.addSeparator()
+            self._add_menu_action(menu, "Otkaži termin", appt_id, "cancel")
+
         menu.exec(self.viewport().mapToGlobal(position))
 
     def move_appointment_to_slot(self, appt_id: int, row: int, col: int) -> bool:
