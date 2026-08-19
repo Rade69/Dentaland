@@ -8,6 +8,7 @@ error → footer (akcije).
 
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -73,6 +74,28 @@ class BaseDialog(QDialog):
         self._footer.addWidget(button)
         return button
 
+    def make_icon_label(
+        self, icon_name: str, color: str = "#078f96", size: int = 16
+    ) -> QLabel:
+        """Mala ikonica u krugu — za redove sa ikonicom (Detalji)."""
+        from desktop.views.sidebar import svg_icon
+
+        label = QLabel()
+        label.setPixmap(svg_icon(icon_name, color, size).pixmap(size, size))
+        label.setFixedSize(size + 12, size + 12)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        label.setStyleSheet(
+            f"background-color: #eef8f9; border-radius: {(size + 12) // 2}px;"
+        )
+        return label
+
+    def add_outline_button(self, text: str, kind: str = "teal") -> QPushButton:
+        """Dugme sa obojenim obrisom — ``teal`` za edit/move, ``danger`` za cancel."""
+        button = QPushButton(text)
+        button.setObjectName("outlineTealButton" if kind == "teal" else "outlineDangerButton")
+        self.body_layout().addWidget(button)
+        return button
+
     def show_error(self, message: str) -> None:
         self._error_label.setText(message)
         self._error_label.setVisible(True)
@@ -131,5 +154,18 @@ class BaseDialog(QDialog):
                 padding: 2px 18px;
             }
             #dialogSecondaryButton:hover { background-color: #eef8f9; }
+            #outlineTealButton {
+                background-color: #ffffff; color: #078f96;
+                border: 1px solid #078f96; border-radius: 6px;
+                min-height: 34px; padding: 2px 12px; font-weight: 600;
+            }
+            #outlineTealButton:hover { background-color: #eef8f9; }
+            #outlineDangerButton {
+                background-color: #ffffff; color: #ef334f;
+                border: 1px solid #ef334f; border-radius: 6px;
+                min-height: 34px; padding: 2px 12px; font-weight: 600;
+            }
+            #outlineDangerButton:hover { background-color: #fdecef; }
+            #editorFieldLabel { color: #42526b; font-weight: 600; font-size: 12px; }
             """
         )

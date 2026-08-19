@@ -12,7 +12,15 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from PySide6.QtCore import QDate, QTime
-from PySide6.QtWidgets import QDateEdit, QFormLayout, QLabel, QSpinBox, QTimeEdit, QWidget
+from PySide6.QtWidgets import (
+    QDateEdit,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QSpinBox,
+    QTimeEdit,
+    QWidget,
+)
 
 from desktop.views.dialogs.base_dialog import BaseDialog
 
@@ -30,9 +38,14 @@ class MoveAppointmentDialog(BaseDialog):
         end = appointment.end.astimezone(SARAJEVO)
         duration = max(int((end - start).total_seconds() / 60), 5)
 
+        current_row = QHBoxLayout()
+        current_row.setSpacing(8)
+        current_row.addWidget(self.make_icon_label("clock"))
         current = QLabel(f"Trenutno: {start:%d.%m.%Y.} · {start:%H:%M}–{end:%H:%M}")
         current.setObjectName("moveCurrent")
-        self.body_layout().addWidget(current)
+        current_row.addWidget(current, 1)
+        current_row.addStretch()
+        self.body_layout().addLayout(current_row)
 
         self.date_edit = QDateEdit()
         self.date_edit.setCalendarPopup(True)

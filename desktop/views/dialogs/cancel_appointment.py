@@ -10,7 +10,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from desktop.views.dialogs.base_dialog import BaseDialog
 
@@ -26,6 +26,12 @@ class CancelAppointmentDialog(BaseDialog):
         start = appointment.start.astimezone(SARAJEVO)
         end = appointment.end.astimezone(SARAJEVO)
 
+        warn_row = QHBoxLayout()
+        warn_row.addStretch()
+        warn_row.addWidget(self.make_icon_label("alert", "#b7791f", 20))
+        warn_row.addStretch()
+        self.body_layout().addLayout(warn_row)
+
         name = QLabel(getattr(appointment, "patient_name", ""))
         name.setObjectName("cancelPatient")
         name.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -38,10 +44,19 @@ class CancelAppointmentDialog(BaseDialog):
         note.setObjectName("cancelNote")
         note.setWordWrap(True)
         note.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        note_box = QFrame()
+        note_box.setObjectName("cancelNoteBox")
+        note_box.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        note_box.setStyleSheet(
+            "background-color: #fff8e6; border: 1px solid #f0d9a8; border-radius: 6px;"
+        )
+        note_box_layout = QVBoxLayout(note_box)
+        note_box_layout.setContentsMargins(12, 8, 12, 8)
+        note_box_layout.addWidget(note)
 
         self.body_layout().addWidget(name)
         self.body_layout().addWidget(when)
-        self.body_layout().addWidget(note)
+        self.body_layout().addWidget(note_box)
 
         self.add_secondary_button("Odustani")
         cancel_button = self.add_primary_button("Otkaži termin")
@@ -54,6 +69,6 @@ class CancelAppointmentDialog(BaseDialog):
             + """
             #cancelPatient { color: #10213d; font-size: 15px; font-weight: 700; }
             #cancelWhen { color: #42526b; font-size: 13px; }
-            #cancelNote { color: #718096; font-size: 12px; }
+            #cancelNote { color: #7a5b12; font-size: 12px; }
             """
         )

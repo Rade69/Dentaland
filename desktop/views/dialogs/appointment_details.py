@@ -1,9 +1,9 @@
-"""Detalji termina — read-only prikaz + uslovne akcije (Faza C redizajna).
+"""Detalji termina — read-only prikaz + uslovne akcije (Faza C, vizuelni polish B2).
 
-Status NIJE dropdown: prikazuje se badge sa trenutnim stanjem i uslovne
-akcije. Terminalni statusi (COMPLETED/NO_SHOW/CANCELLED) nemaju povratne
-akcije. Dijalog NE poziva store — samo bira akciju i vraća je pozivaocu
-(MainWindow orkestrira).
+Dvokolonski layout prema mockapu: lijevo podaci pacijenta (sa ikonicom uz
+svaki red), desno "Status termina" sekcija — istaknut status + dostupne
+akcije. Status NIJE dropdown. Terminalni statusi nemaju povratne akcije.
+Dijalog NE poziva store — samo bira akciju i vraća je pozivaocu.
 """
 
 from __future__ import annotations
@@ -13,76 +13,100 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QGridLayout, QLabel, QPushButton, QWidget
+from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from desktop.views.dialogs.base_dialog import BaseDialog
 from desktop.views.week_view import STATUS_META, _status_key
 
 SARAJEVO = ZoneInfo("Europe/Sarajevo")
 
+_STATUS_BG = {
+    "confirmed": "#e8f7ee",
+    "waiting": "#fff4e6",
+    "arrived": "#e8f1fd",
+    "completed": "#f3eefd",
+    "cancelled": "#fdecef",
+}
+
 
 class AppointmentDetailsDialog(BaseDialog):
-    """Prikaz termina + status badge + uslovne akcije."""
+    """Prikaz termina + status highlight + uslovne akcije (dvokolonski)."""
 
     def __init__(self, appointment: Any, parent: QWidget | None = None) -> None:
         super().__init__("Detalji termina", parent)
         self.appointment = appointment
         self._selected_action: str | None = None
         self._action_buttons: list[QPushButton] = []
+        self._right = QVBoxLayout()
+        self._right.setSpacing(8)
 
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(14)
-        grid.setVerticalSpacing(6)
-        grid.setColumnStretch(1, 1)
+        columns = QHBoxLayout()
+        columns.setSpacing(20)
 
-        def add_row(row: int, label: str, value: str) -> None:
-            key = QLabel(label)
-            key.setObjectName("detailLabel")
-            val = QLabel(value)
-            val.setObjectName("detailValue")
-            val.setWordWrap(True)
-            grid.addWidget(key, row, 0)
-            grid.addWidget(val, row, 1)
+        # LIJEVO — podaci pacijenta sa ikonicama
+        info = QGridLayout()
+        info.setHorizontalSpacing(8)
+        info.setVerticalSpacing(8)
+        info.setColumnStretch(2, 1)
 
         start = getattr(appointment, "start", None)
         end = getattr(appointment, "end", None)
-        add_row(0, "Pacijent", getattr(appointment, "patient_name", "") or "—")
-        add_row(1, "Telefon", getattr(appointment, "phone", "") or "—")
-        add_row(2, "Email", getattr(appointment, "email", "") or "—")
-        add_row(3, "Datum", self._fmt_date(start))
-        add_row(4, "Vrijeme", self._fmt_time(start, end))
-        add_row(5, "Trajanje", self._fmt_duration(start, end))
-        add_row(6, "Doktor", getattr(appointment, "doctor_name", "") or "—")
-        add_row(7, "Usluga", getattr(appointment, "service", "") or "—")
-        add_row(8, "Napomena", getattr(appointment, "note", "") or "—")
-        self.body_layout().addLayout(grid)
+        rows = [
+            ("user", "Pacijent", getattr(appointment, "patient_name", "") or "—"),
+            ("phone", "Telefon", getattr(appointment, "phone", "") or "—"),
+            ("mail", "Email", getattr(appointment, "email", "") or "—"),
+            ("calendar", "Datum", self._fmt_date(start)),
+            ("clock", "Vrijeme", self._fmt_time(start, end)),
+            ("clock", "Trajanje", self._fmt_duration(start, end)),
+            ("user", "Doktor", getattr(appointment, "doctor_name", "") or "—"),
+            ("tooth", "Usluga", getattr(appointment, "service", "") or "—"),
+            ("note", "Napomena", getattr(appointment, "note", "") or "—"),
+        ]
+        for i, (icon, field_label, value) in enumerate(rows):
+            info.addWidget(self.make_icon_label(icon), i, 0)
+            field_key = QLabel(field_label)
+            field_key.setObjectName("detailLabel")
+            val = QLabel(value)
+            val.setObjectName("detailValue")
+            val.setWordWrap(True)
+            info.addWidget(field_key, i, 1)
+            info.addWidget(val, i, 2)
 
-        key = _status_key(appointment)
-        symbol, color, label = STATUS_META[key]
-        self.status_badge = QLabel(f"{symbol} {label}")
-        self.status_badge.setObjectName("statusBadge")
+        # DESNO — status + akcije
+        status_title = QLabel("Status termina")
+        status_title.setObjectName("detailSection")
+        self._right.addWidget(status_title)
+
+        status_key = _status_key(appointment)
+        symbol, color, label = STATUS_META[status_key]
+        self.status_badge = QLabel(f"{symbol}  {label}")
+        self.status_badge.setObjectName("statusHighlight")
         self.status_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_badge.setStyleSheet(
-            f"color: {color}; font-size: 14px; font-weight: 700; "
-            "background-color: #f4fafb; border: 1px solid #c9dce3; "
-            "border-radius: 7px; padding: 8px;"
+            f"color: {color}; background-color: {_STATUS_BG[status_key]}; "
+            f"border: 1px solid {color}; border-radius: 7px; "
+            "padding: 10px; font-size: 14px; font-weight: 700;"
         )
-        self.body_layout().addWidget(self.status_badge)
+        self._right.addWidget(self.status_badge)
 
-        terminal = key in {"completed", "cancelled"}
+        terminal = status_key in {"completed", "cancelled"}
         if not terminal:
             self._add_section("Dostupne akcije")
-            if key != "confirmed":
-                self._add_action("Potvrdi termin", "confirm")
+            if status_key != "confirmed":
+                self._add_action("Potvrdi termin", "confirm", "neutral")
             if getattr(appointment, "arrived_at", None) is None:
-                self._add_action("Pacijent je stigao", "arrived")
-            self._add_action("Označi kao završen", "completed")
-            self._add_action("Označi 'nije došao'", "no_show")
+                self._add_action("Pacijent je stigao", "arrived", "neutral")
+            self._add_action("Označi kao završen", "completed", "neutral")
+            self._add_action("Označi 'nije došao'", "no_show", "neutral")
 
             self._add_section("Operativne akcije")
-            self._add_action("Uredi termin", "edit")
-            self._add_action("Pomjeri termin", "move")
-            self._add_action("Otkaži termin", "cancel")
+            self._add_action("Uredi termin", "edit", "teal")
+            self._add_action("Pomjeri termin", "move", "teal")
+            self._add_action("Otkaži termin", "cancel", "danger")
+
+        columns.addLayout(info, 2)
+        columns.addLayout(self._right, 1)
+        self.body_layout().addLayout(columns)
 
         self.add_secondary_button("Zatvori")
         self._apply_style()
@@ -90,13 +114,18 @@ class AppointmentDetailsDialog(BaseDialog):
     def _add_section(self, text: str) -> None:
         label = QLabel(text)
         label.setObjectName("detailSection")
-        self.body_layout().addWidget(label)
+        self._right.addWidget(label)
 
-    def _add_action(self, label: str, action: str) -> None:
+    def _add_action(self, label: str, action: str, kind: str = "neutral") -> None:
         button = QPushButton(label)
-        button.setObjectName("detailActionButton")
+        if kind == "teal":
+            button.setObjectName("outlineTealButton")
+        elif kind == "danger":
+            button.setObjectName("outlineDangerButton")
+        else:
+            button.setObjectName("detailActionButton")
         button.clicked.connect(lambda: self._choose(action))
-        self.body_layout().addWidget(button)
+        self._right.addWidget(button)
         self._action_buttons.append(button)
 
     def _choose(self, action: str) -> None:
@@ -125,13 +154,14 @@ class AppointmentDetailsDialog(BaseDialog):
         return f"{int((end - start).total_seconds() / 60)} min"
 
     def _apply_style(self) -> None:
+        super()._apply_style()
         self.setStyleSheet(
             self.styleSheet()
             + """
-            #detailLabel { color: #718096; font-weight: 600; }
+            #detailLabel { color: #718096; font-weight: 600; font-size: 12px; }
             #detailValue { color: #10213d; }
             #detailSection {
-                color: #31578a; font-weight: 700; margin-top: 8px;
+                color: #31578a; font-weight: 700; margin-top: 6px;
             }
             #detailActionButton {
                 background-color: #ffffff; color: #10213d;
