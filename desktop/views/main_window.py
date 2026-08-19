@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -30,7 +31,10 @@ from dentaland.services import OverlapError
 from dentaland.services.print_schedule import build_day_schedule, build_week_schedule
 from desktop.fake_data import SARAJEVO
 from desktop.print_document import build_day_document, build_week_document, preview_document
+from desktop.views.dialogs.appointment_details import AppointmentDetailsDialog
 from desktop.views.dialogs.appointment_editor import AppointmentEditorDialog
+from desktop.views.dialogs.cancel_appointment import CancelAppointmentDialog
+from desktop.views.dialogs.move_appointment import MoveAppointmentDialog
 from desktop.views.requests_panel import DashboardPanels
 from desktop.views.sidebar import Sidebar, svg_icon
 from desktop.views.stub_page import StubPage
@@ -95,6 +99,8 @@ class MainWindow(QMainWindow):
         self.addAction(self.print_action)
 
         self.week_view.slot_selected.connect(self._on_slot_selected)
+        self.week_view.appointment_clicked.connect(self._open_appointment_details)
+        self.week_view.appointment_action_requested.connect(self._handle_appointment_action)
         self._apply_style()
         self._refresh_dashboard()
 
@@ -577,6 +583,74 @@ class MainWindow(QMainWindow):
             except OverlapError as exc:
                 dialog.show_error(str(exc))
         self._refresh_dashboard()
+
+    def _open_appointment_details(self, appt_id: int) -> None:
+        appt = self.store.get(appt_id)
+        if appt is None:
+            return
+        dialog = AppointmentDetailsDialog(appt, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            action = dialog.selected_action()
+            if action is not None:
+                self._handle_appointment_action(appt_id, action)
+
+    def _handle_appointment_action(self, appt_id: int, action: str) -> None:
+        if action == "open_details":
+            self._open_appointment_details(appt_id)
+            return
+        if action == "edit":
+            appt = self.store.get(appt_id)
+            if appt is not None:
+                self._edit_appointment(appt)
+            return
+        if action == "move":
+            appt = self.store.get(appt_id)
+            if appt is not None:
+                self._move_appointment(appt)
+            return
+        if action == "cancel":
+            appt = self.store.get(appt_id)
+            if appt is not None:
+                self._cancel_appointment(appt)
+            return
+        method_map = {
+            "confirm": "mark_confirmed",
+            "arrived": "mark_arrived",
+            "unarrived": "unmark_arrived",
+            "completed": "mark_completed",
+            "no_show": "mark_no_show",
+        }
+        method_name = method_map.get(action)
+        if method_name is None:
+            return
+        method = getattr(self.store, method_name, None)
+        if callable(method):
+            with suppress(ValueError):
+                method(appt_id)
+        self._refresh_dashboard()
+
+    def _move_appointment(self, appt: Any) -> None:
+        dialog = MoveAppointmentDialog(appt, self)
+        while True:
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                return
+            new_start, duration_min = dialog.get_data()
+            new_end = new_start + timedelta(minutes=duration_min)
+            try:
+                self.store.move(appt.id, new_start, new_end)
+                break
+            except OverlapError as exc:
+                dialog.show_error(str(exc))
+        self._refresh_dashboard()
+
+    def _cancel_appointment(self, appt: Any) -> None:
+        dialog = CancelAppointmentDialog(appt, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            cancel_fn = getattr(self.store, "cancel", None)
+            if callable(cancel_fn):
+                with suppress(ValueError):
+                    cancel_fn(appt.id)
+            self._refresh_dashboard()
 
     def _on_print(self) -> None:
         menu = QMenu(self)

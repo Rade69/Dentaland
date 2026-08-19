@@ -294,3 +294,67 @@ def test_overlap_greska_se_prikazuje_u_dijalogu_i_ne_zatvara_ga(
     editor = FakeEditor.instances[0]
     assert len(editor.errors) == 1  # overlap greška prikazana inline
     assert editor.exec_count == 2  # dijalog je ponovo otvoren, pa korisnik odustao
+
+
+def test_klik_na_termin_otvara_detalje(
+    qtbot, appointment_service, week_start, monkeypatch
+) -> None:
+    dto = appointment_service.create(
+        "Ana", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+
+    class FakeDetails:
+        instances = []
+
+        def __init__(self, appointment, parent=None):
+            self.appointment = appointment
+            FakeDetails.instances.append(self)
+
+        def exec(self):
+            return QDialog.DialogCode.Rejected
+
+        def selected_action(self):
+            return None
+
+    monkeypatch.setattr(main_window_mod, "AppointmentDetailsDialog", FakeDetails)
+    win = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(win)
+
+    win.week_view.appointment_clicked.emit(dto.id)
+
+    assert len(FakeDetails.instances) == 1
+    assert FakeDetails.instances[0].appointment.id == dto.id
+
+
+def test_context_action_confirm_poziva_mark_confirmed(
+    qtbot, appointment_service, week_start
+) -> None:
+    dto = appointment_service.create(
+        "Ana", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    win = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(win)
+
+    win._handle_appointment_action(dto.id, "confirm")
+
+    assert appointment_service.get(dto.id).confirmed_at is not None
+
+
+def test_context_action_completed_osvjezava_status_summary(
+    qtbot, appointment_service, week_start
+) -> None:
+    dto = appointment_service.create(
+        "Ana", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    win = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(win)
+
+    win._handle_appointment_action(dto.id, "completed")
+
+    assert "Završen (1)" in win.status_legend.text()
