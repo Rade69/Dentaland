@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from typing import Any
 
 from PySide6.QtCore import QDate, QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QColor, QCursor, QPalette
@@ -14,7 +15,6 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QMainWindow,
     QMenu,
@@ -30,7 +30,7 @@ from dentaland.services import OverlapError
 from dentaland.services.print_schedule import build_day_schedule, build_week_schedule
 from desktop.fake_data import SARAJEVO
 from desktop.print_document import build_day_document, build_week_document, preview_document
-from desktop.views.appointment_dialog import AppointmentDialog
+from desktop.views.dialogs.appointment_editor import AppointmentEditorDialog
 from desktop.views.requests_panel import DashboardPanels
 from desktop.views.sidebar import Sidebar, svg_icon
 from desktop.views.stub_page import StubPage
@@ -491,29 +491,35 @@ class MainWindow(QMainWindow):
         self.week_view.set_filter(doctor_id)
         self._update_status_legend()
 
-    def _doctor_for_new_appointment(self) -> int | None:
-        """Odredi doktora za novi termin; ``None`` znači "nema doktora/odustao"."""
-        if not self._has_doctors:
-            return None
-        if self._current_doctor_id is not None:
-            return self._current_doctor_id
-        names = [d.ime for d in self._doctors]
-        chosen, ok = QInputDialog.getItem(self, "Doktor", "Koji doktor?", names, 0, False)
-        if not ok:
-            return None
-        return self._doctors[names.index(chosen)].id
+    def _service_options(self) -> list[tuple[str, int]]:
+        """Usluge kao ``(naziv, trajanje_min)`` — iz store-a, sa legacy fallback-om."""
+        fn = getattr(self.store, "service_options", None)
+        if callable(fn):
+            return [(o.naziv, o.trajanje_min) for o in fn()]
+        services = getattr(self.store, "services", None)
+        if callable(services):
+            return [(name, DEFAULT_MANUAL_DURATION_MINUTES) for name in services()]
+        return []
 
     def _on_slot_selected(self, start) -> None:
-        doctor_id = self._doctor_for_new_appointment()
-        if self._has_doctors and doctor_id is None:
-            return  # ne kreiraj termin bez jasnog vlasnika
-        if doctor_id is not None and hasattr(self.store, "set_doctor"):
-            self.store.set_doctor(doctor_id)
-
-        dialog = AppointmentDialog(self.store.services(), start, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
+        dialog = AppointmentEditorDialog(
+            [(d.id, d.ime) for d in self._doctors],
+            self._service_options(),
+            start,
+            selected_doctor_id=self._current_doctor_id,
+            parent=self,
+        )
+        while True:
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                return
             data = dialog.get_data()
-            chosen_start = data["start"]
+            doctor_id = data["doctor_id"]
+            if self._has_doctors and doctor_id is None:
+                dialog.show_error("Izaberite doktora.")
+                continue
+            end = data["start"] + timedelta(minutes=data["duration_min"])
+            if doctor_id is not None and hasattr(self.store, "set_doctor"):
+                self.store.set_doctor(doctor_id)
             try:
                 self.store.create(
                     patient_name=data["patient_name"],
@@ -521,13 +527,56 @@ class MainWindow(QMainWindow):
                     email=data["email"],
                     service=data["service"],
                     note=data["note"],
-                    start=chosen_start,
-                    end=chosen_start + timedelta(minutes=DEFAULT_MANUAL_DURATION_MINUTES),
+                    start=data["start"],
+                    end=end,
                 )
+                break
             except OverlapError as exc:
-                self.statusBar().showMessage(str(exc), 5000)
+                dialog.show_error(str(exc))
+        self._refresh_dashboard()
+
+    def _edit_appointment(self, appt: Any) -> None:
+        """Otvori editor u edit modu i sačuvaj kroz ``store.update``.
+
+        Ožičava se iz ``Detalji termina`` u Fazi C — ovdje je pripremljena
+        ulazna tačka (i testirana) da editor već podržava edit.
+        """
+        dialog = AppointmentEditorDialog(
+            [(d.id, d.ime) for d in self._doctors],
+            self._service_options(),
+            appt.start,
+            appointment=appt,
+            parent=self,
+        )
+        while True:
+            if dialog.exec() != QDialog.DialogCode.Accepted:
                 return
-            self._refresh_dashboard()
+            data = dialog.get_data()
+            doctor_id = data["doctor_id"]
+            if self._has_doctors and doctor_id is None:
+                dialog.show_error("Izaberite doktora.")
+                continue
+            end = data["start"] + timedelta(minutes=data["duration_min"])
+            update_fn = getattr(self.store, "update", None)
+            if not callable(update_fn):
+                dialog.show_error("Uređivanje nije podržano za ovaj izvor podataka.")
+                continue
+            try:
+                update_fn(
+                    appt.id,
+                    patient_name=data["patient_name"],
+                    phone=data["phone"],
+                    email=data["email"],
+                    doctor_id=doctor_id,
+                    service=data["service"],
+                    note=data["note"],
+                    start=data["start"],
+                    end=end,
+                )
+                break
+            except OverlapError as exc:
+                dialog.show_error(str(exc))
+        self._refresh_dashboard()
 
     def _on_print(self) -> None:
         menu = QMenu(self)

@@ -130,35 +130,42 @@ def test_tabovi_za_doktore_postoje(qtbot, appointment_service, week_start) -> No
     assert labels == ["Svi doktori", "Ljubo", "Zorka", "Ana"]
 
 
-def test_unos_u_svi_doktori_trazi_doktora(
+def test_unos_u_svi_doktori_bira_doktora_u_modalu(
     qtbot, appointment_service, week_start, monkeypatch
 ) -> None:
-    class FakeDialog:
-        def __init__(self, services, start, parent=None):
-            self.services = services
-            self.start = start
+    class FakeEditor:
+        def __init__(
+            self,
+            doctors,
+            service_options,
+            start,
+            *,
+            appointment=None,
+            selected_doctor_id=None,
+            parent=None,
+        ):
+            self.doctors = doctors
 
         def exec(self):
             return QDialog.DialogCode.Accepted
 
         def get_data(self):
+            zorka_id = next(d[0] for d in self.doctors if d[1] == "Zorka")
             return {
                 "patient_name": "Ana Anić",
                 "phone": "",
                 "email": "",
+                "doctor_id": zorka_id,
                 "service": "Kontrola",
                 "note": "",
-                "start": self.start,
+                "start": datetime(2026, 8, 17, 8, 0, tzinfo=SARAJEVO),
+                "duration_min": 30,
             }
 
-    class FakeInputDialog:
-        @staticmethod
-        def getItem(parent, title, label, items, current, editable):
-            assert "Zorka" in items
-            return "Zorka", True
+        def show_error(self, message):
+            pass
 
-    monkeypatch.setattr(main_window_mod, "AppointmentDialog", FakeDialog)
-    monkeypatch.setattr(main_window_mod, "QInputDialog", FakeInputDialog)
+    monkeypatch.setattr(main_window_mod, "AppointmentEditorDialog", FakeEditor)
 
     win = MainWindow(appointment_service, week_start)
     qtbot.addWidget(win)
@@ -172,10 +179,18 @@ def test_unos_u_svi_doktori_trazi_doktora(
     assert created[0].doctor_name == "Zorka"
 
 
-def test_klik_na_slot_otvara_dijalog_i_dodaje_termin(qtbot, store, week_start, monkeypatch) -> None:
-    class FakeDialog:
-        def __init__(self, services, start, parent=None):
-            self.services = services
+def test_klik_na_slot_otvara_editor_i_dodaje_termin(qtbot, store, week_start, monkeypatch) -> None:
+    class FakeEditor:
+        def __init__(
+            self,
+            doctors,
+            service_options,
+            start,
+            *,
+            appointment=None,
+            selected_doctor_id=None,
+            parent=None,
+        ):
             self.start = start
 
         def exec(self):
@@ -186,12 +201,17 @@ def test_klik_na_slot_otvara_dijalog_i_dodaje_termin(qtbot, store, week_start, m
                 "patient_name": "Ana Anić",
                 "phone": "061/123-456",
                 "email": "ana@example.com",
+                "doctor_id": None,
                 "service": "Kontrola",
                 "note": "bez napomene",
                 "start": self.start,
+                "duration_min": 30,
             }
 
-    monkeypatch.setattr(main_window_mod, "AppointmentDialog", FakeDialog)
+        def show_error(self, message):
+            pass
+
+    monkeypatch.setattr(main_window_mod, "AppointmentEditorDialog", FakeEditor)
     win = MainWindow(store, week_start)
     qtbot.addWidget(win)
 
@@ -202,6 +222,75 @@ def test_klik_na_slot_otvara_dijalog_i_dodaje_termin(qtbot, store, week_start, m
     assert len(appts) == 1
     assert appts[0].patient_name == "Ana Anić"
     assert appts[0].start == start
-    assert appts[0].end == start + timedelta(hours=1)
+    assert appts[0].end == start + timedelta(minutes=30)  # trajanje iz editora, ne 60 hardkodovanih
     assert win.week_view.rowSpan(0, 0) == 1
     assert win.week_view.rowCount() == 12
+
+
+def test_nema_qinputdialog_toka(qtbot, appointment_service, week_start) -> None:
+    win = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(win)
+    assert not hasattr(main_window_mod, "QInputDialog")
+    assert not hasattr(win, "_doctor_for_new_appointment")
+
+
+def test_overlap_greska_se_prikazuje_u_dijalogu_i_ne_zatvara_ga(
+    qtbot, appointment_service, week_start, monkeypatch
+) -> None:
+    appointment_service.create(
+        "Postojeći", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+
+    class FakeEditor:
+        instances = []
+
+        def __init__(
+            self,
+            doctors,
+            service_options,
+            start,
+            *,
+            appointment=None,
+            selected_doctor_id=None,
+            parent=None,
+        ):
+            self.errors = []
+            self.exec_count = 0
+            FakeEditor.instances.append(self)
+
+        def exec(self):
+            self.exec_count += 1
+            # prvi pokušaj: Accepted (create baca OverlapError), drugi: odustanak
+            return (
+                QDialog.DialogCode.Accepted
+                if self.exec_count == 1
+                else QDialog.DialogCode.Rejected
+            )
+
+        def get_data(self):
+            return {
+                "patient_name": "Ana",
+                "phone": "",
+                "email": "",
+                "doctor_id": 1,
+                "service": "Kontrola",
+                "note": "",
+                "start": datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+                "duration_min": 30,
+            }
+
+        def show_error(self, message):
+            self.errors.append(message)
+
+    monkeypatch.setattr(main_window_mod, "AppointmentEditorDialog", FakeEditor)
+    win = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(win)
+
+    win.week_view.slot_selected.emit(datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO))
+
+    assert FakeEditor.instances
+    editor = FakeEditor.instances[0]
+    assert len(editor.errors) == 1  # overlap greška prikazana inline
+    assert editor.exec_count == 2  # dijalog je ponovo otvoren, pa korisnik odustao
