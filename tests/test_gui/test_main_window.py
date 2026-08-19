@@ -99,10 +99,44 @@ def test_footer_prikazuje_brojno_stanje_termina_prikazane_sedmice(
     assert "Čeka potvrdu (1)" in window.status_legend.text()
 
 
-def test_paralelni_prikaz_je_vidljiv_ali_neaktivan(window: MainWindow) -> None:
-    buttons = window.schedule_page.findChildren(main_window_mod.QPushButton)
-    parallel = next(button for button in buttons if button.text() == "Paralelno")
-    assert not parallel.isEnabled()
+def test_nema_po_doktoru_paralelno(window: MainWindow) -> None:
+    buttons = [b.text() for b in window.schedule_page.findChildren(main_window_mod.QPushButton)]
+    assert "Po doktoru" not in buttons
+    assert "Paralelno" not in buttons
+
+
+def test_dan_dugme_prebacuje_na_day_view(
+    qtbot, appointment_service, week_start
+) -> None:
+    win = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(win)
+
+    assert win.day_button.isEnabled()
+    win.day_button.click()
+
+    assert win.view_stack.currentWidget() is win.day_view
+    assert win.day_button.isChecked()
+    assert not win.week_button.isChecked()
+
+    win.week_button.click()
+    assert win.view_stack.currentWidget() is win.week_view
+
+
+def test_dan_pa_danas_prikazuje_danasnji_dan_i_strelica_po_1_dan(
+    qtbot, appointment_service, week_start
+) -> None:
+    win = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(win)
+
+    win.day_button.click()
+    assert win.view_stack.currentWidget() is win.day_view
+
+    win._go_today()
+    assert win.day_view.day == date.today()
+
+    before = win.day_view.day
+    win._move_week(1)
+    assert win.day_view.day == before + timedelta(days=1)
 
 
 def test_legenda_doktora_je_poravnata_sa_desnim_panelima(

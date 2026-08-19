@@ -31,6 +31,7 @@ from dentaland.services import OverlapError
 from dentaland.services.print_schedule import build_day_schedule, build_week_schedule
 from desktop.fake_data import SARAJEVO
 from desktop.print_document import build_day_document, build_week_document, preview_document
+from desktop.views.day_view import DayView
 from desktop.views.dialogs.appointment_details import AppointmentDetailsDialog
 from desktop.views.dialogs.appointment_editor import AppointmentEditorDialog
 from desktop.views.dialogs.cancel_appointment import CancelAppointmentDialog
@@ -62,8 +63,13 @@ class MainWindow(QMainWindow):
             today = date.today()
             week_start = today - timedelta(days=today.weekday())
 
+        self.current_day = date.today()
         self.week_start = week_start
         self.week_view = WeekView(store, week_start, parent=self)
+        self.day_view = DayView(store, self.current_day, parent=self)
+        self.view_stack = QStackedWidget()
+        self.view_stack.addWidget(self.week_view)
+        self.view_stack.addWidget(self.day_view)
         self.doctor_tabs = self._build_doctor_tabs()
         self.sidebar = Sidebar(self)
         self.dashboard_panels = DashboardPanels(store, self)
@@ -101,6 +107,9 @@ class MainWindow(QMainWindow):
         self.week_view.slot_selected.connect(self._on_slot_selected)
         self.week_view.appointment_clicked.connect(self._open_appointment_details)
         self.week_view.appointment_action_requested.connect(self._handle_appointment_action)
+        self.day_view.slot_selected.connect(self._on_slot_selected)
+        self.day_view.appointment_clicked.connect(self._open_appointment_details)
+        self.day_view.appointment_action_requested.connect(self._handle_appointment_action)
         self._apply_style()
         self._refresh_dashboard()
 
@@ -150,15 +159,17 @@ class MainWindow(QMainWindow):
         header.addWidget(previous)
         header.addWidget(following)
         header.addWidget(self.range_label)
-        day_button = QPushButton("Dan")
-        day_button.setObjectName("viewSegment")
-        day_button.setEnabled(False)
-        week_button = QPushButton("Sedmica")
-        week_button.setObjectName("viewSegment")
-        week_button.setCheckable(True)
-        week_button.setChecked(True)
-        header.addWidget(day_button)
-        header.addWidget(week_button)
+        self.day_button = QPushButton("Dan")
+        self.day_button.setObjectName("viewSegment")
+        self.day_button.setCheckable(True)
+        self.day_button.clicked.connect(self._show_day_view)
+        self.week_button = QPushButton("Sedmica")
+        self.week_button.setObjectName("viewSegment")
+        self.week_button.setCheckable(True)
+        self.week_button.setChecked(True)
+        self.week_button.clicked.connect(self._show_week_view)
+        header.addWidget(self.day_button)
+        header.addWidget(self.week_button)
         new_button = QPushButton("Novi termin")
         new_button.setObjectName("primaryButton")
         new_button.setIcon(svg_icon("plus", "#ffffff", 18))
@@ -181,17 +192,6 @@ class MainWindow(QMainWindow):
         filters.addWidget(QLabel("Doktor"))
         if self.doctor_tabs is not None:
             filters.addWidget(self.doctor_tabs)
-        filters.addSpacing(22)
-        filters.addWidget(QLabel("Prikaz:"))
-        by_doctor = QPushButton("Po doktoru")
-        by_doctor.setObjectName("filterActive")
-        by_doctor.setCheckable(True)
-        by_doctor.setChecked(True)
-        parallel = QPushButton("Paralelno")
-        parallel.setEnabled(False)
-        parallel.setToolTip("Način paralelnog prikaza čeka poslovnu odluku")
-        filters.addWidget(by_doctor)
-        filters.addWidget(parallel)
         filters.addStretch()
         layout.addWidget(filter_frame)
 
@@ -199,7 +199,7 @@ class MainWindow(QMainWindow):
         content.setSpacing(14)
         calendar_column = QVBoxLayout()
         calendar_column.setSpacing(10)
-        calendar_column.addWidget(self.week_view, 1)
+        calendar_column.addWidget(self.view_stack, 1)
         self.status_legend = QLabel()
         self.status_legend.setObjectName("statusLegend")
         self.status_legend.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -239,16 +239,39 @@ class MainWindow(QMainWindow):
             self.page_stack.setCurrentWidget(page)
 
     def _move_week(self, offset: int) -> None:
-        self.week_start += timedelta(days=7 * offset)
-        self.week_view.set_week_start(self.week_start)
+        if self.view_stack.currentWidget() is self.day_view:
+            self.current_day += timedelta(days=offset)
+            self.day_view.set_day(self.current_day)
+        else:
+            self.week_start += timedelta(days=7 * offset)
+            self.week_view.set_week_start(self.week_start)
+            self.day_view.set_day(self.week_start)
         self._update_range_label()
         self._update_status_legend()
 
     def _go_today(self) -> None:
         today = date.today()
-        self.week_start = today - timedelta(days=today.weekday())
-        self.week_view.set_week_start(self.week_start)
+        if self.view_stack.currentWidget() is self.day_view:
+            self.current_day = today
+            self.day_view.set_day(self.current_day)
+        else:
+            self.week_start = today - timedelta(days=today.weekday())
+            self.week_view.set_week_start(self.week_start)
+            self.day_view.set_day(self.week_start)
         self._update_range_label()
+        self._update_status_legend()
+
+    def _show_day_view(self) -> None:
+        self.day_view.set_day(self.current_day)
+        self.view_stack.setCurrentWidget(self.day_view)
+        self.day_button.setChecked(True)
+        self.week_button.setChecked(False)
+        self._update_status_legend()
+
+    def _show_week_view(self) -> None:
+        self.view_stack.setCurrentWidget(self.week_view)
+        self.week_button.setChecked(True)
+        self.day_button.setChecked(False)
         self._update_status_legend()
 
     def _update_range_label(self) -> None:
@@ -266,13 +289,16 @@ class MainWindow(QMainWindow):
     def _refresh_dashboard(self) -> None:
         self.dashboard_panels.refresh()
         self.week_view.refresh()
+        self.day_view.refresh()
         pending = getattr(self.store, "pending_requests", None)
         count = len(pending()) if callable(pending) else 0
         self.sidebar.set_pending_count(count)
         self._update_status_legend()
 
     def _update_status_legend(self) -> None:
-        counts = self.week_view.visible_status_counts()
+        view = self.view_stack.currentWidget()
+        counts_fn = getattr(view, "visible_status_counts", None)
+        counts = counts_fn() if callable(counts_fn) else dict.fromkeys(STATUS_META, 0)
         legend_html = "&nbsp;&nbsp;&nbsp;&nbsp;".join(
             f"<span style='color:{STATUS_META[key][1]}; font-size:14px; "
             f"font-weight:700'>{STATUS_META[key][0]}</span>&nbsp; "
