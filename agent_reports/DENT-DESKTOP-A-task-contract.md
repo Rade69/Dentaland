@@ -3,7 +3,7 @@ task_id: DENT-DESKTOP-A
 risk: MEDIUM
 implementer: pi
 reviewer: claude
-status: PENDING
+status: REVIEWED PASS — čeka human approval prije merge-a; vidi agent_reports/2026-08-19-DENT-DESKTOP-A-service-edit-status.md za pun izvještaj i review
 created_at: 2026-08-19
 ---
 
