@@ -136,3 +136,24 @@ Dentaland Reviewer Context Pack (šta reviewer dobija):
 6. impact analizu za MEDIUM/HIGH zadatke
 
 Ne pravi drugi paralelni review sistem pored postojećeg.
+
+## Validacija — da li ovaj sloj stvarno pomaže
+
+Dok se ne potvrdi kroz par stvarnih taskova (vidi Fazu 1 report,
+`agent_reports/2026-08-19-DENT-AGENT-CONTEXT-001-faza1-agent-mapa.md`),
+svaki agent koji dobije task PRIJE prve izmjene koda kratko zapiše u svoj
+`agent_report` (par redova, ne poseban dokument):
+
+| Task | Implementer | Fajlova pročitano prije 1. izmjene | Koristio `.agent/`? | Pitao za pojašnjenje strukture? | Prekršio scope? |
+|---|---|---|---|---|---|
+| _(popuniti po tasku)_ | | | DA / NE | DA / NE | DA / NE |
+
+Referentna vrijednost (before, bez `.agent/` sloja, izmjereno
+2026-08-19 pri pisanju `PROJECT_MAP.md` od nule): **6 istraživačkih
+poziva** (`ls`/`find` po repou) prije nego što je struktura bila jasna, uz
+jednu grešku usput (plitka pretraga je propustila `desktop/views/dialogs/`).
+Cilj: manje od toga, bez pitanja "gdje je X", bez scope grešaka.
+
+Kad se saberu 2-3 popunjena reda, ovu tabelu pregledati i odlučiti da li
+`.agent/` sloj ima smisla prije nego što se ide na Fazu 2 (konsolidacija
+`docs/dentaland-agentski-razvoj.md` + stanjenje `CLAUDE.md`/`AGENTS.md`).
