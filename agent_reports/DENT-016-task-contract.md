@@ -11,6 +11,14 @@ revised_at: 2026-08-18
 
 # Task Contract — DENT-016: Štampa rasporeda (GUI/rendering)
 
+> **Napomena (19.8.2026, dodano naknadno):** ovaj task je i probni task za
+> validaciju `.agent/` navigacionog sloja (`DENT-AGENT-CONTEXT-001`).
+> Prije prve izmjene koda, u `agent_report` kratko zapisati (vidi
+> `.agent/TASK_ROUTING.md` — "Validacija" tabela): koje je fajlove
+> pročitao prije prve izmjene, da li je koristio
+> `.agent/PROJECT_MAP.md`/`TASK_ROUTING.md`, da li je morao pitati za
+> pojašnjenje strukture. Ne mijenja ništa u samom zadatku ispod.
+
 Sadržaj zadatka je Codex-ov sopstveni prijedlog, ali implementaciju
 radi **Crush** (18.8.2026 odluka — Codex ostaje fokusiran na popravke
 čitljivosti kalendara koje je Radovan uočio nakon stvarnog korišćenja;
