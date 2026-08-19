@@ -4,13 +4,13 @@ Ovaj fajl vodi Claude Code i druge agente kroz pravila rada na Dentaland projekt
 
 ## Šta je Dentaland
 
-Sistem zakazivanja termina za **sva tri doktora ordinacije** (Ljubo, Zorka, Ana) — promjena od 16.8.2026, eksplicitan zahtjev; ranija verzija ovog dokumenta je govorila "samo za Ljubu, ostali tek ako sami zatraže". Ekonomski okvir je i dalje neformalan; naplata je moguća tek ako se pokaže vrijednost.
+Sistem zakazivanja termina za **sva tri doktora ordinacije** (Ljubo, Zorka, Ana) — promjena od 16.8.2026 od ranijeg "samo Ljubo, ostali tek ako zatraže". Ekonomski okvir je neformalan; naplata je moguća tek ako se pokaže vrijednost.
 
-**Napomena o riziku (kontekst za buduće sesije, ne blokira rad):** ranija verzija ovog plana je namjerno izbjegavala rad za sva tri doktora odjednom, uz obrazloženje "najveći rizik neuspjeha cijelog projekta" (ako se ne dopadne svima, cijeli sistem pada). Ta procjena rizika nije povučena kao pogrešna — samo je eksplicitno prevaziđena poslovnom odlukom. Ako usvajanje kod Zorke/Ane bude sporo, to je poznat i prihvaćen rizik, ne novo otkriće.
+Poznat i prihvaćen rizik, ne novo otkriće: raniji plan je namjerno izbjegavao rad za sva tri doktora odjednom ("najveći rizik neuspjeha cijelog projekta" — ako se ne dopadne svima, sistem pada). Ta procjena nije povučena kao pogrešna, samo svjesno prevaziđena poslovnom odlukom — sporo usvajanje kod Zorke/Ane se ne tretira kao iznenađenje.
 
-**Strategija validacije desktop GUI-ja (17.8.2026, eksplicitna odluka):** originalni plan je gradio Fazu 0 minimalno pa čekao mjesec dana stvarne upotrebe kod Ljube prije dodavanja funkcionalnosti ("Kriterijum uspjeha" u v1 planu). Ta postepena, čekaj-pa-validiraj logika je svjesno zamijenjena za desktop GUI: umjesto da se čeka Ljubina stvarna upotreba prije dodavanja funkcija, koriste se provjereni UI/workflow obrasci iz zrelih dentalnih sistema (Open Dental, Curve Dental, NexHealth — vidi `docs/istrazivanje-dentalni-scheduler-gui.md`) kao zamjena za sopstvenu validaciju. Cilj je da Ljubo od početka dobije upotrebljivu aplikaciju, ne iterativni MVP. Ovo NE mijenja risk-tier proces — šema/migracije i dalje idu isključivo kroz Claude kao HIGH-risk implementera, bez obzira na to što se "čekaj Ljubu" logika napušta. Ne kopirati cio scope zrelih EHR sistema (treatment plans, insurance, recall, operatories) — samo provjerene interaction patterns za raspored/doktore/termine/blockout/zahtjeve, vidi istraživački dokument sekciju 14.
+Desktop GUI se gradi **odmah punom funkcionalnošću**, ne postepenim čekaj-pa-validiraj MVP-om (17.8.2026 odluka) — koriste se provjereni UI/workflow obrasci iz zrelih dentalnih sistema (Open Dental, Curve Dental, NexHealth — vidi `docs/istrazivanje-dentalni-scheduler-gui.md` sekcija 14) umjesto čekanja na Ljubinu stvarnu upotrebu. Ovo NE mijenja risk-tier proces (šema/migracije i dalje isključivo HIGH kroz Claude) niti znači kopiranje cijelog EHR scope-a (treatment plans, insurance, recall, operatories ostaju van obima).
 
-**Zašto se ne čeka Ljubina potvrda za svaku funkciju (18.8.2026, eksplicitno pojašnjenje):** Dentaland se gradi primarno za Ljubu, ali osnovna ideja je da se sistem brzo konvertuje za drugu ordinaciju kad se pokaže prilika — to je razlog za potpunost funkcija (npr. štampa rasporeda) bez provjere "da li mu ovo treba" prije svake stavke iz plana. Ovo NE mijenja "Šta se namjerno ne gradi unaprijed" niže — multi-tenancy/konfigurabilnost i dalje čekaju stvarnog drugog klijenta; ova napomena se odnosi samo na funkcionalnu potpunost za JEDNU ordinaciju (Dentaland/Ljubo), ne na infrastrukturu za više klijenata odjednom. Razlika: "ne pitati Ljubu prije nego se implementira planirana funkcija" nasuprot "ne graditi generičnost za klijenta koji ne postoji" — oba pravila važe istovremeno, ne poništavaju jedno drugo.
+Iz istog razloga — sistem treba biti brzo konvertibilan za drugu ordinaciju — funkcionalna potpunost (npr. štampa) se gradi bez provjere "treba li mu ovo" prije svake stavke iz plana (18.8.2026 pojašnjenje). Odvojeno od "Šta se namjerno ne gradi unaprijed" niže: ne pitati Ljubu prije implementacije planirane funkcije ≠ ne graditi generičnost za klijenta koji ne postoji — oba pravila važe istovremeno.
 
 Razvoj ide u fazama, svaka sa jasnim kriterijumom uspjeha prije prelaska na sljedeću:
 
@@ -21,7 +21,7 @@ Faza 0 — digitalna sveska (lokalno, PySide6 + SQLite, bez interneta)
 → Faza 3 — samo ako se pokaže potreba (drugi doktori, lista čekanja, multi-tenancy)
 ```
 
-Model zakazivanja je **zahtjev, ne instant rezervacija** — pacijent šalje zahtjev, osoblje potvrđuje. (16.8.2026: kratko razmatran prelazak na instant rezervaciju pa vraćeno na zahtjev-model — odluka o instant rezervaciji još nije donesena, ne pretpostavljati je dok se eksplicitno ne potvrdi.)
+Model zakazivanja je **zahtjev, ne instant rezervacija** — pacijent šalje zahtjev, osoblje potvrđuje. (Instant rezervacija je kratko razmatrana i odbačena 16.8.2026 — odluka nije promijenjena, ne pretpostavljati suprotno bez eksplicitne potvrde.)
 
 ## Izvori istine
 
@@ -64,7 +64,7 @@ Faza 1: PySide6 desktop → httpx/QNetworkAccessManager → FastAPI → PostgreS
 
 - Plugin sistem/arhitektura za proširenje — nema drugog klijenta na osnovu kojeg bi se dizajnirale tačke proširenja.
 - Twilio SMS — preskup za obim jedne ordinacije; Viber (Faza 2) je jeftinija alternativa u BiH.
-- Instant rezervacija (Model B) — oduzima kontrolu osoblju prerano. (16.8.2026: kratko razmatrano ukidanje ovog stava, vraćeno — vidi napomenu uz "Model zakazivanja" na vrhu fajla.)
+- Instant rezervacija (Model B) — oduzima kontrolu osoblju prerano (vidi napomenu uz "Model zakazivanja" na vrhu fajla).
 - Javni server na Ljubinom ličnom računaru — poništava sigurnosnu prednost desktop pristupa.
 - Multi-tenancy — tek kad postoji drugi stvarni klijent, na osnovu stvarne razlike, ne unaprijed nagađane.
 - Redis/message broker/mikroservisi — jedan VPS, jedna instanca aplikacije pokriva obim; `slowapi` in-memory rate limiting je dovoljan, ne treba distribuiran backend.
