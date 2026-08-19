@@ -1,6 +1,35 @@
 # CLAUDE.md — Dentaland
 
-Ovaj fajl vodi Claude Code i druge agente kroz pravila rada na Dentaland projektu — sistemu zakazivanja za stomatološku ordinaciju.
+Ovaj fajl vodi Claude Code i druge agente kroz **projektne premise**
+Dentaland projekta — sistema zakazivanja za stomatološku ordinaciju. Za
+**proces rada** (Task Contract, risk nivoi, review, git izolacija) vidi
+`docs/dentaland-agentski-razvoj.md` — taj dokument je sada kanonski za
+proces, ovaj fajl ga ne duplira.
+
+## Start here
+
+1. Pročitaj `AGENTS.md`.
+2. Pročitaj `.agent/PROJECT_MAP.md` — gdje se šta nalazi.
+3. Pročitaj konkretan Task Contract za zadatak (ako postoji).
+4. Koristi `.agent/TASK_ROUTING.md` da izabereš dodatni kontekst po tipu
+   zadatka.
+5. `.agent/CURRENT_STATE.md` — samo ako je relevantno (dostupnost agenata,
+   trenutni fokus, poznati baseline problemi).
+
+## Non-negotiable global rules
+
+- Implementer nikad nije isti agent/sesija kao Reviewer za taj zadatak.
+- Svaki netrivijalan zadatak = svoj git worktree.
+- Task Contract prije koda, ne retroaktivno.
+- Execution evidence prije review-a, review prije human approval-a.
+- Agent ne širi obim zadatka sam — prijavljuje `OUT_OF_SCOPE_FINDING`.
+- Prati risk-tier proces (LOW/MEDIUM/HIGH — vidi razvoj.md za tok po
+  nivou).
+
+Pun proces: `docs/dentaland-agentski-razvoj.md`. Koordinacija paralelnih
+agenata: `scripts/coordination.py` (vidi `AGENTS.md`).
+
+---
 
 ## Šta je Dentaland
 
@@ -27,7 +56,8 @@ Model zakazivanja je **zahtjev, ne instant rezervacija** — pacijent šalje zah
 
 - [docs/dentaland-razvojni-plan.md](docs/dentaland-razvojni-plan.md) — originalni plan (v1): premise, faze, funkcionalnosti, kontekst razgovora sa Ljubom.
 - [docs/dentaland-razvojni-plan-v3.1.md](docs/dentaland-razvojni-plan-v3.1.md) — objedinjen tehnički + privacy/compliance plan (spaja ranije v2 i v3 iteracije). **Za tehničke, sigurnosne i pravne detalje ovaj dokument ima prednost nad v1** kad se razlikuju — v1 ostaje za originalne premise i kontekst. Sadrži tačan `EXCLUDE` constraint pattern, token-storage šemu (hash, ne plaintext), backup/migracija proceduru, RBAC, audit log, i puni privacy/compliance okvir sa nezavisno provjerenim pravnim izvorima.
-- [docs/dentaland-agentski-razvoj.md](docs/dentaland-agentski-razvoj.md) — procesni dokument: uloge, risk-tier eskalacija, Task Contract, evidence paket. Ovaj `CLAUDE.md` ga operacionalizuje i proširuje (vidi sekcije ispod) — gdje se razlikuju, `CLAUDE.md` je operativni izvor jer je ažurniji.
+- [docs/dentaland-agentski-razvoj.md](docs/dentaland-agentski-razvoj.md) — **kanonski procesni dokument**: risk nivoi, uloge, Task Contract, ownership/koordinacija, Reviewer Context Pack, strukturiran verdikt, hijerarhija autoriteta, evidence paket. Ovaj `CLAUDE.md` sadrži samo projektne premise, ne proces.
+- [.agent/PROJECT_MAP.md](.agent/PROJECT_MAP.md) — struktura repoa, gdje se šta nalazi. [.agent/CURRENT_STATE.md](.agent/CURRENT_STATE.md) — kratkotrajno stanje (fokus, dostupnost agenata, baseline).
 - Kod, testovi i migracije su izvor istine za ono što je zaista implementirano. Ne oslanjati se na memoriju ili ranije poruke.
 
 ## Jezik
@@ -70,155 +100,6 @@ Faza 1: PySide6 desktop → httpx/QNetworkAccessManager → FastAPI → PostgreS
 - Redis/message broker/mikroservisi — jedan VPS, jedna instanca aplikacije pokriva obim; `slowapi` in-memory rate limiting je dovoljan, ne treba distribuiran backend.
 - `project_rooms/` folder — kreira se tek kad prva HIGH-risk izmjena stvarno zatreba plan fajl van agent_reporta, ne unaprijed.
 
-## Risk nivoi — LOW / MEDIUM / HIGH
-
-Zamjenjuje binarno "kritičan da/ne" preciznijom eskalacijom. Početna klasifikacija zadatka je u `dentaland-agentski-razvoj.md` tabelama po fazama — ali **execution evidence i stvaran tehnički sadržaj imaju prednost nad unaprijed dodijeljenom oznakom** ako se pokažu neusklađeni (npr. backup mehanizam je tehnički suptilniji nego što "Ne" oznaka sugeriše — vidi v3.1 plan).
-
-| Nivo | Primjeri | Tok |
-|---|---|---|
-| **LOW** | Tekst, labele, vizuelne korekcije, izolovan UI bez logike | `Implementer → verifikacija → 1 reviewer → merge`. Human approval opcion nakon što prvih desetak LOW zadataka prođe bez REJECT-a. |
-| **MEDIUM** | Controller izmjene, neosjetljiva servisna logika, `api_client/` sloj, email/reminder workflow, backup mehanizam | `Implementer → verifikacija → 1 reviewer → human approval → merge` |
-| **HIGH** | Šema i migracije, `EXCLUDE` constraint, autentifikacija, token generisanje, javni API endpointi, razdvajanje osjetljivih podataka (M1), Viber webhook + signature verifikacija | `Implementer → verifikacija → Reviewer 1 → Reviewer 2 → human approval → merge` |
-
-Task Contract (ispod) nosi `risk: LOW|MEDIUM|HIGH` polje — to je operativna oznaka za taj zadatak, ne tabela iz procesnog dokumenta.
-
-## Uloge
-
-Ko je Implementer se mijenja sa risk nivoom zadatka — agenti su fiksni po alatu, ali njihova uloga na datom zadatku (Implementer ili Reviewer) zavisi od toga koliko je zadatak rizičan:
-
-| Risk | Implementer | Reviewer 1 | Reviewer 2 |
-|---|---|---|---|
-| LOW | Crush / Pi | Claude | — |
-| MEDIUM | Crush / Pi | Claude | — |
-| HIGH | **Claude** | Crush ili Pi | Pi ili Crush (onaj koji nije Reviewer 1) |
-
-**Codex privremeno nedostupan (18.8.2026, isticanje kredita).** Dok se
-ne obnovi, Codex se ne dodjeljuje kao Implementer ni Reviewer na
-nijednom novom zadatku — svi zadaci (uključujući frontend/GUI, gdje se
-ranije pokazao jači) idu na Crush/Pi. Ako je Codex usred nedovršenog
-zadatka kad kredit istekne, taj zadatak se ili završava kroz drugog
-agenta (novi Task Contract, ne nastavak u istom kontekstu) ili čeka
-Radovanovu odluku — ne pretpostavljati automatski.
-
-- **Claude implementira HIGH-risk zadatke direktno** (šema/migracije, `EXCLUDE` constraint, autentifikacija, token generisanje, javni API endpointi, razdvajanje osjetljivih podataka) — najstabilnija ruka na najkritičnijem poslu, na eksplicitan zahtjev (16.8.2026).
-- **Crush i Pi su Implementeri na LOW/MEDIUM** (worker agenti). Na HIGH zadacima, dok je Claude implementer, **oba** (Crush i Pi) rade kao nezavisni Reviewer 1/2 — prije Codex-ovog izostanka je bio dovoljan jedan od njih uz Codexa kao obaveznog drugog reviewera; sad popunjavaju oba mjesta.
-- Ako se Codex vrati, ova tabela se vraća na prethodnu verziju (Codex opciono na LOW/MEDIUM implementaciji frontend/GUI posla, obavezan Reviewer 1 na HIGH) — nije trajna promjena procesa, samo privremena adaptacija na dostupnost agenta.
-- **Radovan** (čovjek) — zadnja riječ prije merge-a; rješava neslaganje reviewera; jedina instanca koja odlučuje poslovna/pravna pitanja (npr. emergency-override tumačenje, tekst pristanka).
-
-**Implementer nikad nije isti agent/sesija/kontekst kao Reviewer za taj isti zadatak.** Agent koji je nešto upravo napisao ima sistemsku slijepu tačku za sopstvene greške — nezavisan par očiju to hvata. Ovo se primjenjuje bez izuzetka, čak i za LOW zadatke (samo je tok laganiji, ne izostavljen). Kad Claude implementira HIGH zadatak, Reviewer 1/2 (Codex/Crush) moraju biti nezavisni od te sesije — Claude se ne vraća da "sam sebe" pregleda u istom kontekstu.
-
-## Task Contract
-
-Prije nego implementer dobije zadatak, piše se mali strukturirani ugovor — isti izvor istine za implementera, verifikaciju i reviewera.
-
-```yaml
-id: DENT-014
-title: Cancel token generation
-risk: HIGH
-objective: Implementirati generisanje sigurnog tokena za javni cancel link.
-allowed_paths: [backend/services/tokens.py, tests/test_tokens.py]
-forbidden_paths: [backend/models/, migrations/]
-acceptance:
-  - token koristi secrets.token_urlsafe(32)
-  - token nije izveden iz appointment ID-a
-  - poređenje ide kroz hmac.compare_digest, ne ==
-verification: [pytest tests/test_tokens.py, ruff check backend/services/tokens.py]
-review:
-  reviewers: 2
-  required: [security, architecture, scope]
-```
-
-Za LOW zadatke, Task Contract ostaje minimalan — `id`, `title`, `risk: LOW`, `objective`, `allowed_paths`, `acceptance`, `verification`. Četiri-pet redova je dovoljno. Puna ceremonija ide na MEDIUM/HIGH.
-
-## Ownership manifest i koordinacija agenata (Claude/Codex/Crush)
-
-Za bilo koji trenutak kad dva zadatka rade paralelno (dva agenta, dva worktree-a) — koji zadatak smije dirati koje fajlove/tabele mora biti dogovoreno PRIJE početka rada, ne otkriveno naknadno kroz konflikt. Ovo je komplementarno git worktree izolaciji (spriječava planning-time koliziju), ne zamjena za nju.
-
-Automatizovano kroz `scripts/coordination.py` — SQLite registar (`.coordination/registry.db`, lokalan, gitignored, dijeljen preko svih worktree-ova istog repoa preko `git rev-parse --git-common-dir`) koji prati koja putanja je "zauzeta" kojim zadatkom/agentom iz kojeg worktree-a:
-
-```bash
-python scripts/coordination.py claim --task DENT-014 --agent claude --paths backend/services/tokens.py,tests/test_tokens.py
-python scripts/coordination.py status
-python scripts/coordination.py release --task DENT-014
-```
-
-- **Claude Code**: ožičeno automatski kao `PreToolUse` hook (`.claude/settings.json`, matcher `Edit|Write`) — poziva `coordination.py hook-check` prije svakog Edit/Write; blokira (exit 2) ako je ciljna putanja aktivan claim iz DRUGOG worktree-a, propušta sopstvene izmjene i nezauzete putanje bez ikakve dodatne akcije. Ako se `.claude/` folder tek kreirao u trenutnoj sesiji, watcher ga možda ne prati odmah — otvoriti `/hooks` jednom ili restartovati sesiju da se pokupi.
-- **Codex i Crush**: nemaju ovdje ožičen hook (nisu konfigurisani iz ove sesije) — pozivati `claim`/`release` ručno na početku/kraju zadatka, i po potrebi `check --path <fajl>` prije veće izmjene. Ako ti alati podržavaju svoj pre-edit hook mehanizam, isti `coordination.py hook-check`/`check` poziv se može ožičiti tamo na isti način.
-- Identitet "vlasnika" claim-a je apsolutna putanja worktree-a (`Path.cwd()` u trenutku `claim` poziva), ne agent ime ni env varijabla — nema ručnog praćenja "ko sam ja".
-- Dok postoji samo jedan aktivan zadatak, alatka se i dalje može koristiti, ali nije obavezna — konflikt je nemoguć sa jednim aktivnim zadatkom.
-
-## Git izolacija
-
-- Svaki netrivijalan zadatak = svoj git worktree, imenovan po zadatku (`task/DENT-014-cancel-token`).
-- Sitne izmjene (LOW, jedan fajl) mogu ići u zajedničkom tree-u ako je trenutno samo jedan agent aktivan — provjeriti `git status --short --branch` prije početka, ne pretpostaviti čist tree.
-- Merge u `main` samo poslije koraka: implementacija → verifikacija → review(i) → human approval.
-- Nikad `git add -A`/`git add .` — uvijek navesti tačne fajlove. Nikad force push, nikad `git reset --hard`/`git clean` bez eksplicitnog zahtjeva. Nikad commit bez eksplicitnog zahtjeva.
-
-## Obavezna procedura prije izmjene
-
-1. **Provjera tree-a** — `git status --short --branch`, `git log -5 --oneline`. Ne pripisivati sebi tuđe izmjene.
-2. **Kontekst i pozivaoci** — pročitati cijeli relevantni modul, pronaći pozivaoce, testove, migracije prije izmjene funkcije/klase/API rute/modela baze.
-3. **Impact analiza** (MEDIUM/HIGH) — koji moduli zavise od koda koji se mijenja, koje testove izmjena pogađa, mijenja li se contract/API. Ako repo bude indeksiran GitNexus-om, koristiti ga za analizu zavisnosti na nivou simbola; do tada ručna pretraga referenci. Ako impact otkrije veći uticaj nego što je Task Contract pretpostavio — **zadatak se ne širi tiho, vraća se na redefinisanje obima**.
-4. **Task Contract** — definisan prije koda, ne retroaktivno pisan da opravda već napisano.
-5. **Plan prije izmjene (HIGH)** — kratak plan u `agent_reports/` prije editovanja: Cilj / Pogođeno / Plan / Šta NE dirati / Plan verifikacije / Rollback / Odbačene opcije.
-
-## Reviewer Context Pack
-
-Reviewer ne dobija samo `git diff`. Mora dobiti:
-
-- Task Contract za taj zadatak
-- Pun diff + listu dirnutih fajlova
-- Relevantne izvode iz ovog `CLAUDE.md` (šta se primjenjuje na taj tip izmjene)
-- Rezultat automatske verifikacije (testovi, linter)
-- Rezultat impact analize, ako je rađena (MEDIUM/HIGH)
-
-## Strukturiran verdikt
-
-Reviewer odgovor je strukturiran, ne slobodan tekst — dodaje se KAO HEADER na vrh prozne analize, ne zamjenjuje je:
-
-```yaml
-verdict: PASS  # ili PASS_WITH_NOTES, REJECT
-scope: PASS
-acceptance: PASS
-architecture: PASS
-security: PASS
-blocking_findings: []
-```
-
-`REJECT` mora imati tačnu lokaciju i pravilo koje je prekršeno u `blocking_findings` — implementer dobija konkretnu stavku, ne "popravi review".
-
-Za samo izvršenje Reviewer uloge (metoda, ne proces) koristiti globalni skill `independent-review` — čita ovaj format (`verdict`/`blocking_findings`) i koristi ga umjesto generičkog PASS/FAIL, proaktivno se aktivira kad se rad proglasi gotovim, ne treba ga ručno zvati. Za Implementer stranu (bug-fix i nova funkcionalnost) postoje `prime-bug`/`prime-feature` — minimalan kontekst + podsjetnik na reprodukciju/obim prije koda, takođe automatski.
-
-## Konflikt između reviewera i hijerarhija autoriteta
-
-Ne rješava se glasanjem. Svaki blocking finding provjerava se prema Task Contractu, kodu i testovima — ako je tvrdnja objektivno testabilna, pravi se test.
-
-Redoslijed kad se ne slažu (od najjačeg ka najslabijem):
-
-1. Execution evidence (rezultat testa)
-2. Task Contract
-3. Projektna arhitektura i bezbjednosna pravila (ovaj fajl)
-4. `docs/` izvori istine
-5. Reviewer zaključak
-6. Implementer tvrdnja
-7. **Radovan** — konačna riječ kad gornje ne razriješi neslaganje
-
-Ovo je odvojeno od hijerarhije dokaza ispod (koja govori o JAČINI dokaza) — ovo govori KO odlučuje kad se dvije strane objektivno ne slažu.
-
-## Scope expansion pravilo
-
-Agent ne proširuje zadatak sam jer je usput našao nešto "što bi bilo dobro popraviti". Prijavljuje kao `OUT_OF_SCOPE_FINDING`:
-
-```yaml
-finding: OUT_OF_SCOPE_FINDING
-description: <šta je pronađeno>
-location: <fajl/funkcija>
-risk: LOW|MEDIUM|HIGH
-proposed_task: <predlog novog zadatka>
-```
-
-i nastavlja originalni zadatak — osim ako nalaz direktno blokira bezbjednu implementaciju trenutnog zadatka (tada se STAJE i prijavljuje odmah, ne čeka se kraj zadatka).
-
 ## Sigurnost i privatnost
 
 - `appointments` i `material_usage` (M1) nikad u istom fajlu/bazi; M1 dodatno ide kroz `sqlcipher3` enkripciju sa posebnom lozinkom za taj tab u aplikaciji.
@@ -232,64 +113,6 @@ i nastavlja originalni zadatak — osim ako nalaz direktno blokira bezbjednu imp
 - Migracija SQLite→PostgreSQL prvo na kopiji podataka (test instanca), provjera integriteta, tek onda produkcija uz backup neposredno prije.
 - Nikad ne commitovati tajne, `.env` fajlove sa stvarnim vrijednostima, stvarne pacijentske podatke, lokalne baze.
 - Ne tvrditi sigurnost koju sistem nema — konkretne činjenice i rezultati testova, ne uvjeravanje.
-
-## Verifikacija i Definition of Done
-
-Execution-based verifikacija (testovi, linter, schema provjera) ide **prije** bilo kakvog reviewa, ne poslije — objektivna je i ne može se "ubijediti". LLM review dolazi tek pošto to prođe, kao dodatni sloj za ono što testovi ne hvataju (arhitektura, čitljivost, prekršeno pravilo iz ovog fajla).
-
-### Hijerarhija dokaza (od najjačeg ka najslabijem)
-
-1. Deterministički test (unit/integration)
-2. Reproducibilan benchmark
-3. Build/package rezultat
-4. Golden file
-5. Screenshot/video (GUI ekrani)
-6. Ručna QA lista
-7. Agentovo objašnjenje (najslabiji mogući dokaz, prihvatljiv samo kad ništa jače nije dostupno)
-
-`scripts/verify.py` kao standardna ulazna tačka se kreira kad Faza 0 stvarno počne pisati kod — ne prije, da se izbjegne prazna arhitektura bez ičega za provjeriti.
-
-## Post-merge Integration Gate
-
-Dvije nezavisno ispravne izmjene ne moraju raditi ispravno zajedno. Poslije merge-a: pun test suite na čistom `main`, schema/migration provjera gdje je relevantna, smoke test.
-
-Status: `MERGED → INTEGRATION_VERIFIED → DONE`, ili `MERGED → INTEGRATION_FAILED` — potonje dobija **prioritet nad novim zadacima**, ne čeka red.
-
-## Evidence paket / agent_report
-
-Za svaki zadatak, mali dokazni zapis u `agent_reports/`, versionisan zajedno sa kodom (vidi `agent_reports/README.md` za tačan format).
-
-```text
-Task: DENT-014 | Commit: <sha> | Risk: HIGH
-Verification: pytest PASS, ruff PASS
-Review: Claude PASS, Codex PASS, Human APPROVED
-Integration: full pytest PASS, smoke test PASS
-```
-
-## Šta ne graditi odmah (proces)
-
-Ne pravi se poseban orkestrator samo da bi se proces sproveo. Prvih 5-10 stvarnih Dentaland zadataka ide ručno/poluautomatski sa postojećim alatima (worktree, Task Contract fajl, test runner, Claude/Codex review, prost evidence zapis). Automatizuje se tek ono što se pokaže repetitivnim i stabilnim. Cilj je razviti Dentaland, ne izgraditi proizvod za orkestraciju razvoja Dentalanda.
-
-**Izuzetak (16.8.2026, eksplicitan zahtjev):** koordinacija ownership-a preko `scripts/coordination.py` (vidi "Ownership manifest i koordinacija agenata" iznad) je napravljena prije prvog stvarnog zadatka, ne nakon što se pokazala repetitivna potreba — svjesno odstupanje od pravila iznad jer je Radovan eksplicitno tražio rad sa tri agenta (Claude/Codex/Crush) paralelno od samog početka. Ostatak pravila i dalje važi za sve OSTALE alatke — ne graditi dodatnu automatizaciju procesa dok se potreba stvarno ne pokaže kroz ponovljene probleme.
-
-## Prije nego počneš kodirati
-
-Napiši kratko (2-4 rečenice) šta si razumio iz zadatka i šta planiraš uraditi. Čekaj potvrdu ako zadatak nije jednoznačan.
-
-### Facts vs Decisions
-
-Agent ne pita ono što može sam provjeriti u kodu/repou. Agent ne odlučuje sam poslovno/pravno/UX pitanje samo zato što je usput otkrio tehničku činjenicu.
-
-```markdown
-## Fact found
-<<< tehnička činjenica sa referencom >>
-## Decision required
-<<< konkretno pitanje koje samo Radovan/Ljubo može odlučiti >>
-## Recommendation
-<<< predloženi odgovor i zašto >>
-## Consequence
-<<< šta se dešava suprotnim putem >>
-```
 
 ## Otvorena pitanja (trenutno stanje)
 

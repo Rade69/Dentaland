@@ -4,9 +4,17 @@ Ovo je Dentaland — sistem zakazivanja za stomatološku ordinaciju, građen za 
 
 ## Izvor istine
 
-`CLAUDE.md` u korijenu ovog repoa je **operativni izvor istine za SVE agente** (Claude, Codex, Crush, Pi), ne samo za Claude Code — ime fajla je istorijska posljedica toga koji je alat prvi uveo tu konvenciju, ne ograničenje ko ga poštuje. Prije bilo kakvog rada na ovom repou, pročitati `CLAUDE.md` u cijelosti: risk nivoi (LOW/MEDIUM/HIGH), Task Contract format, git izolacija (worktree po zadatku), obavezna procedura prije izmjene, ko je Implementer/Reviewer, i pravila sigurnosti/privatnosti specifična za projekat.
+`CLAUDE.md` u korijenu ovog repoa je **operativni izvor istine za SVE agente** (Claude, Codex, Crush, Pi), ne samo za Claude Code — ime fajla je istorijska posljedica toga koji je alat prvi uveo tu konvenciju, ne ograničenje ko ga poštuje. Prije bilo kakvog rada na ovom repou:
 
-Ne dupliramo taj sadržaj ovdje — jedan izvor istine, da se pravila ne raziđu kad se CLAUDE.md ažurira.
+1. Pročitaj `CLAUDE.md` (thin router — projektne premise i navigacija, ne cijeli proces).
+2. Pročitaj `.agent/PROJECT_MAP.md` — gdje se šta nalazi.
+3. Pročitaj konkretan Task Contract za zadatak.
+4. Koristi `.agent/TASK_ROUTING.md` za dodatni kontekst po tipu zadatka.
+5. Za pun proces (risk nivoi, Task Contract format, ko je
+   Implementer/Reviewer, review verdikt) — `docs/dentaland-agentski-razvoj.md`,
+   ne `CLAUDE.md` direktno.
+
+Ne dupliramo taj sadržaj ovdje — jedan izvor istine, da se pravila ne raziđu kad se izvorni dokument ažurira.
 
 ## Koordinacija više agenata — obavezan korak prije paralelnog rada
 
