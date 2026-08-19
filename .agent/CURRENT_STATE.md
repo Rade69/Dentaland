@@ -35,18 +35,16 @@ status dostupnosti).
 
 ## Current verification baseline
 
-Izmjereno 2026-08-19 na `main` (commit `e8e1778`):
+Izmjereno 2026-08-19 na `main`, nakon DENT-018/019 (mypy cleanup, drugi
+probni krug):
 
-- `pytest tests/ -q` → **202 passed**, 11 warnings (deprecation warnings iz
-  `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda), 12.02s.
+- `pytest tests/ -q` → **206 passed**, 11 warnings (deprecation warnings iz
+  `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda), ~10s.
 - `ruff check src/dentaland desktop backend tests` → **All checks passed**.
-- `mypy src/dentaland desktop backend` → **6 errors, 2 files** — poznat
-  baseline, ne novi problem uveden ovom migracijom:
-  - `desktop/views/week_view.py:108,493,503` — nedostaje type annotation na
-    parametrima (3x), i `QTableWidget` nema `DragDrop` atribut (PySide6
-    stub gap, ne stvaran bug).
-  - `desktop/views/main_window.py:52,540` — nedostaje type annotation na
-    parametrima (2x).
+- `mypy src/dentaland desktop backend` → **Success: no issues found in 29
+  source files.** Ranijih 6 grešaka (week_view.py, main_window.py) su bile
+  poznat baseline, riješene kroz DENT-018 (Crush) i DENT-019 (Pi) — čist
+  mypy sada, ne samo baseline bez novih problema.
 
 Ne tretirati broj testova kao trajno pravilo — raste sa svakim novim
 taskom. Prilikom sljedeće provjere, izmjeriti ponovo, ne kopirati ovaj broj
@@ -67,17 +65,19 @@ napamet.
 
 - `DENT-DESKTOP-B3` — ikonica u zaglavlju dijaloga + prozorska ikonica.
   MERGED, integration verified (commit `21ef806`).
-- `DENT-DESKTOP-F` — hard delete termina. Implementacija + oba review-a
-  PASS, čeka human approval (vidi "Current development focus" iznad).
+- `DENT-016`/`DENT-017` — probni ciklus 1 (štampa se ispostavila već
+  gotova; email podsjetnik implementiran, PASS, MERGED).
+- `DENT-018`/`DENT-019` — probni ciklus 2 (mypy cleanup, oba MERGED,
+  `mypy` sada potpuno čist). `.agent/` validacija ZAKLJUČENA: koncept
+  potvrđen (0 istraživačkih poziva u oba drugog-kruga taska, naspram 6 u
+  before baseline-u) — vidi `TASK_ROUTING.md` finalni nalaz.
 
 ## Next known work
 
-- Human approval za `DENT-DESKTOP-F` (Radovanova odluka, ne agentski posao).
-- `DENT-016`/`DENT-017` implementacija (Crush/Pi) — vidi "Current
-  development focus".
-- **Treći probni signal (Claude):** kad Crush/Pi završe DENT-016/DENT-017,
-  Claude ih recenzira kroz `independent-review` skill (Claude-ova stvarna
-  uloga na LOW/MEDIUM je Reviewer, ne Implementer — odlučeno 19.8.2026,
-  namjerno bez odstupanja od uloga tabele samo radi probe). Taj review-tip
-  signal je treći, različit red u `.agent/TASK_ROUTING.md` validacionoj
-  tabeli, uz GUI (Crush) i servis (Pi) implementacione signale.
+- Human approval za `DENT-DESKTOP-F` (Radovanova odluka, ne agentski
+  posao) — i dalje čeka, blokiran na merge nivou (sistemski blok, ne
+  proceduralni razlog).
+- Faza 2 (konsolidacija `docs/dentaland-agentski-razvoj.md` + stanjenje
+  `CLAUDE.md`/`AGENTS.md`) — sada otvorena za planiranje, `.agent/`
+  validacija je gotova. Zaseban budući Task Contract, kad Radovan odluči
+  da je prioritet.

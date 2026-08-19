@@ -1,6 +1,13 @@
 # Implementer izveštaj — DENT-019 (mypy cleanup main_window.py)
 
-Task: DENT-019 | Risk: LOW | Implementer: pi | Status: IMPLEMENTED (čeka review)
+Task: DENT-019 | Risk: LOW | Implementer: pi | Status: MERGED → INTEGRATION_VERIFIED
+
+## Integration status
+
+`MERGED → INTEGRATION_VERIFIED → DONE` (2026-08-19). Review: Claude PASS
+(`2026-08-19-DENT-019-review-claude.md`). Human approval: Radovan ("uradi
+sve kako si mi napisao", 19.8.2026). Post-merge: `pytest tests/ -q` → 206
+passed, `mypy` → 0 grešaka (potpuno čist), `ruff` → čisto.
 
 ## Validacija `.agent/` sloja (prije prve izmjene)
 

@@ -44,8 +44,11 @@ created_at: 2026-08-19
 
 ## Review
 
-PENDING — čeka Reviewer 1 (Claude).
+PASS — vidi `2026-08-19-DENT-018-review-claude.md`.
 
 ## Integration status
 
-NOT_MERGED — čeka review i human approval.
+`MERGED → INTEGRATION_VERIFIED → DONE` (2026-08-19). Review: Claude PASS.
+Human approval: Radovan ("uradi sve kako si mi napisao", 19.8.2026).
+Post-merge: `pytest tests/ -q` → 206 passed, `mypy` → 0 grešaka (potpuno
+čist, uklj. DENT-019), `ruff` → čisto.
