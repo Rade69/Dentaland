@@ -3,7 +3,7 @@ task_id: DENT-DESKTOP-B
 risk: MEDIUM
 implementer: pi
 reviewer: radovan (Reviewer 1)
-status: REVIEWED PASS — čeka human approval; vidi agent_reports/2026-08-19-DENT-DESKTOP-B-unified-editor.md
+status: MERGED → INTEGRATION_VERIFIED → DONE (merge e9ef612); vidi agent_reports/2026-08-19-DENT-DESKTOP-B-unified-editor.md
 created_at: 2026-08-19
 ---
 
