@@ -75,3 +75,9 @@ napamet.
 - Human approval za `DENT-DESKTOP-F` (Radovanova odluka, ne agentski posao).
 - `DENT-016`/`DENT-017` implementacija (Crush/Pi) — vidi "Current
   development focus".
+- **Treći probni signal (Claude):** kad Crush/Pi završe DENT-016/DENT-017,
+  Claude ih recenzira kroz `independent-review` skill (Claude-ova stvarna
+  uloga na LOW/MEDIUM je Reviewer, ne Implementer — odlučeno 19.8.2026,
+  namjerno bez odstupanja od uloga tabele samo radi probe). Taj review-tip
+  signal je treći, različit red u `.agent/TASK_ROUTING.md` validacionoj
+  tabeli, uz GUI (Crush) i servis (Pi) implementacione signale.
