@@ -3,7 +3,7 @@ task_id: DENT-DESKTOP-E
 risk: MEDIUM
 implementer: pi
 reviewer: radovan (Reviewer 1)
-status: REVIEWED PASS — čeka human approval; vidi agent_reports/2026-08-19-DENT-DESKTOP-E-dan-sedmica.md
+status: MERGED → INTEGRATION_VERIFIED → DONE (merge 8197a74); vidi agent_reports/2026-08-19-DENT-DESKTOP-E-dan-sedmica.md
 created_at: 2026-08-19
 ---
 
