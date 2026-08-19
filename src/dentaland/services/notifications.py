@@ -59,6 +59,23 @@ def send_appointment_confirmed(to_email: str, start_time: datetime) -> None:
         logger.warning("Slanje email potvrde (termin potvrđen) nije uspjelo: %s", exc)
 
 
+def send_appointment_reminder(to_email: str, start_time: datetime) -> None:
+    """Pošalji podsjetnik na zakazan termin — best-effort, nikad ne diže.
+
+    Servisna funkcija (DENT-017): poziva je scheduler/pozivalac sa poznatim
+    appointment podacima. Scheduler/cron je VAN obima ovog taska. Poruka
+    sadrži SAMO ime ordinacije i tačno vrijeme termina — NIKAD uslugu ni
+    doktora (minimizacija). Rečenica o linku za izmjenu se namjerno
+    izostavlja dok ne postoji siguran cancel/reschedule token mehanizam.
+    """
+    try:
+        _dispatch(to_email, lambda addr, from_addr: _compose_reminder_message(
+            addr, start_time, from_addr
+        ))
+    except Exception as exc:
+        logger.warning("Slanje email podsjetnika nije uspjelo: %s", exc)
+
+
 def _dispatch(to_email: str, compose: Callable[[str, str], EmailMessage]) -> None:
     address = (to_email or "").strip()
     if not address:
@@ -118,6 +135,20 @@ def _compose_confirmed_message(to_email: str, start_time: datetime, from_addr: s
     message["To"] = to_email
     message.set_content(
         f"Vaš termin je potvrđen za {local:%d.%m.%Y.} u {local:%H:%M}.\n"
+        f"Ordinacija {PRACTICE_NAME} Vas očekuje.\n"
+    )
+    return message
+
+
+def _compose_reminder_message(to_email: str, start_time: datetime, from_addr: str) -> EmailMessage:
+    """Podsjetnik — SAMO ime ordinacije i tačno vrijeme, NIKAD usluga/doktor."""
+    local = start_time.astimezone(SARAJEVO)
+    message = EmailMessage()
+    message["Subject"] = f"Podsjetnik na termin — {PRACTICE_NAME}"
+    message["From"] = from_addr
+    message["To"] = to_email
+    message.set_content(
+        f"{PRACTICE_NAME}: imate zakazan termin {local:%d.%m.%Y.} u {local:%H:%M}.\n"
         f"Ordinacija {PRACTICE_NAME} Vas očekuje.\n"
     )
     return message
