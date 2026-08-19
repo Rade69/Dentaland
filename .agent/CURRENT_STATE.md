@@ -9,15 +9,19 @@ sedmica, provjeriti da li je i dalje tačno prije oslanjanja na njega.
 
 ## Current development focus
 
-`DENT-DESKTOP-F` — hard delete termina (trajno brisanje, odvojeno od
-postojećeg `cancel()`). Risk: HIGH. Implementer: Claude direktno (po
-`CLAUDE.md` pravilu za HIGH zadatke). Reviewer 1/2: Crush i Pi, nezavisno.
-Human approval: Radovan, prije merge-a.
+`DENT-DESKTOP-F` — hard delete termina. Risk: HIGH. Implementer: Claude
+direktno. Reviewer 1/2: Crush i Pi, nezavisno.
 
-Status na 2026-08-19: plan napisan (`agent_reports/2026-08-19-DENT-DESKTOP-F-plan.md`),
-implementacija još nije počela (fajlovi iz plana, npr.
-`desktop/views/dialogs/delete_appointment.py`, još ne postoje u worktree-u
-za taj task).
+Status na 2026-08-19 (ažurirano — prethodni unos ovdje je bio zastario
+nakon par sati): implementacija ZAVRŠENA, **oba reviewera dala `verdict:
+PASS`** (`agent_reports/2026-08-19-DENT-DESKTOP-F-review-crush.md`,
+`-review-pi.md`). Čeka SAMO human approval (Radovan) prije merge-a — ovo
+NIJE moj task za implementaciju niti review, samo za praćenje statusa.
+
+`DENT-016` (Crush, MEDIUM) i `DENT-017` (Pi, LOW) — kontrakti spremni
+(`agent_reports/DENT-016-task-contract.md`, `DENT-017-task-contract.md`),
+proslijeđeni agentima, worktree-ovi još nisu otvoreni za njih. Oba su i
+probni taskovi za `.agent/` validacionu tabelu (vidi `TASK_ROUTING.md`).
 
 ## Agent availability
 
@@ -63,7 +67,11 @@ napamet.
 
 - `DENT-DESKTOP-B3` — ikonica u zaglavlju dijaloga + prozorska ikonica.
   MERGED, integration verified (commit `21ef806`).
+- `DENT-DESKTOP-F` — hard delete termina. Implementacija + oba review-a
+  PASS, čeka human approval (vidi "Current development focus" iznad).
 
 ## Next known work
 
-- `DENT-DESKTOP-F` implementacija (vidi "Current development focus" iznad).
+- Human approval za `DENT-DESKTOP-F` (Radovanova odluka, ne agentski posao).
+- `DENT-016`/`DENT-017` implementacija (Crush/Pi) — vidi "Current
+  development focus".
