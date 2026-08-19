@@ -18,7 +18,8 @@ from PySide6.QtCore import QDate, QTime
 from PySide6.QtWidgets import (
     QComboBox,
     QDateEdit,
-    QFormLayout,
+    QGridLayout,
+    QLabel,
     QLineEdit,
     QPlainTextEdit,
     QSpinBox,
@@ -91,18 +92,42 @@ class AppointmentEditorDialog(BaseDialog):
         elif selected_doctor_id is not None:
             self._select_doctor(selected_doctor_id)
 
-        form = QFormLayout()
-        form.setLabelAlignment(form.labelAlignment())
-        form.addRow("Pacijent *", self.name_edit)
-        form.addRow("Telefon", self.phone_edit)
-        form.addRow("Email", self.email_edit)
-        form.addRow("Doktor *", self.doctor_combo)
-        form.addRow("Datum *", self.date_edit)
-        form.addRow("Vrijeme *", self.time_edit)
-        form.addRow("Trajanje *", self.duration_edit)
-        form.addRow("Usluga *", self.service_combo)
-        form.addRow("Napomena", self.note_edit)
-        self.body_layout().addLayout(form)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(8)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(2, 1)
+
+        # Pacijent | Doktor (jedan red)
+        grid.addWidget(self._field_label("Pacijent *"), 0, 0)
+        grid.addWidget(self.name_edit, 1, 0)
+        grid.addWidget(self._field_label("Doktor *"), 0, 1)
+        grid.addWidget(self.doctor_combo, 1, 1)
+
+        # Datum | Vrijeme | Trajanje (jedan red, tri kolone)
+        grid.addWidget(self._field_label("Datum *"), 2, 0)
+        grid.addWidget(self.date_edit, 3, 0)
+        grid.addWidget(self._field_label("Vrijeme *"), 2, 1)
+        grid.addWidget(self.time_edit, 3, 1)
+        grid.addWidget(self._field_label("Trajanje *"), 2, 2)
+        grid.addWidget(self.duration_edit, 3, 2)
+
+        # Telefon | Email
+        grid.addWidget(self._field_label("Telefon"), 4, 0)
+        grid.addWidget(self.phone_edit, 5, 0)
+        grid.addWidget(self._field_label("Email"), 4, 1)
+        grid.addWidget(self.email_edit, 5, 1)
+
+        # Usluga (puna širina)
+        grid.addWidget(self._field_label("Usluga *"), 6, 0, 1, 3)
+        grid.addWidget(self.service_combo, 7, 0, 1, 3)
+
+        # Napomena (puna širina)
+        grid.addWidget(self._field_label("Napomena"), 8, 0, 1, 3)
+        grid.addWidget(self.note_edit, 9, 0, 1, 3)
+
+        self.body_layout().addLayout(grid)
 
         # Podrazumijevano trajanje iz prve usluge; promjena usluge ga ažurira.
         if self.service_combo.count():
@@ -113,6 +138,12 @@ class AppointmentEditorDialog(BaseDialog):
         self.add_primary_button("Sačuvaj izmjene" if is_edit else "Sačuvaj termin")
 
     # ---- interni prikaz ----
+
+    @staticmethod
+    def _field_label(text: str) -> QLabel:
+        label = QLabel(text)
+        label.setObjectName("editorFieldLabel")
+        return label
 
     def _set_start(self, start: datetime) -> None:
         local = (
