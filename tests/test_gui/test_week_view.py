@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QLabel, QMenu
 
 from desktop.fake_data import SARAJEVO, FakeStore
 from desktop.views.week_view import WeekView, status_icon
@@ -258,3 +258,24 @@ def test_blockout_je_spojen_i_ne_emituje_slobodan_slot(qtbot, week_start) -> Non
     assert view.item(1, 0).text() == "VAN ORDINACIJE"
     view.cellClicked.emit(1, 0)
     assert emitted == []
+
+
+def test_izbrisi_termin_emituje_delete_akciju(
+    store: FakeStore, week_view: WeekView
+) -> None:
+    appt = store.create(
+        "Ana Anić", "061/111-222", "ana@example.com", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    week_view.refresh()
+
+    emitted: list[tuple[int, str]] = []
+    week_view.appointment_action_requested.connect(lambda a, action: emitted.append((a, action)))
+
+    menu = QMenu()
+    week_view._add_menu_action(menu, "Izbriši termin", appt.id, "delete")
+    action = next(a for a in menu.actions() if a.text() == "Izbriši termin")
+    action.trigger()
+
+    assert emitted == [(appt.id, "delete")]

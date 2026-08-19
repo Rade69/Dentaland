@@ -245,6 +245,12 @@ class DayView(QTableWidget):
             self._add_menu_action(menu, "Pomjeri termin", appt_id, "move")
             menu.addSeparator()
             self._add_menu_action(menu, "Otkaži termin", appt_id, "cancel")
+
+        # Izbriši termin — dostupno za SVE statuse (uključujući terminalne),
+        # vizuelno odvojeno na dnu (Faza F, HIGH — hard delete).
+        menu.addSeparator()
+        self._add_menu_action(menu, "Izbriši termin", appt_id, "delete")
+
         menu.exec(self.viewport().mapToGlobal(position))
 
     def _on_cell_clicked(self, row: int, col: int) -> None:

@@ -278,6 +278,40 @@ def test_cancel_nepostojeci_id(appointment_service: AppointmentService) -> None:
         appointment_service.cancel(999)
 
 
+def test_delete_uklanja_termin(
+    session_factory: sessionmaker[Session], appointment_service: AppointmentService
+) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    appointment_service.delete(dto.id)
+    with session_factory() as session:
+        assert session.get(Appointment, dto.id) is None
+
+
+def test_delete_ne_dira_druge_termine(
+    session_factory: sessionmaker[Session], appointment_service: AppointmentService
+) -> None:
+    first = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    second = appointment_service.create("Marko", "", "", "Kontrola", "", _at(10), _at(10, 30))
+
+    appointment_service.delete(first.id)
+
+    with session_factory() as session:
+        assert session.get(Appointment, first.id) is None
+        assert session.get(Appointment, second.id) is not None
+
+
+def test_delete_radi_bez_obzira_na_status(appointment_service: AppointmentService) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    appointment_service.cancel(dto.id)  # terminalno stanje
+    appointment_service.delete(dto.id)  # ne smije baciti — delete radi za bilo koji status
+    assert appointment_service.get(dto.id) is None
+
+
+def test_delete_nepostojeci_id(appointment_service: AppointmentService) -> None:
+    with pytest.raises(ValueError, match="nije pronađen"):
+        appointment_service.delete(999)
+
+
 def test_odvojeni_upiti_cekaju_i_otkazani(
     session_factory: sessionmaker[Session], appointment_service: AppointmentService
 ) -> None:

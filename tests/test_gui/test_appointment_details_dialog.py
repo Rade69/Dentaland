@@ -68,10 +68,31 @@ def test_potvrdjen_termin_nema_potvrdi_akciju(qtbot) -> None:
 
 
 def test_terminalni_termin_nema_povratnih_akcija(qtbot) -> None:
+    """Terminalni termin nema STATUSNE akcije (confirm/arrived/completed/...),
+    ali "Izbriši termin" (Faza F) je namjerno dostupan za sve statuse — vidi
+    test_izbrisi_termin_dostupan_za_terminalni_status niže."""
     dialog = AppointmentDetailsDialog(_appt(status="COMPLETED"))
     qtbot.addWidget(dialog)
-    assert _action_labels(dialog) == []
+    assert _action_labels(dialog) == ["Izbriši termin"]
     assert "Završen" in dialog.status_badge.text()
+
+
+def test_izbrisi_termin_dostupan_za_aktivan_i_terminalni_status(qtbot) -> None:
+    active = AppointmentDetailsDialog(_appt())
+    qtbot.addWidget(active)
+    assert "Izbriši termin" in _action_labels(active)
+
+    terminal = AppointmentDetailsDialog(_appt(status="CANCELLED"))
+    qtbot.addWidget(terminal)
+    assert "Izbriši termin" in _action_labels(terminal)
+
+
+def test_izbrisi_termin_selektuje_delete_akciju(qtbot) -> None:
+    dialog = AppointmentDetailsDialog(_appt())
+    qtbot.addWidget(dialog)
+    delete_button = next(b for b in dialog._action_buttons if b.text() == "Izbriši termin")
+    delete_button.click()
+    assert dialog.selected_action() == "delete"
 
 
 def test_selected_action_nakon_klika(qtbot) -> None:

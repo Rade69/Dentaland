@@ -310,6 +310,26 @@ class AppointmentService:
             session.commit()
             return self._to_dto(appt, self._service_name(appt))
 
+    def delete(self, appt_id: int) -> None:
+        """Trajno ukloni termin — isključivo za greškom kreiran zapis.
+
+        Za razliku od ``cancel()`` (zapis ostaje u istoriji), ovo je
+        nepovratan hard delete. Dozvoljeno za bilo koji status (greška u
+        unosu se može otkriti i nakon što je termin već označen
+        završenim/otkazanim) — nema status-provjere kao kod cancel/mark_*.
+
+        FK provjera (DENT-DESKTOP-F plan): ništa u trenutnoj šemi ne
+        referencira ``appointments.id`` kao strani ključ (Appointment ima
+        FK-ove KA Doctor/Service, ne obrnuto), pa je prost DELETE bez
+        cascade rizika.
+        """
+        with self._session_factory() as session:
+            appt = session.get(Appointment, appt_id)
+            if appt is None:
+                raise ValueError(f"termin {appt_id} nije pronađen")
+            session.delete(appt)
+            session.commit()
+
     def mark_completed(self, appt_id: int) -> AppointmentDTO:
         """Označi termin kao završen; dozvoljeno samo za zakazan termin."""
         with self._session_factory() as session:
