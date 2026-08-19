@@ -146,13 +146,27 @@ svaki agent koji dobije task PRIJE prve izmjene koda kratko zapiše u svoj
 
 | Task | Implementer | Fajlova pročitano prije 1. izmjene | Koristio `.agent/`? | Pitao za pojašnjenje strukture? | Prekršio scope? |
 |---|---|---|---|---|---|
-| _(popuniti po tasku)_ | | | DA / NE | DA / NE | DA / NE |
+| DENT-016 (štampa, ispalo: već gotov) | crush | 2 (samo da nađe `.agent/`, pa odustao) | DA, ali ručnim lutanjem (3 dodatna poziva) — nije u `main` | NE (sam pronašao) | NE |
+| DENT-017 (email podsjetnik) | pi | 5 | DA — direktno uputio na tačnu sekciju, bez `ls`/`find` | NE | NE |
+| DENT-016/017 review | claude | 2 review-a, sve gore navedeno + nezavisna reprodukcija testova/tvrdnji | DA (Reviewer Context Pack, TASK_ROUTING "Review task" sekcija) | NE | NE |
 
 Referentna vrijednost (before, bez `.agent/` sloja, izmjereno
 2026-08-19 pri pisanju `PROJECT_MAP.md` od nule): **6 istraživačkih
 poziva** (`ls`/`find` po repou) prije nego što je struktura bila jasna, uz
 jednu grešku usput (plitka pretraga je propustila `desktop/views/dialogs/`).
 Cilj: manje od toga, bez pitanja "gdje je X", bez scope grešaka.
+
+**Nalaz nakon 3 popunjena reda (2026-08-19):** ideja radi kad je sloj
+dostupan — Pi je otišao PRAVO na tačnu sekciju (0 istraživačkih poziva,
+nasuprot 6 u before baseline-u). Ali ISPORUKA je bila loša: `.agent/` sloj
+nikad nije bio merge-ovan u `main` prije nego što su probni taskovi
+dodijeljeni (`git worktree add ... main` ne nosi granu
+`task/DENT-AGENT-CONTEXT-001`) — oba agenta su morala ručno tražiti drugi
+worktree da bi uopšte došla do fajlova, tačno onaj "lutati po repou" trošak
+koji sloj treba da eliminiše. Dodatno, DENT-016 se ispostavio već završen
+prije dodjele (moja greška u pripremi, ne u konceptu sloja). Zaključak:
+koncept POTVRĐEN, potreban je merge u `main` prije sljedeće probe da se
+mjeri stvarna korist bez ovog proceduralnog šuma.
 
 Kad se saberu 2-3 popunjena reda, ovu tabelu pregledati i odlučiti da li
 `.agent/` sloj ima smisla prije nego što se ide na Fazu 2 (konsolidacija
