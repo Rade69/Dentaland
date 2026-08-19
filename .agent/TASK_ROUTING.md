@@ -149,6 +149,9 @@ svaki agent koji dobije task PRIJE prve izmjene koda kratko zapiše u svoj
 | DENT-016 (štampa, ispalo: već gotov) | crush | 2 (samo da nađe `.agent/`, pa odustao) | DA, ali ručnim lutanjem (3 dodatna poziva) — nije u `main` | NE (sam pronašao) | NE |
 | DENT-017 (email podsjetnik) | pi | 5 | DA — direktno uputio na tačnu sekciju, bez `ls`/`find` | NE | NE |
 | DENT-016/017 review | claude | 2 review-a, sve gore navedeno + nezavisna reprodukcija testova/tvrdnji | DA (Reviewer Context Pack, TASK_ROUTING "Review task" sekcija) | NE | NE |
+| DENT-018 (mypy cleanup week_view) | crush | 5 | DA — direktno iz `main`, "Bug task" paket → `week_view.py` + GUI testovi, bez `ls`/`find` | NE | NE |
+| DENT-019 (mypy cleanup main_window) | pi | 4 | DA — direktno iz `main`, nula `ls`/`find` poziva | NE | NE |
+| DENT-018/019 review (drugi krug) | claude | 2 review-a, nezavisna reprodukcija svih tvrdnji (uklj. `store: Any` opravdanje provjereno protiv `day_view.py`) | DA | NE | NE |
 
 Referentna vrijednost (before, bez `.agent/` sloja, izmjereno
 2026-08-19 pri pisanju `PROJECT_MAP.md` od nule): **6 istraživačkih
@@ -168,6 +171,17 @@ prije dodjele (moja greška u pripremi, ne u konceptu sloja). Zaključak:
 koncept POTVRĐEN, potreban je merge u `main` prije sljedeće probe da se
 mjeri stvarna korist bez ovog proceduralnog šuma.
 
-Kad se saberu 2-3 popunjena reda, ovu tabelu pregledati i odlučiti da li
-`.agent/` sloj ima smisla prije nego što se ide na Fazu 2 (konsolidacija
-`docs/dentaland-agentski-razvoj.md` + stanjenje `CLAUDE.md`/`AGENTS.md`).
+**Nalaz nakon drugog kruga (2026-08-19, `.agent/` sada merge-ovan u
+`main`):** bez proceduralnog šuma iz prvog kruga, oba agenta (Crush,
+Pi) su prijavila **nula `ls`/`find` istraživačkih poziva** — "Bug task"
+routing paket ih je odveo direktno na ciljni fajl. Naspram before
+baseline-a od 6 istraživačkih poziva, ovo je izmjeren, ponovljiv rezultat
+u dva nezavisna slučaja, ne jednokratna slučajnost. Nijedno pitanje za
+pojašnjenje strukture, nijedan scope prekršaj, u ukupno 5 taskova (2
+implementaciona + 1 probni + 2 bug-fix) kroz dva različita tipa zadatka
+(feature, bug) i dva različita implementera.
+
+**Zaključak: `.agent/` sloj ima smisla.** Faza 1 se smatra validiranom —
+otvoreno za Fazu 2 (konsolidacija `docs/dentaland-agentski-razvoj.md` +
+stanjenje `CLAUDE.md`/`AGENTS.md`) kao poseban, budući Task Contract, kad
+Radovan odluči da je prioritet.

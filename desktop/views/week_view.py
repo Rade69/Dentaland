@@ -16,7 +16,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from PySide6.QtCore import QPoint, Qt, Signal
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QDropEvent, QMouseEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
+    QWidget,
 )
 
 from dentaland.services import AppointmentDTO, OverlapError
@@ -105,7 +106,7 @@ class WeekView(QTableWidget):
     # pola sata — gornja/donja polovina ćelije određuje :00 ili :30.
     CLICK_MINUTES = 30
 
-    def __init__(self, store, week_start: date, parent=None):
+    def __init__(self, store: Any, week_start: date, parent: QWidget | None = None):
         super().__init__(parent)
         self.store = store
         self.week_start = week_start
@@ -146,7 +147,9 @@ class WeekView(QTableWidget):
         self.setMinimumHeight(300)
         self.setWordWrap(True)
 
-        self.setDragDropMode(QTableWidget.DragDrop)
+        # PySide6 stub gap: QTableWidget.DragDrop postoji u runtime-u, ali
+        # nedostaje u tip stubovima — ne mijenjati logiku.
+        self.setDragDropMode(QTableWidget.DragDrop)  # type: ignore[attr-defined]
         self.setDefaultDropAction(Qt.DropAction.MoveAction)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -490,7 +493,7 @@ class WeekView(QTableWidget):
 
     # ---- drag & drop ----
 
-    def mousePressEvent(self, event) -> None:
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             y = event.position().toPoint().y()
             row = self.rowAt(y)
@@ -500,7 +503,7 @@ class WeekView(QTableWidget):
             self._pending_click_minutes = self._half_slot_minutes_at(y, row) if row >= 0 else 0
         super().mousePressEvent(event)
 
-    def dropEvent(self, event) -> None:
+    def dropEvent(self, event: QDropEvent) -> None:
         row = self.rowAt(event.position().toPoint().y())
         col = self.columnAt(event.position().toPoint().x())
         if self._drag_appt_id is None or row < 0 or col < 0:
