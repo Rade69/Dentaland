@@ -24,9 +24,10 @@ probni taskovi za `.agent/` validacionu tabelu (vidi `TASK_ROUTING.md`).
 **Codex ponovo dostupan (od 19.8.2026).** Privremena nedostupnost
 (18.8.2026, isticanje kredita) je gotova — uloge se vraćaju na standardnu
 raspodjelu: Codex opciono na LOW/MEDIUM implementaciji, obavezan Reviewer 1
-na HIGH (uz Crush ili Pi kao Reviewer 2), po tabeli uloga u `CLAUDE.md`
-(uskoro `docs/dentaland-agentski-razvoj.md`, čeka merge Faze 2 —
-`DENT-AGENT-CONTEXT-002`, pending review).
+na HIGH (uz Crush ili Pi kao Reviewer 2), po tabeli uloga u
+`docs/dentaland-agentski-razvoj.md` — kanonski procesni dokument nakon
+Faze 2 merge-a (`DENT-AGENT-CONTEXT-002`, MERGED 20.8.2026, tri Codex
+review runde). `CLAUDE.md` je sada thin router, ne sadrži tabelu uloga.
 
 ## Current verification baseline
 
@@ -70,10 +71,12 @@ napamet.
 ## Next known work
 
 - `DENT-DESKTOP-F` — MERGED → INTEGRATION_VERIFIED → DONE (merge `1e3c6c0`,
-  Radovanov human approval). Post-merge gate na `main`: pytest 219 passed,
-  ruff clean, mypy clean (0 issues, 30 fajlova). Svih 6 faza redizajna
-  (A–F) sada završeno.
-- Faza 2 (konsolidacija `docs/dentaland-agentski-razvoj.md` + stanjenje
-  `CLAUDE.md`/`AGENTS.md`) — sada otvorena za planiranje, `.agent/`
-  validacija je gotova. Zaseban budući Task Contract, kad Radovan odluči
-  da je prioritet.
+  Radovanov human approval). Svih 6 faza redizajna (A–F) sada završeno.
+- `DENT-AGENT-CONTEXT-002` (Faza 2) — MERGED → INTEGRATION_VERIFIED → DONE
+  (20.8.2026, tri Codex review runde, Radovanov human approval).
+  `docs/dentaland-agentski-razvoj.md` je sada kanonski procesni dokument,
+  `CLAUDE.md` thin router (296→119 linija). Post-merge gate na `main`:
+  pytest 219 passed, ruff clean, mypy clean (0 issues, 30 fajlova). Nema
+  otvorenog agentski-workflow zadatka dok Radovan ne odredi sljedeći
+  prioritet (npr. domain fajlovi u `.agent/domains/` — tek ako se pokaže
+  stvarna potreba, ne unaprijed).

@@ -3,10 +3,22 @@ task_id: DENT-AGENT-CONTEXT-002
 risk: MEDIUM
 implementer: claude
 reviewers: [codex]
-verdict: PASS_PENDING_HUMAN_APPROVAL
-commits: []
+verdict: PASS
+commits: [291474c, bd34f15, 7ca022f, 92f3c5c]
 created_at: 2026-08-19T00:00:00Z
 ---
+
+## Integration status
+
+`MERGED → INTEGRATION_VERIFIED → DONE` (20.8.2026). Human approval:
+Radovan ("treba to sve popraviti pa tek onda merdž"). Non-blocking note
+(CURRENT_STATE.md referenca) popravljena u istom koraku kao merge — Faza
+2 grana nije dirala taj fajl, main-ova verzija je preživjela merge bez
+konflikta i ažurirana da referencira `docs/dentaland-agentski-razvoj.md`
+kao aktivan kanonski dokument (ne više "uskoro/čeka merge").
+
+Post-merge Integration Gate na `main`: `pytest tests/ -q` → **219
+passed**, `mypy` → 0 grešaka (30 fajlova), `ruff` → čisto.
 
 ## Review Round 3 — Codex REJECT, mehanička popravka (2026-08-20)
 
