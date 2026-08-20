@@ -152,6 +152,7 @@ svaki agent koji dobije task PRIJE prve izmjene koda kratko zapiše u svoj
 | DENT-018 (mypy cleanup week_view) | crush | 5 | DA — direktno iz `main`, "Bug task" paket → `week_view.py` + GUI testovi, bez `ls`/`find` | NE | NE |
 | DENT-019 (mypy cleanup main_window) | pi | 4 | DA — direktno iz `main`, nula `ls`/`find` poziva | NE | NE |
 | DENT-018/019 review (drugi krug) | claude | 2 review-a, nezavisna reprodukcija svih tvrdnji (uklj. `store: Any` opravdanje provjereno protiv `day_view.py`) | DA | NE | NE |
+| DENT-AGENT-CONTEXT-002 review (Faza 2, treći krug — Codex) | codex | 3 review runde, 4/3/3 fajla prije svake (skill + CLAUDE.md + task izvještaji) | **NE** — eksplicitno priznao da nije koristio "Review task" sekciju ni u jednom krugu (paket redundantan uz vrlo detaljan task brief prompt) | NE | NE |
 
 Referentna vrijednost (before, bez `.agent/` sloja, izmjereno
 2026-08-19 pri pisanju `PROJECT_MAP.md` od nule): **6 istraživačkih
@@ -181,7 +182,26 @@ pojašnjenje strukture, nijedan scope prekršaj, u ukupno 5 taskova (2
 implementaciona + 1 probni + 2 bug-fix) kroz dva različita tipa zadatka
 (feature, bug) i dva različita implementera.
 
-**Zaključak: `.agent/` sloj ima smisla.** Faza 1 se smatra validiranom —
-otvoreno za Fazu 2 (konsolidacija `docs/dentaland-agentski-razvoj.md` +
-stanjenje `CLAUDE.md`/`AGENTS.md`) kao poseban, budući Task Contract, kad
-Radovan odluči da je prioritet.
+**Zaključak nakon Faze 1 (drugi krug):** `.agent/` sloj ima smisla za
+implementacione zadatke. Faza 1 se smatra validiranom.
+
+**Nalaz iz Faze 2 review-a (Codex, treći krug, 2026-08-20) — djelimično
+negativan, ne skriven:** za review-tip zadatke sa VEĆ detaljnim task brief
+promptom, "Review task" routing paket nije korišten ni u jednom od tri
+kruga — reviewer ga je smatrao redundantnim jer je prompt sam isporučio
+sve što bi paket dao (tačan worktree/commit/fajlovi/komande). Nije
+dokazano da paket ŠTETI ili da NIKAD ne pomaže — dokazano je da postojanje
+fajla nije garancija upotrebe kad je alternativni izvor (precizan prompt)
+već dovoljan. Reviewer-ov predlog: obavezna eksplicitna referenca u
+handoff-u/root start sekvenci bi bila pouzdanija za mjerenje stvarne
+upotrebe nego pretpostavka da će agent sam routing fajl potražiti.
+
+**Ukupan zaključak (4 signala, 2 tipa zadatka, 3 agenta):** `.agent/` sloj
+mjerljivo pomaže kad task brief NE navodi eksplicitno šta čitati (Crush/Pi
+implementacioni krugovi — 0 istraživačkih poziva naspram 6 baseline).
+Kad je task brief već precizan (Codex review krugovi), routing paket
+postaje redundantan, ne štetan — signal je o UPOTREBI, ne o vrijednosti
+sadržaja paketa samog. Otvoreno za Fazu 2 (sad u toku,
+`DENT-AGENT-CONTEXT-002`) uz ovu napomenu za budući rad: ako se želi
+izmjeriti stvarna upotreba routing paketa u review kontekstu, task brief
+promptovi ne bi trebali sami navoditi sve što bi paket dao.
