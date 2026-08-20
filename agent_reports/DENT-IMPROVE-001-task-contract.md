@@ -3,8 +3,17 @@ task_id: DENT-IMPROVE-001
 risk: LOW
 implementer: claude
 reviewers: []
+status: MERGED_INTEGRATION_VERIFIED
+commits: [c230e7b]
 created_at: 2026-08-20
 ---
+
+## Integration status
+
+`MERGED → INTEGRATION_VERIFIED → DONE` (20.8.2026). Human approval:
+Radovan ("komituj i merdžuj"). Merge commit na `main` (`--no-ff`). Post-merge
+gate na `main`: `pytest tests/ -q` → 222 passed, `ruff check` → All checks
+passed, `mypy` → 0 grešaka (31 fajlova).
 
 # DENT-IMPROVE-001 — Context Debt cleanup u `.agent/`
 
@@ -140,12 +149,6 @@ sadržaj tih fajlova je promijenjen, ne putanje/nazivi).
   odbačeno; ranija Faza 2 review iskustva (Codex Round 1) pokazala da
   parafraziranje pri konsolidaciji gubi sadržaj bez namjere. Doslovan
   prijenos + word-diff provjera je pouzdaniji.
-
-## Integration status
-
-`NOT_MERGED` — implementacija završena, čeka Radovanov human approval
-(LOW risk, ali dira ključne navigacione fajlove; konzervativan pristup u
-skladu sa obrascem rada u ovoj sesiji).
 
 ## Handoff
 
