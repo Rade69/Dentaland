@@ -3,10 +3,50 @@ task_id: DENT-AGENT-CONTEXT-002
 risk: MEDIUM
 implementer: claude
 reviewers: [codex]
-verdict: PENDING_REVIEW_ROUND_2
+verdict: PENDING_REVIEW_ROUND_3
 commits: []
 created_at: 2026-08-19T00:00:00Z
 ---
+
+## Review Round 2 — Codex REJECT (2026-08-20)
+
+Puni izvještaj: `2026-08-19-DENT-AGENT-CONTEXT-002-review-codex-round2.md`.
+
+Oba Round 1 nalaza potvrđena `CLOSED`. Samoinicijativne popravke (Ownership
+manifest, Obavezna procedura, Strukturiran verdikt, Verifikacija DoD, Šta
+ne graditi odmah) potvrđene `CLOSED`. Obje namjerne izmjene (Pi dodat,
+"tri agenta" ostavljen doslovno) — `ACCEPTED`.
+
+Jedan novi blocking finding: generičko handoff pravilo ("ako je Codex
+usred nedovršenog zadatka kad mu istekne dostupnost, zadatak ide na
+drugog agenta uz novi Task Contract ili čeka Radovanovu odluku") je bilo
+u istom pasusu kao kratkotrajni datum/razlog nedostupnosti — pri
+uklanjanju kratkotrajnog dijela (Round 1 popravka), i ovo trajno pravilo
+je nestalo. Codex je ispravno primijetio da je moj word-diff PREPOZNAO tu
+razliku, ali je završna procjena ("sve identično osim označenih
+odstupanja") pogrešno svrstala ovaj gubitak kao prihvatljiv.
+
+## Fix Round 2 (2026-08-20)
+
+Vraćeno doslovno kao zaseban "Trajno pravilo za handoff nedovršenog
+zadatka" pasus u `Uloge` sekciji, odvojeno od kratkotrajnog
+`CURRENT_STATE.md` pokazivača. Nije generalizovano na sve agente (Codex
+nije to tražio; generalizacija bi bila dodatna, neopravdana intervencija
+van scope-a popravke).
+
+Verifikacija ponovljena: `pytest tests/ -q` → 206 passed, `mypy` → 0
+grešaka, `ruff` → čisto.
+
+## Non-blocking note (Codex Round 2, zabilježeno za merge korak)
+
+`.agent/CURRENT_STATE.md:32-34` (u `main`, van scope-a ovog diff-a) i
+dalje upućuje na "AGENTS.md/CLAUDE.md tabelu uloga" — nakon merge-a Faze
+2, kanonska lokacija postaje `docs/dentaland-agentski-razvoj.md`. Codex
+eksplicitno NIJE tretirao ovo kao scope prekršaj (fajl nije dio Faze 2
+diff-a). **Akcija:** ažurirati tu referencu ODMAH nakon merge-a Faze 2, u
+istom koraku kad `docs/dentaland-agentski-razvoj.md` postane stvaran
+kanonski dokument u `main` — ne prije (referenca je tačna za `main`-ovo
+trenutno stanje dok Faza 2 nije mergovana).
 
 ## Review Round 1 — Codex REJECT (2026-08-20)
 

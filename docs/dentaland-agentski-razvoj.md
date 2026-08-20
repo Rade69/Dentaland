@@ -76,6 +76,12 @@ mijenja nezavisno od ovog procesnog dokumenta. **Provjeri
 `.agent/CURRENT_STATE.md` za trenutni status prije pretpostavke** — ne
 pretpostavljati da je gornja tabela trenutno na snazi bez te provjere.
 
+**Trajno pravilo za handoff nedovršenog zadatka:** ako je Codex usred
+nedovršenog zadatka kad mu dostupnost/kredit istekne, taj zadatak se ili
+završava kroz drugog agenta (novi Task Contract, ne nastavak u istom
+kontekstu) ili čeka Radovanovu odluku — ne pretpostavljati automatski
+nastavak.
+
 - **Claude implementira HIGH-risk zadatke direktno** — najstabilnija ruka
   na najkritičnijem poslu.
 - **Crush i Pi su Implementeri na LOW/MEDIUM.** Na HIGH zadacima, oba
