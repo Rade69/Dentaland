@@ -76,3 +76,26 @@ def test_visible_status_counts_za_dan(qtbot, appointment_service) -> None:
 
     counts = view.visible_status_counts()
     assert counts["waiting"] == 1
+
+
+def test_izbrisi_termin_emituje_delete_akciju(qtbot, appointment_service) -> None:
+    """Faza F (HIGH) — Izbriši termin dostupno i u Dan prikazu."""
+    from PySide6.QtWidgets import QMenu
+
+    dto = appointment_service.create(
+        "Ana", "061", "a@x", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    view = DayView(appointment_service, DAY)
+    qtbot.addWidget(view)
+
+    emitted: list[tuple[int, str]] = []
+    view.appointment_action_requested.connect(lambda a, action: emitted.append((a, action)))
+
+    menu = QMenu()
+    view._add_menu_action(menu, "Izbriši termin", dto.id, "delete")
+    action = next(a for a in menu.actions() if a.text() == "Izbriši termin")
+    action.trigger()
+
+    assert emitted == [(dto.id, "delete")]

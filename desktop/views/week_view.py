@@ -472,6 +472,11 @@ class WeekView(QTableWidget):
             menu.addSeparator()
             self._add_menu_action(menu, "Otkaži termin", appt_id, "cancel")
 
+        # Izbriši termin — dostupno za SVE statuse (uključujući terminalne),
+        # vizuelno odvojeno na dnu (Faza F, HIGH — hard delete).
+        menu.addSeparator()
+        self._add_menu_action(menu, "Izbriši termin", appt_id, "delete")
+
         menu.exec(self.viewport().mapToGlobal(position))
 
     def move_appointment_to_slot(self, appt_id: int, row: int, col: int) -> bool:

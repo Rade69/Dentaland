@@ -108,6 +108,17 @@ class AppointmentDetailsDialog(BaseDialog):
         columns.addLayout(self._right, 1)
         self.body_layout().addLayout(columns)
 
+        # "Izbriši termin" — dostupno za SVE statuse (uključujući
+        # terminalne, za razliku od gornjih uslovnih akcija), vizuelno
+        # najudaljenije/najupadljivije destruktivno dugme, van "Otkaži"
+        # (Faza F, HIGH — hard delete, odvojeno od cancel-a).
+        self.body_layout().addSpacing(6)
+        delete_button = QPushButton("Izbriši termin")
+        delete_button.setObjectName("deleteFromDetailsButton")
+        delete_button.clicked.connect(lambda: self._choose("delete"))
+        self.body_layout().addWidget(delete_button)
+        self._action_buttons.append(delete_button)
+
         self.add_secondary_button("Zatvori")
         self._apply_style()
 
@@ -169,5 +180,13 @@ class AppointmentDetailsDialog(BaseDialog):
                 min-height: 34px; padding: 2px 12px; text-align: left;
             }
             #detailActionButton:hover { background-color: #eef8f9; border-color: #078f96; }
+            #deleteFromDetailsButton {
+                background-color: #ffffff; color: #ef334f;
+                border: 1px solid #f5c6cb; border-radius: 6px;
+                min-height: 34px; padding: 2px 12px; font-weight: 600;
+            }
+            #deleteFromDetailsButton:hover {
+                background-color: #ef334f; color: #ffffff; border-color: #ef334f;
+            }
             """
         )

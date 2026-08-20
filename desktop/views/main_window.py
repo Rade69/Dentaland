@@ -36,6 +36,7 @@ from desktop.views.day_view import DayView
 from desktop.views.dialogs.appointment_details import AppointmentDetailsDialog
 from desktop.views.dialogs.appointment_editor import AppointmentEditorDialog
 from desktop.views.dialogs.cancel_appointment import CancelAppointmentDialog
+from desktop.views.dialogs.delete_appointment import DeleteAppointmentDialog
 from desktop.views.dialogs.move_appointment import MoveAppointmentDialog
 from desktop.views.requests_panel import DashboardPanels
 from desktop.views.sidebar import Sidebar, svg_icon
@@ -648,6 +649,11 @@ class MainWindow(QMainWindow):
             if appt is not None:
                 self._cancel_appointment(appt)
             return
+        if action == "delete":
+            appt = self.store.get(appt_id)
+            if appt is not None:
+                self._delete_appointment(appt)
+            return
         method_map = {
             "confirm": "mark_confirmed",
             "arrived": "mark_arrived",
@@ -685,6 +691,16 @@ class MainWindow(QMainWindow):
             if callable(cancel_fn):
                 with suppress(ValueError):
                     cancel_fn(appt.id)
+            self._refresh_dashboard()
+
+    def _delete_appointment(self, appt: Any) -> None:
+        """Trajno ukloni termin (Faza F, HIGH) — nepovratno, odvojeno od cancel."""
+        dialog = DeleteAppointmentDialog(appt, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            delete_fn = getattr(self.store, "delete", None)
+            if callable(delete_fn):
+                with suppress(ValueError):
+                    delete_fn(appt.id)
             self._refresh_dashboard()
 
     def _on_print(self) -> None:

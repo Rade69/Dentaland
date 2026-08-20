@@ -392,3 +392,54 @@ def test_context_action_completed_osvjezava_status_summary(
     win._handle_appointment_action(dto.id, "completed")
 
     assert "Završen (1)" in win.status_legend.text()
+
+
+def test_delete_akcija_trajno_uklanja_termin_kroz_pravi_servis(
+    qtbot, appointment_service, week_start, monkeypatch
+) -> None:
+    """Faza F (HIGH) — end-to-end kroz pravi AppointmentService, ne fake."""
+    dto = appointment_service.create(
+        "Ana", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    win = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(win)
+
+    class FakeDeleteDialog:
+        def __init__(self, appt, parent=None):
+            pass
+
+        def exec(self):
+            return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(main_window_mod, "DeleteAppointmentDialog", FakeDeleteDialog)
+
+    win._handle_appointment_action(dto.id, "delete")
+
+    assert appointment_service.get(dto.id) is None
+
+
+def test_delete_odustani_ne_brise_termin(
+    qtbot, appointment_service, week_start, monkeypatch
+) -> None:
+    dto = appointment_service.create(
+        "Ana", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    win = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(win)
+
+    class FakeDeleteDialog:
+        def __init__(self, appt, parent=None):
+            pass
+
+        def exec(self):
+            return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(main_window_mod, "DeleteAppointmentDialog", FakeDeleteDialog)
+
+    win._handle_appointment_action(dto.id, "delete")
+
+    assert appointment_service.get(dto.id) is not None

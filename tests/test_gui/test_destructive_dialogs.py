@@ -6,9 +6,10 @@ from datetime import datetime
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QLabel, QPushButton
 
 from desktop.views.dialogs.cancel_appointment import CancelAppointmentDialog
+from desktop.views.dialogs.delete_appointment import DeleteAppointmentDialog
 from desktop.views.dialogs.move_appointment import MoveAppointmentDialog
 
 SARAJEVO = ZoneInfo("Europe/Sarajevo")
@@ -55,3 +56,33 @@ def test_cancel_dialog_prikazuje_pacijenta_i_napomenu_istorije(qtbot) -> None:
     note = dialog.findChild(QLabel, "cancelNote")
     assert patient is not None and patient.text() == "Radovan Stojanović"
     assert note is not None and note.text() == "Otkazani termin ostaje sačuvan u istoriji."
+
+
+def test_delete_dialog_prikazuje_pacijenta_i_upozorenje(qtbot) -> None:
+    dialog = DeleteAppointmentDialog(_appt())
+    qtbot.addWidget(dialog)
+    patient = dialog.findChild(QLabel, "deletePatient")
+    note = dialog.findChild(QLabel, "deleteNote")
+    assert patient is not None and patient.text() == "Radovan Stojanović"
+    assert note is not None and 'Otkaži termin' in note.text()
+
+
+def test_delete_dugme_ne_reaguje_na_enter(qtbot) -> None:
+    """Kritičan zahtjev iz plana (F.4): Enter ne smije aktivirati brisanje."""
+    dialog = DeleteAppointmentDialog(_appt())
+    qtbot.addWidget(dialog)
+    delete_button = next(
+        b for b in dialog.findChildren(QPushButton) if b.text() == "Izbriši termin"
+    )
+    assert delete_button.autoDefault() is False
+    assert delete_button.isDefault() is False
+
+
+def test_delete_dialog_accept_selektuje_ispravnu_akciju(qtbot) -> None:
+    dialog = DeleteAppointmentDialog(_appt())
+    qtbot.addWidget(dialog)
+    delete_button = next(
+        b for b in dialog.findChildren(QPushButton) if b.text() == "Izbriši termin"
+    )
+    delete_button.click()
+    assert dialog.result() != 0  # QDialog.Rejected == 0; accept() je pozvan
