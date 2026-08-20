@@ -25,13 +25,12 @@ probni taskovi za `.agent/` validacionu tabelu (vidi `TASK_ROUTING.md`).
 
 ## Agent availability
 
-Codex privremeno nedostupan (od 18.8.2026, isticanje kredita). Dok se ne
-obnovi: Codex se ne dodjeljuje kao Implementer ni Reviewer ni na jednom
-novom zadatku. Na HIGH zadacima, oba mjesta Reviewer 1/2 popunjavaju Crush i
-Pi (umjesto uobičajenog Codex + jedan od njih). Ovo NIJE trajna promjena
-procesa — kad se Codex vrati, uloge se vraćaju na raniju raspodjelu (vidi
-`AGENTS.md`/`CLAUDE.md` tabelu uloga za trajno pravilo, ovo je samo trenutni
-status dostupnosti).
+**Codex ponovo dostupan (od 19.8.2026).** Privremena nedostupnost
+(18.8.2026, isticanje kredita) je gotova — uloge se vraćaju na standardnu
+raspodjelu: Codex opciono na LOW/MEDIUM implementaciji, obavezan Reviewer 1
+na HIGH (uz Crush ili Pi kao Reviewer 2), po tabeli uloga u `CLAUDE.md`
+(uskoro `docs/dentaland-agentski-razvoj.md`, čeka merge Faze 2 —
+`DENT-AGENT-CONTEXT-002`, pending review).
 
 ## Current verification baseline
 
