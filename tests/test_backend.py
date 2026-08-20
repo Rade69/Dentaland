@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from unittest.mock import patch
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,7 +13,12 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from backend.main import app, get_session_factory
-from dentaland.models import Base, Doctor, Service
+from dentaland.models import Appointment, AppointmentStatus, Base, Doctor, Service
+from dentaland.services.notifications import (
+    REMINDER_LEAD_TIME,
+    REMINDER_WINDOW,
+    send_due_appointment_reminders,
+)
 
 
 @pytest.fixture()
@@ -209,3 +214,68 @@ def test_rate_limit_na_submit_endpointu(client: TestClient) -> None:
     payload = {"ime": "Ana", "telefon": "061", "requested_date": "2026-08-20"}
     statuses = [client.post("/api/booking-requests", json=payload).status_code for _ in range(11)]
     assert 429 in statuses, "11. zahtjev u minuti treba da bude odbijen (limit 10/minute)"
+
+
+def test_scheduler_bira_samo_scheduled_termine_u_uskom_prozoru(
+    session_factory: sessionmaker[Session], doctor_and_service: tuple[int, int]
+) -> None:
+    now = datetime(2026, 8, 20, 8, 0, tzinfo=UTC)
+    doctor_id, service_id = doctor_and_service
+
+    def appointment(offset: timedelta, *, status: AppointmentStatus) -> Appointment:
+        start = now + offset
+        return Appointment(
+            doctor_id=doctor_id,
+            service_id=service_id,
+            ime=f"Pacijent {offset}",
+            email=f"pacijent-{int(offset.total_seconds())}@example.com",
+            start_time=start,
+            end_time=start + timedelta(minutes=30),
+            status=status,
+        )
+
+    due_at_start = appointment(REMINDER_LEAD_TIME, status=AppointmentStatus.SCHEDULED)
+    due_inside = appointment(
+        REMINDER_LEAD_TIME + REMINDER_WINDOW - timedelta(seconds=1),
+        status=AppointmentStatus.SCHEDULED,
+    )
+    too_early = appointment(
+        REMINDER_LEAD_TIME - timedelta(seconds=1), status=AppointmentStatus.SCHEDULED
+    )
+    too_late = appointment(
+        REMINDER_LEAD_TIME + REMINDER_WINDOW, status=AppointmentStatus.SCHEDULED
+    )
+    cancelled = appointment(REMINDER_LEAD_TIME, status=AppointmentStatus.CANCELLED)
+
+    with session_factory() as session:
+        session.add_all([due_at_start, due_inside, too_early, too_late, cancelled])
+        session.commit()
+
+    with patch("dentaland.services.notifications.send_appointment_reminder") as send:
+        count = send_due_appointment_reminders(session_factory, now=now)
+
+    assert count == 2
+    assert send.call_count == 2
+    sent_addresses = {call.args[0] for call in send.call_args_list}
+    assert sent_addresses == {due_at_start.email, due_inside.email}
+
+
+def test_scheduler_odbija_naivno_trenutno_vrijeme(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with pytest.raises(ValueError, match="timezone-aware"):
+        send_due_appointment_reminders(session_factory, now=datetime(2026, 8, 20, 8, 0))
+
+
+def test_backend_startup_automatski_pokrece_scheduler(
+    session_factory: sessionmaker[Session],
+) -> None:
+    app.dependency_overrides[get_session_factory] = lambda: session_factory
+    try:
+        with patch(
+            "backend.main.run_reminder_scheduler", new_callable=AsyncMock
+        ) as scheduler, TestClient(app):
+            pass
+        scheduler.assert_awaited_once_with(session_factory)
+    finally:
+        app.dependency_overrides.clear()
