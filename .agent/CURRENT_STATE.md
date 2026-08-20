@@ -9,14 +9,10 @@ sedmica, provjeriti da li je i dalje tačno prije oslanjanja na njega.
 
 ## Current development focus
 
-`DENT-DESKTOP-F` — hard delete termina. Risk: HIGH. Implementer: Claude
-direktno. Reviewer 1/2: Crush i Pi, nezavisno.
-
-Status na 2026-08-19 (ažurirano — prethodni unos ovdje je bio zastario
-nakon par sati): implementacija ZAVRŠENA, **oba reviewera dala `verdict:
-PASS`** (`agent_reports/2026-08-19-DENT-DESKTOP-F-review-crush.md`,
-`-review-pi.md`). Čeka SAMO human approval (Radovan) prije merge-a — ovo
-NIJE moj task za implementaciju niti review, samo za praćenje statusa.
+`DENT-DESKTOP-F` (hard delete termina, HIGH) je MERGED → INTEGRATION_VERIFIED
+→ DONE (merge `1e3c6c0`, 2026-08-20) — vidi "Next known work" ispod za
+detalje. Svih 6 faza desktop redizajna (A–F) je sada završeno; nema
+aktivnog DESKTOP-* zadatka u toku dok Radovan ne odredi sljedeći prioritet.
 
 `DENT-016` (Crush, MEDIUM) i `DENT-017` (Pi, LOW) — kontrakti spremni
 (`agent_reports/DENT-016-task-contract.md`, `DENT-017-task-contract.md`),
@@ -73,9 +69,10 @@ napamet.
 
 ## Next known work
 
-- Human approval za `DENT-DESKTOP-F` (Radovanova odluka, ne agentski
-  posao) — i dalje čeka, blokiran na merge nivou (sistemski blok, ne
-  proceduralni razlog).
+- `DENT-DESKTOP-F` — MERGED → INTEGRATION_VERIFIED → DONE (merge `1e3c6c0`,
+  Radovanov human approval). Post-merge gate na `main`: pytest 219 passed,
+  ruff clean, mypy clean (0 issues, 30 fajlova). Svih 6 faza redizajna
+  (A–F) sada završeno.
 - Faza 2 (konsolidacija `docs/dentaland-agentski-razvoj.md` + stanjenje
   `CLAUDE.md`/`AGENTS.md`) — sada otvorena za planiranje, `.agent/`
   validacija je gotova. Zaseban budući Task Contract, kad Radovan odluči

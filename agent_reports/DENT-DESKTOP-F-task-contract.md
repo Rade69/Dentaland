@@ -3,7 +3,7 @@ task_id: DENT-DESKTOP-F
 risk: HIGH
 implementer: claude
 reviewers: [crush, pi]
-status: "Reviewer 1 (Crush): PASS. Reviewer 2 (Pi): PASS. Oba bez blocking nalaza — vidi agent_reports/2026-08-19-DENT-DESKTOP-F-review-crush.md i .../review-pi.md. Čeka human approval (Radovan) prije merge-a."
+status: "MERGED → INTEGRATION_VERIFIED → DONE (merge 1e3c6c0). Human approval: Radovan. Post-merge gate na main: pytest 219 passed, ruff clean, mypy clean (0 issues, 30 fajlova)."
 created_at: 2026-08-19
 ---
 
