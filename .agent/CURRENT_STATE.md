@@ -9,13 +9,14 @@ sedmica, provjeriti da li je i dalje tačno prije oslanjanja na njega.
 
 ## Current development focus
 
-Nema aktivnog zadatka u toku — svih 6 faza desktop redizajna (A–F),
-`DENT-DESKTOP-F`, Faza 2 agentskog workflow-a i `DENT-020` (email reminder
-scheduler) su svi MERGED. Čeka se Radovanova odluka o sljedećem
-prioritetu (kandidati: Viber integracija — plan eksplicitno kaže "tek
-nakon što osnovni booking/email tok radi stabilno", RBAC/auth,
-PostgreSQL migracija, ili nešto sitno frontend/GUI za sljedeći
-implementacioni probni signal).
+Nema aktivnog zadatka u toku. Pored ranije MERGED rada (6 faza desktop
+redizajna, Faza 2 agentskog workflow-a, `DENT-020`), sada su MERGED i
+`DENT-IMPROVE-001` (Context Debt cleanup) i `DENT-IMPROVE-002` (GitHub
+Actions CI, implementer Pi, review Claude PASS_WITH_NOTES). Čeka se
+Radovanova odluka o sljedećem prioritetu iz
+`docs/DENTALAND_IMPROVEMENT_BACKLOG.md` (kandidati: `DENT-IMPROVE-003`
+centralizovati putanje, `DENT-IMPROVE-004` Blokiraj vrijeme,
+`DENT-IMPROVE-005` Postavke, `DENT-IMPROVE-006` Novi zahtjevi ekran).
 
 ## Agent availability
 
@@ -29,7 +30,9 @@ review runde). `CLAUDE.md` je sada thin router, ne sadrži tabelu uloga.
 
 ## Current verification baseline
 
-Izmjereno 2026-08-20 na `main`, post-merge gate nakon DENT-020:
+Izmjereno 2026-08-20 na `main`, post-merge gate nakon `DENT-IMPROVE-002`
+(brojevi nepromijenjeni od DENT-020 — CI task nije mijenjao aplikativni
+kod):
 
 - `pytest tests/ -q` → **222 passed**, 11 warnings (deprecation warnings iz
   `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda), ~13s.
