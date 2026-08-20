@@ -1,6 +1,6 @@
 # Current State
 
-Last updated: 2026-08-19
+Last updated: 2026-08-20
 
 Ovaj fajl drži KRATKOTRAJNE informacije — stvari koje realno mogu zastarjeti
 za nekoliko dana/sedmica. Trajna pravila ostaju u `CLAUDE.md`/`AGENTS.md`/
@@ -9,15 +9,13 @@ sedmica, provjeriti da li je i dalje tačno prije oslanjanja na njega.
 
 ## Current development focus
 
-`DENT-DESKTOP-F` (hard delete termina, HIGH) je MERGED → INTEGRATION_VERIFIED
-→ DONE (merge `1e3c6c0`, 2026-08-20) — vidi "Next known work" ispod za
-detalje. Svih 6 faza desktop redizajna (A–F) je sada završeno; nema
-aktivnog DESKTOP-* zadatka u toku dok Radovan ne odredi sljedeći prioritet.
-
-`DENT-016` (Crush, MEDIUM) i `DENT-017` (Pi, LOW) — kontrakti spremni
-(`agent_reports/DENT-016-task-contract.md`, `DENT-017-task-contract.md`),
-proslijeđeni agentima, worktree-ovi još nisu otvoreni za njih. Oba su i
-probni taskovi za `.agent/` validacionu tabelu (vidi `TASK_ROUTING.md`).
+Nema aktivnog zadatka u toku — svih 6 faza desktop redizajna (A–F),
+`DENT-DESKTOP-F`, Faza 2 agentskog workflow-a i `DENT-020` (email reminder
+scheduler) su svi MERGED. Čeka se Radovanova odluka o sljedećem
+prioritetu (kandidati: Viber integracija — plan eksplicitno kaže "tek
+nakon što osnovni booking/email tok radi stabilno", RBAC/auth,
+PostgreSQL migracija, ili nešto sitno frontend/GUI za sljedeći
+implementacioni probni signal).
 
 ## Agent availability
 
@@ -59,24 +57,24 @@ napamet.
 
 ## Recently completed major work
 
-- `DENT-DESKTOP-B3` — ikonica u zaglavlju dijaloga + prozorska ikonica.
-  MERGED, integration verified (commit `21ef806`).
-- `DENT-016`/`DENT-017` — probni ciklus 1 (štampa se ispostavila već
-  gotova; email podsjetnik implementiran, PASS, MERGED).
-- `DENT-018`/`DENT-019` — probni ciklus 2 (mypy cleanup, oba MERGED,
-  `mypy` sada potpuno čist). `.agent/` validacija ZAKLJUČENA: koncept
-  potvrđen (0 istraživačkih poziva u oba drugog-kruga taska, naspram 6 u
-  before baseline-u) — vidi `TASK_ROUTING.md` finalni nalaz.
+- `DENT-DESKTOP-F` — hard delete termina (HIGH). MERGED, integration
+  verified (`1e3c6c0`). Svih 6 faza desktop redizajna (A–F) završeno.
+- `DENT-AGENT-CONTEXT-002` (Faza 2 agentskog workflow-a) — konsolidacija
+  `docs/dentaland-agentski-razvoj.md` (sada kanonski procesni dokument) +
+  stanjenje `CLAUDE.md` (296→119 linija). Tri Codex review kruga, MERGED.
+- `DENT-016`–`DENT-019` — probni ciklusi 1-2 (`.agent/` validacija
+  implementacije/bug-fix zadataka kod Crush i Pi) — ZAKLJUČENO, koncept
+  potvrđen (0 istraživačkih poziva naspram 6 baseline).
+- `DENT-020` — in-process email reminder scheduler (Codex, prvi
+  implementacioni probni signal za njega). MERGED → INTEGRATION_VERIFIED
+  → DONE (20.8.2026). Codex JE koristio `.agent/PROJECT_MAP.md`/
+  `TASK_ROUTING.md` kad je bio implementer sa kratkim promptom —
+  razriješilo neizvjesnost iz Faze 2 review krugova (redundantnost tamo je
+  bila zbog previše detaljnog task brief-a, ne zbog agenta ili tipa
+  zadatka). Vidi `TASK_ROUTING.md` finalni nalaz.
 
 ## Next known work
 
-- `DENT-DESKTOP-F` — MERGED → INTEGRATION_VERIFIED → DONE (merge `1e3c6c0`,
-  Radovanov human approval). Svih 6 faza redizajna (A–F) sada završeno.
-- `DENT-AGENT-CONTEXT-002` (Faza 2) — MERGED → INTEGRATION_VERIFIED → DONE
-  (20.8.2026, tri Codex review runde, Radovanov human approval).
-  `docs/dentaland-agentski-razvoj.md` je sada kanonski procesni dokument,
-  `CLAUDE.md` thin router (296→119 linija). Post-merge gate na `main`:
-  pytest 219 passed, ruff clean, mypy clean (0 issues, 30 fajlova). Nema
-  otvorenog agentski-workflow zadatka dok Radovan ne odredi sljedeći
-  prioritet (npr. domain fajlovi u `.agent/domains/` — tek ako se pokaže
-  stvarna potreba, ne unaprijed).
+Nema otvorenog zadatka — čeka se Radovanova odluka o sljedećem prioritetu.
+Post-merge gate na `main` (20.8.2026): pytest 222 passed, ruff clean, mypy
+clean (0 issues, 31 fajlova).
