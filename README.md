@@ -14,6 +14,14 @@ samo praktično uputstvo za lokalno pokretanje i testiranje.
   podfoldera — backend i desktop app dijele istu `dentaland.db` SQLite
   bazu preko relativne putanje.
 
+## Gdje se čuvaju podaci
+
+Centralne putanje su u `src/dentaland/paths.py` (može se override-ovati
+kroz env `DENTALAND_DATA_DIR`). U development modu (`scripts/dev_local.py`)
+desktop i backend dijele `dentaland.db` iz korijena repoa; instalirana
+desktop aplikacija koristi user data folder `%LOCALAPPDATA%\Dentaland\`
+(Windows), ne Program Files.
+
 ## Lokalno testiranje — SVE jednom komandom
 
 Javna forma (`web/`) šalje zahtjeve na `http://127.0.0.1:8000` — to je

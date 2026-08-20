@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from desktop import app as app_module
 
 
@@ -33,7 +35,22 @@ def test_main_otvara_prozor_maksimizovan(monkeypatch) -> None:
     monkeypatch.setattr(app_module, "QApplication", FakeApplication)
     monkeypatch.setattr(app_module, "AppointmentService", FakeAppointmentService)
     monkeypatch.setattr(app_module, "MainWindow", FakeMainWindow)
+    monkeypatch.setattr(app_module, "_resolve_db_path", lambda: Path("test-db.db"))
 
     assert app_module.main() == 0
-    assert ("database", "dentaland.db") in events
+    assert ("database", str(Path("test-db.db"))) in events
     assert events[-2:] == ["maximized", "exec"]
+
+
+def test_resolve_db_path_koristi_cwd_kad_postoji(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "dentaland.db").write_bytes(b"")
+    assert app_module._resolve_db_path() == tmp_path / "dentaland.db"
+
+
+def test_resolve_db_path_koristi_data_dir_kad_nema_cwd_baze(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.chdir(tmp_path)  # prazan tmp_path, bez dentaland.db
+    monkeypatch.setenv("DENTALAND_DATA_DIR", str(tmp_path / "data"))
+    assert app_module._resolve_db_path() == tmp_path / "data" / "dentaland.db"

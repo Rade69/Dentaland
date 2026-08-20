@@ -1,7 +1,5 @@
 """Lijeva navigacija Dentaland desktop dashboarda."""
 
-from pathlib import Path
-
 from PySide6.QtCore import QByteArray, QSize, Qt, Signal
 from PySide6.QtGui import QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
@@ -14,6 +12,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from dentaland import paths
 
 _ICON_PATHS = {
     "calendar": (
@@ -128,7 +128,7 @@ class Sidebar(QFrame):
         brand_layout.setSpacing(10)
         logo = QLabel()
         logo.setObjectName("sidebarLogo")
-        logo_path = Path(__file__).resolve().parents[2] / "web" / "assets" / "logo.png"
+        logo_path = paths.resource_path("web", "assets", "logo.png")
         logo_pixmap = QPixmap(str(logo_path)).scaled(
             52,
             52,
