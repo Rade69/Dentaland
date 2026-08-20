@@ -3,10 +3,60 @@ task_id: DENT-AGENT-CONTEXT-002
 risk: MEDIUM
 implementer: claude
 reviewers: [codex]
-verdict: PENDING_REVIEW_ROUND_3
+verdict: PASS_PENDING_HUMAN_APPROVAL
 commits: []
 created_at: 2026-08-19T00:00:00Z
 ---
+
+## Review Round 3 — Codex REJECT, mehanička popravka (2026-08-20)
+
+Puni izvještaj: `2026-08-19-DENT-AGENT-CONTEXT-002-review-codex-round3.md`.
+
+Handoff pravilo potvrđeno sadržajno prisutno i ispravno ne-generalizovano.
+Jedini blocker: tekst nije bio doslovno identičan originalu ("Ako" vs
+"ako", "kad kredit istekne" vs "kad mu dostupnost/kredit istekne").
+Popravljeno — vraćen tačan originalni tekst, riječ za riječ. Nije tražen
+Round 4 za ovu mehaničku, samo-verifikovanu popravku (proporcionalnost —
+Codex je već potvrdio da je jedini problem bio tekstualna podudarnost, ne
+sadržaj).
+
+## Nalaz o probnom signalu — VAŽAN, djelimično negativan rezultat
+
+Codex je eksplicitno priznao (Round 3, "Probni signal" sekcija) da **nije
+koristio `.agent/TASK_ROUTING.md` "Review task" routing paket ni u jednom
+od tri kruga.** Umjesto toga je koristio globalni `independent-review/SKILL.md`,
+projektni `CLAUDE.md`, tražene task izvještaje i git diff direktno.
+
+Razlog koji je sam naveo: moji task brief prompt-ovi su bili toliko
+precizni i detaljni (tačan worktree, commit, fajlovi za čitanje, komande,
+očekivani output) da je routing paket postao **redundantan** — sve što bi
+mu paket dao, prompt je već isporučio direktno.
+
+Ovo je drugačiji rezultat od Crush/Pi (implementacioni krugovi), gdje je
+routing paket direktno pomogao (Pi: "PROJECT_MAP me je direktno uputio na
+Notifications sekciju, bez ls/find"). Za review-tip zadatke sa VEĆ
+detaljnim promptom, korist routing paketa nije izmjerena — nije dokazano
+da NE pomaže, samo da NIJE bio potreban u ovom specifičnom kontekstu.
+
+Codex-ov predlog (citiran, ne moja interpretacija): "eksplicitna
+obavezna referenca u reviewer handoffu ili root start sekvenci bila bi
+pouzdanija ako je cilj izmjeriti njegovu stvarnu upotrebu" — tj. sam
+routing fajl koji postoji nije garancija da će se koristiti; treba
+eksplicitno uputiti na njega u samom handoff-u, ne pretpostaviti da će
+ga agent sam potražiti.
+
+Zabilježeno u `.agent/TASK_ROUTING.md` validacionoj tabeli kao četvrti
+signal (review-tip, djelimično negativan) — vidi tu tabelu za potpunu
+sliku prije odluke o Fazi 2 dokumentacije routing paketa.
+
+Verifikacija ponovljena nakon mehaničke popravke: `pytest tests/ -q` →
+206 passed, `mypy` → 0 grešaka, `ruff` → čisto.
+
+## Status
+
+Tri kruga review-a (Codex), sva tri blocking findinga zatvorena, jedan
+non-blocking note zabilježen za merge korak. **Spremno za Radovanov human
+approval.**
 
 ## Review Round 2 — Codex REJECT (2026-08-20)
 
