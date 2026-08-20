@@ -6,7 +6,8 @@ samo praktično uputstvo za lokalno pokretanje i testiranje.
 
 ## Preduslovi
 
-- Python 3.13+ (`pip install -r requirements.txt` ako postoji, ili
+- Python 3.12+ (vidi `pyproject.toml` — `requires-python`, `ruff`/`mypy`
+  target su takođe 3.12) (`pip install -r requirements.txt` ako postoji, ili
   ručno: `sqlalchemy`, `alembic`, `fastapi`, `uvicorn`, `slowapi`,
   `cryptography`, `pyside6`, `pytest`, `ruff`, `mypy`)
 - Sve komande pokretati iz korijena repoa (`Dentaland/`), ne iz
@@ -61,6 +62,12 @@ pytest tests/ -q
 ruff check src/dentaland desktop backend tests
 mypy src/dentaland desktop backend
 ```
+
+## CI (GitHub Actions)
+
+`pytest`, `ruff` i `mypy` se automatski pokreću na svaki `push` i
+`pull_request` kroz [.github/workflows/ci.yml](.github/workflows/ci.yml) —
+iste komande kao gore.
 
 ## Migracije
 
