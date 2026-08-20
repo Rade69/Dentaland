@@ -23,9 +23,14 @@ import logging
 import os
 import smtplib
 from collections.abc import Callable
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta
 from email.message import EmailMessage
 from zoneinfo import ZoneInfo
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from dentaland.models import Appointment, AppointmentStatus
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +38,10 @@ PRACTICE_NAME = "Dentaland"
 SARAJEVO = ZoneInfo("Europe/Sarajevo")
 
 _SMTP_TIMEOUT_SECONDS = 10
+REMINDER_LEAD_TIME = timedelta(hours=24)
+REMINDER_WINDOW = timedelta(minutes=15)
+
+SessionFactory = Callable[[], Session]
 
 
 def send_booking_confirmation(to_email: str, requested_date: date) -> None:
@@ -63,10 +72,11 @@ def send_appointment_reminder(to_email: str, start_time: datetime) -> None:
     """Pošalji podsjetnik na zakazan termin — best-effort, nikad ne diže.
 
     Servisna funkcija (DENT-017): poziva je scheduler/pozivalac sa poznatim
-    appointment podacima. Scheduler/cron je VAN obima ovog taska. Poruka
-    sadrži SAMO ime ordinacije i tačno vrijeme termina — NIKAD uslugu ni
-    doktora (minimizacija). Rečenica o linku za izmjenu se namjerno
-    izostavlja dok ne postoji siguran cancel/reschedule token mehanizam.
+    appointment podacima. In-process scheduler je u
+    ``backend.reminder_scheduler``. Poruka sadrži SAMO ime ordinacije i tačno
+    vrijeme termina — NIKAD uslugu ni doktora (minimizacija). Rečenica o
+    linku za izmjenu se namjerno izostavlja dok ne postoji siguran
+    cancel/reschedule token mehanizam.
     """
     try:
         _dispatch(to_email, lambda addr, from_addr: _compose_reminder_message(
@@ -74,6 +84,45 @@ def send_appointment_reminder(to_email: str, start_time: datetime) -> None:
         ))
     except Exception as exc:
         logger.warning("Slanje email podsjetnika nije uspjelo: %s", exc)
+
+
+def send_due_appointment_reminders(
+    session_factory: SessionFactory,
+    *,
+    now: datetime | None = None,
+) -> int:
+    """Pošalji podsjetnike za SCHEDULED termine u uskom 24h prozoru.
+
+    Prozor je ``[now + 24h, now + 24h + 15min)``. Bez schema polja za
+    "podsjetnik poslan" isti termin može biti izabran nakon restarta ili
+    slučajnog duplog pokretanja; taj rizik je eksplicitno prihvaćen u
+    DENT-020 Task Contractu dok se ne odobri HIGH-risk migracija.
+    """
+    current = now or datetime.now(UTC)
+    if current.tzinfo is None or current.utcoffset() is None:
+        raise ValueError("now mora biti timezone-aware")
+
+    window_start = current + REMINDER_LEAD_TIME
+    window_end = window_start + REMINDER_WINDOW
+
+    with session_factory() as session:
+        appointments = session.scalars(
+            select(Appointment)
+            .where(
+                Appointment.status == AppointmentStatus.SCHEDULED,
+                Appointment.start_time >= window_start,
+                Appointment.start_time < window_end,
+                Appointment.email.is_not(None),
+                Appointment.email != "",
+            )
+            .order_by(Appointment.start_time)
+        ).all()
+
+    for appointment in appointments:
+        if appointment.email and appointment.start_time:
+            send_appointment_reminder(appointment.email, appointment.start_time)
+
+    return len(appointments)
 
 
 def _dispatch(to_email: str, compose: Callable[[str, str], EmailMessage]) -> None:

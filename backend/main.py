@@ -12,7 +12,10 @@ Pokretanje lokalno: ``uvicorn backend.main:app --reload``
 
 from __future__ import annotations
 
+import asyncio
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager, suppress
 from datetime import date, datetime
 from typing import Annotated
 
@@ -25,6 +28,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from backend.reminder_scheduler import run_reminder_scheduler
 from dentaland.models import Base
 from dentaland.services.notifications import send_booking_confirmation
 from dentaland.services.requests import (
@@ -56,7 +60,23 @@ def get_session_factory() -> sessionmaker[Session]:
 
 limiter = Limiter(key_func=get_remote_address)
 
-app = FastAPI(title="Dentaland — javni zahtjevi (lokalno)")
+
+@asynccontextmanager
+async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
+    """Pokreni i uredno zaustavi in-process reminder scheduler."""
+    factory_provider = app_instance.dependency_overrides.get(
+        get_session_factory, get_session_factory
+    )
+    scheduler_task = asyncio.create_task(run_reminder_scheduler(factory_provider()))
+    try:
+        yield
+    finally:
+        scheduler_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await scheduler_task
+
+
+app = FastAPI(title="Dentaland — javni zahtjevi (lokalno)", lifespan=lifespan)
 app.state.limiter = limiter
 # slowapi-ov handler tip se ne poklapa tačno sa Starlette-ovim generičkim
 # potpisom u novijim verzijama (poznato trvenje između biblioteka, ne greška
