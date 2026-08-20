@@ -153,6 +153,8 @@ svaki agent koji dobije task PRIJE prve izmjene koda kratko zapiše u svoj
 | DENT-019 (mypy cleanup main_window) | pi | 4 | DA — direktno iz `main`, nula `ls`/`find` poziva | NE | NE |
 | DENT-018/019 review (drugi krug) | claude | 2 review-a, nezavisna reprodukcija svih tvrdnji (uklj. `store: Any` opravdanje provjereno protiv `day_view.py`) | DA | NE | NE |
 | DENT-AGENT-CONTEXT-002 review (Faza 2, treći krug — Codex) | codex | 3 review runde, 4/3/3 fajla prije svake (skill + CLAUDE.md + task izvještaji) | **NE** — eksplicitno priznao da nije koristio "Review task" sekciju ni u jednom krugu (paket redundantan uz vrlo detaljan task brief prompt) | NE | NE |
+| DENT-020 (email reminder scheduler, Codex prvi implementacioni test) | codex | 15 (13 projektnih + 2 globalna skilla; 1 ciljani `rg` inventory, bez `ls`/`find` repo-wide) | **DA** — PROJECT_MAP "Notifications" sekcija direktno pokazala servis+test, TASK_ROUTING "feature/service" routing spriječio desktop/web/docs lutanje | NE | NE |
+| DENT-020 review | claude | 1 review, nezavisna reprodukcija svih tvrdnji (uklj. detached-session teoriju testiranu protiv stvarnog testa) | DA | NE | NE |
 
 Referentna vrijednost (before, bez `.agent/` sloja, izmjereno
 2026-08-19 pri pisanju `PROJECT_MAP.md` od nule): **6 istraživačkih
@@ -196,12 +198,21 @@ već dovoljan. Reviewer-ov predlog: obavezna eksplicitna referenca u
 handoff-u/root start sekvenci bi bila pouzdanija za mjerenje stvarne
 upotrebe nego pretpostavka da će agent sam routing fajl potražiti.
 
-**Ukupan zaključak (4 signala, 2 tipa zadatka, 3 agenta):** `.agent/` sloj
-mjerljivo pomaže kad task brief NE navodi eksplicitno šta čitati (Crush/Pi
-implementacioni krugovi — 0 istraživačkih poziva naspram 6 baseline).
-Kad je task brief već precizan (Codex review krugovi), routing paket
-postaje redundantan, ne štetan — signal je o UPOTREBI, ne o vrijednosti
-sadržaja paketa samog. Otvoreno za Fazu 2 (sad u toku,
-`DENT-AGENT-CONTEXT-002`) uz ovu napomenu za budući rad: ako se želi
-izmjeriti stvarna upotreba routing paketa u review kontekstu, task brief
-promptovi ne bi trebali sami navoditi sve što bi paket dao.
+**Ukupan zaključak (6 signala, implementacija + review, 3 agenta):**
+`.agent/` sloj mjerljivo pomaže kad task brief NE navodi eksplicitno šta
+čitati — potvrđeno kod SVA TRI agenta na implementacionim zadacima
+(Crush, Pi, i sada Codex/DENT-020), ne samo kod Crush/Pi. Ovo razrješava
+neizvjesnost nakon Codex review krugova: nije "Codex specifično
+ignoriše sloj" (hipoteza koja bi značila da je sloj beskoristan za njega)
+— kad je Codex Implementer sa kratkim promptom, koristio je `.agent/`
+sloj i eksplicitno rekao da mu je pomogao odrediti "šta prvo otvoriti".
+Pravi razlog za redundantnost u review krugovima bio je MOJ stil pisanja
+task brief-a (previše detaljan), ne tip zadatka niti agent.
+
+**Zaključak:** koncept je potvrđen preko implementacija (LOW istraživačkih
+poziva naspram 6 baseline, ponovljeno 3x, 3 agenta). Praktična pouka za
+budući rad: kad se piše task brief, NE navoditi unaprijed tačne
+fajlove/putanje ako je cilj da agent stvarno koristi routing sloj —
+navesti samo cilj i uputiti na `.agent/TASK_ROUTING.md`, ostaviti agentu
+da sam odredi put. Faza 2 (`DENT-AGENT-CONTEXT-002`) je mergovana na
+osnovu ovog i ranijih nalaza.
