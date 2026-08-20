@@ -2,11 +2,86 @@
 task_id: DENT-AGENT-CONTEXT-002
 risk: MEDIUM
 implementer: claude
-reviewers: []
-verdict: PENDING
+reviewers: [codex]
+verdict: PENDING_REVIEW_ROUND_2
 commits: []
 created_at: 2026-08-19T00:00:00Z
 ---
+
+## Review Round 1 — Codex REJECT (2026-08-20)
+
+Puni izvještaj: `2026-08-19-DENT-AGENT-CONTEXT-002-review-codex.md`.
+
+```yaml
+verdict: REJECT
+scope: PASS
+acceptance: REJECT
+architecture: PASS
+security: PASS
+blocking_findings:
+  - docs/dentaland-agentski-razvoj.md:58 — trajna Codex-raspodjela uloga (nakon povratka) izgubljena, CURRENT_STATE upućuje na nepostojeću tabelu
+  - docs/dentaland-agentski-razvoj.md:358 — istorijska "Podjela zadataka" tabela premještena ali sadržajno skraćena na više mjesta
+```
+
+Oba nalaza provjerena nezavisno i potvrđena tačna — nisu bila sporna.
+
+## Fixes Applied (2026-08-20)
+
+1. **Trajna Codex-raspodjela vraćena** u Uloge sekciju (`docs/dentaland-agentski-razvoj.md`)
+   — "Codex je opcion Implementer na LOW/MEDIUM frontend/GUI poslu, obavezan
+   Reviewer 1 na HIGH" je sada eksplicitno napisano kao trajno pravilo,
+   odvojeno od kratkotrajnog pokazivača na `CURRENT_STATE.md`.
+2. **Istorijska tabela vraćena na doslovan tekst** — sve skraćene ćelije
+   (0.1 lista tabela, 0.5 "export .db u cloud folder", 1.1
+   routers/services/repositories/models/schemas, 1.5 "(heš lozinki)", 1.7
+   FlowOS auth-propagacija razlog, 1.8 "dvokoračni kalendar", M0.1
+   "(nezavisno od pacijenata)", naslov "(kad god se gradi)") vraćene
+   doslovno iz originala.
+
+## Dodatna sistematska provjera (samoinicijativno, prije traženja Round 2)
+
+Codex-ov nalaz #2 (nesvjesno sažimanje umjesto doslovnog prenosa) me je
+naveo da posumnjam da postoje SLIČNI, još neprijavljeni problemi na
+drugim mjestima — Codex je provjeravao ciljano (scope diff + acceptance
+kriterije iz plana), ne nužno svaku prenesenu sekciju riječ-po-riječ.
+
+Uradio sam word-level diff (Python, `difflib.SequenceMatcher`) svake
+premještene sekcije iz `main:CLAUDE.md` (baseline prije Faze 2) naspram
+novog `docs/dentaland-agentski-razvoj.md`. Pronašao i popravio DODATNE
+gubitke koje Codex nije eksplicitno naveo:
+
+- **Ownership manifest** (najviše gubitaka): `git rev-parse
+  --git-common-dir` mehanizam, `matcher Edit|Write` detalj, cijela
+  `/hooks` troubleshooting napomena, `check --path <fajl>` komanda, i
+  napomena o budućem ožičavanju pre-edit hook-a za druge alate — sve
+  vraćeno doslovno.
+- **Obavezna procedura**: izgubljen detalj "za analizu zavisnosti na
+  nivou simbola" (GitNexus svrha) — vraćeno.
+- **Strukturiran verdikt**: izgubljena referenca `(verdict/blocking_findings)`
+  i fraza "ne treba ga ručno zvati" — vraćeno.
+- **Verifikacija DoD**: izgubljen konkretan primjer liste (arhitektura,
+  čitljivost, prekršeno pravilo) i obrazloženje zašto se `verify.py`
+  kreira tek kad Faza 0 počne — vraćeno.
+- **Šta ne graditi odmah**: izgubljena referenca na "Ownership manifest"
+  sekciju, izgubljena posljednja rečenica o automatizaciji, i "tri agenta
+  (Claude/Codex/Crush)" bilo pogrešno generalizovano u "više agenata" —
+  vraćeno doslovno (ovo je istorijski opis stanja na 16.8.2026, ne
+  trenutni sastav tima, pa generalizacija mijenja činjeničnu tačnost).
+
+Jedina namjerna, EKSPLICITNO označena odstupanja od doslovnog prenosa
+(ne greške, svjesne odluke): dodavanje "Pi" u dvije rečenice koje su u
+originalu pominjale samo "Codex i Crush" (Pi je faktički u istoj situaciji
+— nema ožičen hook — pa je izostavljanje bilo zastarjelost originala, ne
+namjerno pravilo), i kontekstualne prilagodbe reference "ovaj fajl" →
+`CLAUDE.md` gdje sekcija sad živi u drugom fajlu.
+
+Ponovljena word-level provjera nakon popravki: sve premještene sekcije
+sada IDENTIČNE originalu, osim ovih eksplicitno-označenih odstupanja i
+kozmetičkih `---` separatora.
+
+Verifikacija ponovljena nakon svih popravki: `pytest tests/ -q` → 206
+passed, `mypy` → 0 grešaka, `ruff` → čisto (identično prije popravki —
+markdown izmjene ne diraju kod).
 
 # DENT-AGENT-CONTEXT-002 — Faza 2: konsolidacija + thin router
 

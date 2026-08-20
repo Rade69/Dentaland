@@ -62,12 +62,19 @@ alatu, ali njihova uloga na datom zadatku zavisi od rizika:
 | MEDIUM | Crush / Pi | Claude | — |
 | HIGH | **Claude** | Crush ili Pi | Pi ili Crush (onaj koji nije Reviewer 1) |
 
-Tabela iznad odražava tabelu uloga u trenutnoj upotrebi — dostupnost
-pojedinog agenta (npr. privremena odsutnost, isticanje kredita) je
-kratkotrajna informacija koja se mijenja nezavisno od ovog procesnog
-dokumenta. **Provjeri `.agent/CURRENT_STATE.md` za trenutni status prije
-pretpostavke** — ne pretpostavljati da je gornja tabela nepromijenjena bez
-te provjere.
+Tabela iznad prikazuje raspodjelu dok je Codex nedostupan. **Trajno
+pravilo** (kad je Codex dostupan): Codex je opcion Implementer na
+LOW/MEDIUM frontend/GUI poslu, i obavezan Reviewer 1 na HIGH zadacima (uz
+Crush ili Pi kao Reviewer 2) — ne oba, Crush/Pi popunjavaju oba
+Reviewer-mjesta na HIGH SAMO dok je Codex nedostupan. Kad se Codex vrati,
+ova tabela se vraća na tu raspodjelu — nije trajna promjena procesa, samo
+privremena adaptacija na dostupnost agenta.
+
+Dostupnost pojedinog agenta u datom trenutku (npr. privremena odsutnost,
+isticanje kredita, tačan datum) je kratkotrajna informacija koja se
+mijenja nezavisno od ovog procesnog dokumenta. **Provjeri
+`.agent/CURRENT_STATE.md` za trenutni status prije pretpostavke** — ne
+pretpostavljati da je gornja tabela trenutno na snazi bez te provjere.
 
 - **Claude implementira HIGH-risk zadatke direktno** — najstabilnija ruka
   na najkritičnijem poslu.
@@ -111,7 +118,7 @@ Za LOW zadatke, Task Contract ostaje minimalan — `id`, `title`,
 
 ---
 
-## Ownership manifest i koordinacija agenata
+## Ownership manifest i koordinacija agenata (Claude/Codex/Crush/Pi)
 
 Za bilo koji trenutak kad dva zadatka rade paralelno (dva agenta, dva
 worktree-a) — koji zadatak smije dirati koje fajlove/tabele mora biti
@@ -121,8 +128,9 @@ ne zamjena za nju.
 
 Automatizovano kroz `scripts/coordination.py` — SQLite registar
 (`.coordination/registry.db`, lokalan, gitignored, dijeljen preko svih
-worktree-ova istog repoa) koji prati koja putanja je "zauzeta" kojim
-zadatkom/agentom iz kojeg worktree-a:
+worktree-ova istog repoa preko `git rev-parse --git-common-dir`) koji
+prati koja putanja je "zauzeta" kojim zadatkom/agentom iz kojeg
+worktree-a:
 
 ```bash
 python scripts/coordination.py claim --task DENT-014 --agent claude --paths backend/services/tokens.py,tests/test_tokens.py
@@ -130,15 +138,28 @@ python scripts/coordination.py status
 python scripts/coordination.py release --task DENT-014
 ```
 
-- **Claude Code**: automatski `PreToolUse` hook (`.claude/settings.json`)
-  — blokira (exit 2) ako je ciljna putanja aktivan claim iz DRUGOG
-  worktree-a.
-- **Codex, Crush, Pi**: nemaju ožičen hook — `claim`/`release` disciplina
-  je ručna, ne automatska.
+- **Claude Code**: ožičeno automatski kao `PreToolUse` hook
+  (`.claude/settings.json`, matcher `Edit|Write`) — poziva
+  `coordination.py hook-check` prije svakog Edit/Write; blokira (exit 2)
+  ako je ciljna putanja aktivan claim iz DRUGOG worktree-a, propušta
+  sopstvene izmjene i nezauzete putanje bez ikakve dodatne akcije. Ako se
+  `.claude/` folder tek kreirao u trenutnoj sesiji, watcher ga možda ne
+  prati odmah — otvoriti `/hooks` jednom ili restartovati sesiju da se
+  pokupi.
+- **Codex, Crush i Pi** *(originalni tekst je pominjao samo "Codex i
+  Crush" — Pi dopunjen ovdje jer je isto u istoj situaciji, nema ožičen
+  hook; nije sadržajna izmjena pravila, samo ažuriranje liste agenata)*:
+  nemaju ovdje ožičen hook (nisu konfigurisani iz ove sesije) — pozivati
+  `claim`/`release` ručno na početku/kraju zadatka, i po potrebi `check
+  --path <fajl>` prije veće izmjene. Ako ti alati podržavaju svoj pre-edit
+  hook mehanizam, isti `coordination.py hook-check`/`check` poziv se može
+  ožičiti tamo na isti način.
 - Identitet "vlasnika" claim-a je apsolutna putanja worktree-a
-  (`Path.cwd()` u trenutku `claim` poziva), ne agent ime.
-- Dok postoji samo jedan aktivan zadatak, alatka nije obavezna, ali se
-  preporučuje radi navike.
+  (`Path.cwd()` u trenutku `claim` poziva), ne agent ime ni env varijabla
+  — nema ručnog praćenja "ko sam ja".
+- Dok postoji samo jedan aktivan zadatak, alatka se i dalje može
+  koristiti, ali nije obavezna — konflikt je nemoguć sa jednim aktivnim
+  zadatkom.
 - `agent_reports/` je dijeljen folder — ne claimuj ga u cjelini, claimuj
   konkretan fajl.
 
@@ -168,10 +189,10 @@ python scripts/coordination.py release --task DENT-014
    rute/modela baze.
 3. **Impact analiza** (MEDIUM/HIGH) — koji moduli zavise od koda koji se
    mijenja, koje testove izmjena pogađa, mijenja li se contract/API. Ako
-   repo bude indeksiran GitNexus-om, koristiti ga; do tada ručna pretraga
-   referenci. Ako impact otkrije veći uticaj nego što je Task Contract
-   pretpostavio — **zadatak se ne širi tiho, vraća se na redefinisanje
-   obima**.
+   repo bude indeksiran GitNexus-om, koristiti ga za analizu zavisnosti na
+   nivou simbola; do tada ručna pretraga referenci. Ako impact otkrije
+   veći uticaj nego što je Task Contract pretpostavio — **zadatak se ne
+   širi tiho, vraća se na redefinisanje obima**.
 4. **Task Contract** — definisan prije koda, ne retroaktivno pisan da
    opravda već napisano.
 5. **Plan prije izmjene (HIGH)** — kratak plan u `agent_reports/` prije
@@ -209,10 +230,12 @@ blocking_findings: []
 review".
 
 Za samo izvršenje Reviewer uloge (metoda, ne proces) koristiti globalni
-skill `independent-review` — čita ovaj format i koristi ga umjesto
-generičkog PASS/FAIL, proaktivno se aktivira kad se rad proglasi gotovim.
-Za Implementer stranu postoje `prime-bug`/`prime-feature` (minimalan
-kontekst + podsjetnik na reprodukciju/obim prije koda), takođe automatski.
+skill `independent-review` — čita ovaj format (`verdict`/`blocking_findings`)
+i koristi ga umjesto generičkog PASS/FAIL, proaktivno se aktivira kad se
+rad proglasi gotovim, ne treba ga ručno zvati. Za Implementer stranu
+(bug-fix i nova funkcionalnost) postoje `prime-bug`/`prime-feature` —
+minimalan kontekst + podsjetnik na reprodukciju/obim prije koda, takođe
+automatski.
 
 ---
 
@@ -261,7 +284,8 @@ implementaciju trenutnog zadatka (tada se STAJE i prijavljuje odmah, ne
 Execution-based verifikacija (testovi, linter, schema provjera) ide
 **prije** bilo kakvog reviewa, ne poslije — objektivna je i ne može se
 "ubijediti". LLM review dolazi tek pošto to prođe, kao dodatni sloj za ono
-što testovi ne hvataju.
+što testovi ne hvataju (arhitektura, čitljivost, prekršeno pravilo iz
+`CLAUDE.md`).
 
 ### Hijerarhija dokaza (od najjačeg ka najslabijem)
 
@@ -275,7 +299,8 @@ Execution-based verifikacija (testovi, linter, schema provjera) ide
    ništa jače nije dostupno)
 
 `scripts/verify.py` kao standardna ulazna tačka se kreira kad Faza 0
-stvarno počne pisati kod — ne prije.
+stvarno počne pisati kod — ne prije, da se izbjegne prazna arhitektura bez
+ičega za provjeriti.
 
 ---
 
@@ -309,16 +334,21 @@ Integration: full pytest PASS, smoke test PASS
 
 Ne pravi se poseban orkestrator samo da bi se proces sproveo. Prvih 5-10
 stvarnih Dentaland zadataka ide ručno/poluautomatski sa postojećim
-alatima (worktree, Task Contract fajl, test runner, review, prost evidence
-zapis). Automatizuje se tek ono što se pokaže repetitivnim i stabilnim.
-Cilj je razviti Dentaland, ne izgraditi proizvod za orkestraciju razvoja
-Dentalanda.
+alatima (worktree, Task Contract fajl, test runner, Claude/Codex review,
+prost evidence zapis). Automatizuje se tek ono što se pokaže repetitivnim
+i stabilnim. Cilj je razviti Dentaland, ne izgraditi proizvod za
+orkestraciju razvoja Dentalanda.
 
 **Izuzetak (16.8.2026, eksplicitan zahtjev):** koordinacija ownership-a
-preko `scripts/coordination.py` je napravljena prije prvog stvarnog
-zadatka, ne nakon što se pokazala repetitivna potreba — svjesno odstupanje
-jer je Radovan eksplicitno tražio rad sa više agenata paralelno od samog
-početka. Ostatak pravila i dalje važi za sve OSTALE alatke.
+preko `scripts/coordination.py` (vidi "Ownership manifest i koordinacija
+agenata" iznad) je napravljena prije prvog stvarnog zadatka, ne nakon što
+se pokazala repetitivna potreba — svjesno odstupanje od pravila iznad jer
+je Radovan eksplicitno tražio rad sa tri agenta (Claude/Codex/Crush)
+paralelno od samog početka (Pi je pridružen timu kasnije — ovo ostaje
+tačan istorijski opis stanja na dan odluke, ne trenutni sastav tima).
+Ostatak pravila i dalje važi za sve OSTALE alatke — ne graditi dodatnu
+automatizaciju procesa dok se potreba stvarno ne pokaže kroz ponovljene
+probleme.
 
 ---
 
@@ -358,23 +388,23 @@ zadataka vidi `.agent/CURRENT_STATE.md` i `agent_reports/`.
 ### Faza 0 — lokalna desktop aplikacija
 | Zadatak | Kritičan? |
 |---|---|
-| 0.1 SQLAlchemy modeli + Alembic za šemu | Da |
-| 0.2 Servisni sloj — provjera preklapanja, generisanje slobodnih slotova | Da |
+| 0.1 SQLAlchemy modeli + Alembic za šemu (doctors, services, working_hours, time_off, appointments) | Da |
+| 0.2 Servisni sloj — provjera preklapanja termina u kodu, generisanje slobodnih slotova | Da |
 | 0.3 Views/controllers — sedmični prikaz, klik-unos, prevlačenje termina | Ne |
 | 0.4 Štampa dnevnog/sedmičnog rasporeda | Ne |
-| 0.5 Backup mehanizam | Ne (MEDIUM zbog SQLite backup API zahtjeva) |
+| 0.5 Backup mehanizam (export `.db` u cloud folder) | Ne — **napomena CLAUDE.md: preporučena MEDIUM zbog SQLite backup API zahtjeva** |
 
 ### Faza 1 — server i javno zakazivanje
 | Zadatak | Kritičan? |
 |---|---|
-| 1.1 FastAPI skelet | Da |
+| 1.1 FastAPI skelet — routers/services/repositories/models/schemas | Da |
 | 1.2 Migracija SQLite → PostgreSQL, `EXCLUDE` constraint | Da |
 | 1.3 Javni endpoint — slobodni slotovi + zahtjev za termin | Da |
 | 1.4 Token generisanje za cancel link | Da |
-| 1.5 Admin autentifikacija | Da |
+| 1.5 Admin autentifikacija (heš lozinki) | Da |
 | 1.6 Rate limiting na javnom API-ju | Da |
-| 1.7 Desktop klijent — `api_client/` sloj | Ne (blago sklon MEDIUM-u) |
-| 1.8 Javna forma | Ne |
+| 1.7 Desktop klijent — `api_client/` sloj | Ne — **napomena CLAUDE.md: blago sklon MEDIUM-u s obzirom na FlowOS iskustvo sa auth-propagacijom u sličnom sloju** |
+| 1.8 Javna forma — dvokoračni kalendar (dan → vrijeme) | Ne |
 | 1.9 "Zatvori termin" ekran u admin panelu | Ne |
 | 1.10 Email potvrde i podsjetnici | Ne |
 
@@ -386,10 +416,10 @@ zadataka vidi `.agent/CURRENT_STATE.md` i `agent_reports/`.
 | 2.3 Dnevni email sa rasporedom, uptime monitoring | Ne |
 | 2.4 Lista "za zakazati sledeći termin" | Ne |
 
-### M0–M1 — materijal
+### M0–M1 — materijal (kad god se gradi)
 | Zadatak | Kritičan? |
 |---|---|
-| M0.1 Katalog materijala i zalihe | Ne |
+| M0.1 Katalog materijala i zalihe (nezavisno od pacijenata) | Ne |
 | M1.1 `material_usage` tabela, poseban `.db` fajl, SQLCipher enkripcija | Da |
 | M1.2 Posebna lozinka za taj tab u aplikaciji | Da |
 | M1.3 Agregatni izvještaji (bez imena pacijenta) | Da |
