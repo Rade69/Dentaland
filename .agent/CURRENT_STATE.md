@@ -9,17 +9,14 @@ sedmica, provjeriti da li je i dalje tačno prije oslanjanja na njega.
 
 ## Current development focus
 
-`FIX-02` (edit trajanja termina, LOW) je MERGED → INTEGRATION_VERIFIED →
-DONE (merge `ae6e52f`, 21.8.2026). Implementer Pi, review Claude PASS
-(adversarno potvrđeno — bug reprodukovan bez fixa, zatvoren sa fixom).
-Sljedeći u korektivnom paketu (`docs/dentaland-desktop-korektivni-plan.md`,
-Radovanov redoslijed FIX-02 → FIX-01 → 03 → 04 → 05 → 06): **FIX-01**
-(DayView ne prikazuje blockout/time-off, MEDIUM) — Task Contract spreman
-(`agent_reports/FIX-01-task-contract.md`), root cause i tačan fix već
-locirani (kopirati `WeekView._fetch_blocks`/`_block_cell_span` obrazac,
-prilagođen na doctor-kolone umjesto day-kolona). Čeka dodjelu
-implementeru; MEDIUM risk znači human approval je obavezan prije
-merge-a (za razliku od FIX-02/LOW).
+`FIX-02` (edit trajanja termina, LOW) i `FIX-01` (DayView blockout/
+time-off, MEDIUM) su oba MERGED → INTEGRATION_VERIFIED → DONE (merge
+`ae6e52f` pa `9808475`, 21.8.2026). Implementer oba puta Pi, review
+Claude PASS (oba adversarno potvrđena — bug reprodukovan bez fixa,
+zatvoren sa fixom). Sljedeći u korektivnom paketu
+(`docs/dentaland-desktop-korektivni-plan.md`, Radovanov redoslijed
+FIX-02 → FIX-01 → 03 → 04 → 05 → 06): **FIX-03** (razdvajanje NO_SHOW/
+CANCELLED u UI statusima, MEDIUM) — priprema u toku.
 
 Prioritet A backloga (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`,
 `DENT-IMPROVE-001` do `006`) je MERGED — vidi "Recently completed major
@@ -38,10 +35,10 @@ review runde). `CLAUDE.md` je sada thin router, ne sadrži tabelu uloga.
 
 ## Current verification baseline
 
-Izmjereno 2026-08-21 na `main`, post-merge gate nakon `FIX-02`:
+Izmjereno 2026-08-21 na `main`, post-merge gate nakon `FIX-01`:
 
-- `pytest tests/ -q` → **256 passed**, 11 warnings (deprecation warnings iz
-  `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda), ~11s.
+- `pytest tests/ -q` → **258 passed**, 11 warnings (deprecation warnings iz
+  `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda), ~10s.
 - `ruff check src/dentaland desktop backend tests` → **All checks passed**.
 - `mypy src/dentaland desktop backend` → **Success: no issues found in 35
   source files.**
@@ -63,6 +60,7 @@ napamet.
 
 ## Next known work
 
-`FIX-01` čeka implementera (vidi "Current development focus"). Nakon
-toga FIX-03..06 istim redoslijedom. Prioritet B backloga
+`FIX-03` (status semantika NO_SHOW/CANCELLED, MEDIUM — vidi
+`docs/dentaland-desktop-korektivni-plan.md` sekcija 4) — priprema u
+toku. Nakon toga FIX-04..06 istim redoslijedom. Prioritet B backloga
 (`DENT-IMPROVE-007`/`009`) čeka poslije cijelog korektivnog paketa.
