@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from contextlib import suppress
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -28,6 +27,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QMenu,
+    QMessageBox,
     QPushButton,
     QSizePolicy,
     QStackedWidget,
@@ -764,8 +764,10 @@ class MainWindow(QMainWindow):
             return
         method = getattr(self.store, method_name, None)
         if callable(method):
-            with suppress(ValueError):
+            try:
                 method(appt_id)
+            except ValueError as exc:
+                QMessageBox.warning(self, "Akcija nije uspjela", str(exc))
         self._refresh_dashboard()
 
     def _move_appointment(self, appt: Any) -> None:
@@ -787,8 +789,10 @@ class MainWindow(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             cancel_fn = getattr(self.store, "cancel", None)
             if callable(cancel_fn):
-                with suppress(ValueError):
+                try:
                     cancel_fn(appt.id)
+                except ValueError as exc:
+                    QMessageBox.warning(self, "Otkazivanje nije uspjelo", str(exc))
             self._refresh_dashboard()
 
     def _delete_appointment(self, appt: Any) -> None:
@@ -797,8 +801,10 @@ class MainWindow(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             delete_fn = getattr(self.store, "delete", None)
             if callable(delete_fn):
-                with suppress(ValueError):
+                try:
                     delete_fn(appt.id)
+                except ValueError as exc:
+                    QMessageBox.warning(self, "Brisanje nije uspjelo", str(exc))
             self._refresh_dashboard()
 
     def _on_print(self) -> None:

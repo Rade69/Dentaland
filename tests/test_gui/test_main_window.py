@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 from PySide6.QtGui import QPalette
-from PySide6.QtWidgets import QApplication, QDialog, QLabel
+from PySide6.QtWidgets import QApplication, QDialog, QLabel, QMessageBox
 
 from desktop.fake_data import SARAJEVO, FakeStore
 from desktop.views import main_window as main_window_mod
@@ -557,3 +558,88 @@ def test_doctor_panel_je_sakriven_kad_store_nema_doktore(
     win = MainWindow(store, week_start)  # FakeStore nema doctors
     qtbot.addWidget(win)
     assert win.doctor_legend.isHidden()
+
+
+def test_status_akcija_na_terminalnom_terminu_prikazuje_poruku(
+    qtbot, appointment_service, week_start, monkeypatch
+) -> None:
+    warnings: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "warning",
+        staticmethod(lambda p, t, x, *a, **k: warnings.append((t, x))),
+    )
+
+    dto = appointment_service.create(
+        "Ana", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    appointment_service.cancel(dto.id)  # sada CANCELLED
+
+    win = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(win)
+    win._handle_appointment_action(dto.id, "confirm")
+
+    assert len(warnings) == 1
+    assert "zakazan termin" in warnings[0][1]
+
+
+def test_cancel_na_terminalnom_terminu_prikazuje_poruku(
+    qtbot, appointment_service, week_start, monkeypatch
+) -> None:
+    warnings: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "warning",
+        staticmethod(lambda p, t, x, *a, **k: warnings.append((t, x))),
+    )
+
+    dto = appointment_service.create(
+        "Ana", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    appointment_service.cancel(dto.id)  # CANCELLED
+    cancelled = appointment_service.get(dto.id)
+
+    class FakeCancelDialog:
+        def __init__(self, appt, parent=None):
+            pass
+
+        def exec(self):
+            return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(main_window_mod, "CancelAppointmentDialog", FakeCancelDialog)
+    win = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(win)
+    win._cancel_appointment(cancelled)
+
+    assert len(warnings) == 1
+    assert "otkazan" in warnings[0][1]
+
+
+def test_delete_nepostojeceg_termina_prikazuje_poruku(
+    qtbot, appointment_service, week_start, monkeypatch
+) -> None:
+    warnings: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "warning",
+        staticmethod(lambda p, t, x, *a, **k: warnings.append((t, x))),
+    )
+
+    class FakeDeleteDialog:
+        def __init__(self, appt, parent=None):
+            pass
+
+        def exec(self):
+            return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(main_window_mod, "DeleteAppointmentDialog", FakeDeleteDialog)
+    win = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(win)
+    win._delete_appointment(SimpleNamespace(id=99999))
+
+    assert len(warnings) == 1
+    assert "nije pronađen" in warnings[0][1]

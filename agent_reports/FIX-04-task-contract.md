@@ -3,7 +3,7 @@ task_id: FIX-04
 risk: MEDIUM
 implementer: pi
 reviewers: [claude]
-status: ASSIGNED — dodijeljeno Pi-ju (implementer)
+status: "Implementacija (Pi) + review (Claude): PASS. Vidi agent_reports/2026-08-21-FIX-04-pi.md i .../2026-08-21-FIX-04-review-claude.md. MEDIUM risk — čeka commit + human approval prije merge-a."
 created_at: 2026-08-21
 ---
 
