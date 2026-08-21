@@ -3,7 +3,7 @@ task_id: FIX-02
 risk: LOW
 implementer: pi
 reviewers: [claude]
-status: "Implementacija (Pi) + review (Claude): PASS. Vidi agent_reports/2026-08-21-FIX-02-pi.md i .../2026-08-21-FIX-02-review-claude.md. Čeka commit + human approval prije merge-a."
+status: "MERGED → INTEGRATION_VERIFIED → DONE (merge ae6e52f). Human approval: Radovan. Post-merge gate na main: pytest 256 passed, ruff clean, mypy clean (0 issues, 35 fajlova)."
 created_at: 2026-08-21
 ---
 
