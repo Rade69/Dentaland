@@ -9,18 +9,33 @@ sedmica, provjeriti da li je i dalje tačno prije oslanjanja na njega.
 
 ## Current development focus
 
-`FIX-02` (edit trajanja termina, LOW) i `FIX-01` (DayView blockout/
-time-off, MEDIUM) su oba MERGED → INTEGRATION_VERIFIED → DONE (merge
-`ae6e52f` pa `9808475`, 21.8.2026). Implementer oba puta Pi, review
-Claude PASS (oba adversarno potvrđena — bug reprodukovan bez fixa,
-zatvoren sa fixom). Sljedeći u korektivnom paketu
-(`docs/dentaland-desktop-korektivni-plan.md`, Radovanov redoslijed
-FIX-02 → FIX-01 → 03 → 04 → 05 → 06): **FIX-03** (razdvajanje NO_SHOW/
-CANCELLED u UI statusima, MEDIUM) — Task Contract spreman
-(`agent_reports/FIX-03-task-contract.md`), root cause lociran (jedan
-izvor istine u `week_view.py`: `STATUS_META`/`STATUS_ORDER`/
-`_status_key`, ostala 3 fajla su generički potrošači). Blokada
-oslobođena (vidi `DENT-021` ispod) — **spreman za dodjelu**.
+`FIX-02` (LOW), `FIX-01` (MEDIUM) i `FIX-03` (MEDIUM, razdvajanje
+NO_SHOW/CANCELLED) su svi MERGED → INTEGRATION_VERIFIED → DONE (merge
+`ae6e52f`, `9808475`, `53db57c`, 21.8.2026). Implementer sva tri puta
+Pi, review Claude PASS. FIX-03 je trebao **tri runde** review-a — vrijedi
+zapamtiti kao presedan:
+1. Implementacija PASS na logici statusa, ali status legenda (6 stavki
+   umjesto 5) vizuelno pretjecala kontejner na 1536×760 (385px
+   odsijecanja) — REJECT.
+2. Popravka (manji font/spacing) je bila ispravna, ALI dodati
+   regresioni test (`.width()` vs `.sizeHint().width()` geometrijsko
+   poređenje) je davao **lažan PASS na buggy kodu** — pytest-qt/offscreen
+   layout timing čini geometrijska poređenja nepouzdanim za ovakve
+   provjere. REJECT po drugi put.
+3. Test zamijenjen determinističkom provjerom generisanog HTML sadržaja
+   (npr. `assert "font-size:10px" in html`) — adversarno potvrđeno da
+   stvarno pada na buggy kodu. PASS.
+
+**Pouka za buduće taskove koji provjeravaju layout/veličinu u GUI
+testovima**: ne oslanjati se na `.width()`/`.sizeHint()` poređenja u
+pytest-qt offscreen okruženju bez adversarne provjere (namjerno vratiti
+buggy kod i potvrditi da test PADA) — ovakva geometrijska poređenja
+mogu davati lažan PASS.
+
+Sljedeći u korektivnom paketu (`docs/dentaland-desktop-korektivni-plan.md`,
+redoslijed FIX-02 → FIX-01 → 03 → 04 → 05 → 06): **FIX-04** (tiho
+gutanje `ValueError` grešaka bez feedbacka, LOW/MEDIUM) — priprema u
+toku.
 
 **Paralelno, van ovog korektivnog paketa:** `DENT-021` (panel doktora sa
 fotografijama u desnoj koloni) je MERGED → INTEGRATION_VERIFIED → DONE
@@ -54,9 +69,9 @@ review runde). `CLAUDE.md` je sada thin router, ne sadrži tabelu uloga.
 
 ## Current verification baseline
 
-Izmjereno 2026-08-21 na `main`, post-merge gate nakon `DENT-021`:
+Izmjereno 2026-08-21 na `main`, post-merge gate nakon `FIX-03`:
 
-- `pytest tests/ -q` → **264 passed**, 11 warnings (deprecation warnings iz
+- `pytest tests/ -q` → **269 passed**, 11 warnings (deprecation warnings iz
   `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda), ~10s.
 - `ruff check src/dentaland desktop backend tests` → **All checks passed**.
 - `mypy src/dentaland desktop backend` → **Success: no issues found in 35
@@ -79,7 +94,7 @@ napamet.
 
 ## Next known work
 
-`FIX-03` je spreman za dodjelu implementeru (vidi "Current development
-focus" — blokada od `DENT-021` je oslobođena). Nakon FIX-03: FIX-04..06
-istim redoslijedom. Prioritet B backloga (`DENT-IMPROVE-007`/`009`) čeka
-poslije cijelog korektivnog paketa.
+`FIX-04` (tiho gutanje `ValueError` grešaka, LOW/MEDIUM — vidi
+`docs/dentaland-desktop-korektivni-plan.md` sekcija 5) — priprema u
+toku. Nakon toga FIX-05/06. Prioritet B backloga
+(`DENT-IMPROVE-007`/`009`) čeka poslije cijelog korektivnog paketa.

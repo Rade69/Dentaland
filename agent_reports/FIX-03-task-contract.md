@@ -3,7 +3,7 @@ task_id: FIX-03
 risk: MEDIUM
 implementer: pi
 reviewers: [claude]
-status: "PASS runda 3 (Claude review 21.8.2026) — sve tri komponente adversarno potvrđene (status logika, appointment_details fix, legend overflow + pouzdan regresioni test). Vidi agent_reports/2026-08-21-FIX-03-review3-claude.md. Čeka commit + human approval (Radovan, MEDIUM obavezan) prije merge-a."
+status: "MERGED → INTEGRATION_VERIFIED → DONE (merge 53db57c). Human approval: Radovan. Post-merge gate na main: pytest 269 passed, ruff clean, mypy clean (0 issues, 35 fajlova)."
 created_at: 2026-08-21
 ---
 
