@@ -9,14 +9,19 @@ sedmica, provjeriti da li je i dalje tačno prije oslanjanja na njega.
 
 ## Current development focus
 
-Nema aktivnog zadatka u toku. Cijeli Prioritet A backloga
-(`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`) je sada MERGED:
-`DENT-IMPROVE-001` do `006` (Context Debt cleanup, CI, centralne putanje,
-Blokiraj vrijeme, Postavke, i sada `006` — dedicated "Novi zahtjevi"
-ekran, `RequestsPage` + izdvojen `process_pending_request()` helper
-dijeljen sa `DashboardPanels`, implementer Codex, review Claude
-PASS_WITH_NOTES). Čeka se Radovanova odluka o Prioritetu B (`007` backup,
-`009` Windows packaging) ili drugom prioritetu.
+`FIX-02` — edit trajanja termina (LOW). Iz novog korektivnog paketa
+`docs/dentaland-desktop-korektivni-plan.md` (FIX-01 do FIX-06, polish
+nakon glavnog scheduler redizajna, ne novi redizajn). Task Contract
+spreman (`agent_reports/FIX-02-task-contract.md`), root cause već
+lociran (bezuslovan `_apply_service_duration` poziv u
+`appointment_editor.py` prepisuje prefillovano trajanje u edit modu).
+Čeka dodjelu implementeru (Crush/Pi/Codex); Claude je Reviewer 1.
+Radovan je odabrao redoslijed FIX-02 → FIX-01 → 03 → 04 → 05 → 06.
+
+Prioritet A backloga (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`,
+`DENT-IMPROVE-001` do `006`) je MERGED — vidi "Recently completed major
+work" ispod. Prioritet B (`007` backup, `009` Windows packaging) čeka
+poslije korektivnog paketa.
 
 ## Agent availability
 
@@ -55,7 +60,8 @@ napamet.
 
 ## Next known work
 
-Nema otvorenog zadatka — Prioritet A backloga je kompletan. Čeka se
-Radovanova odluka o Prioritetu B (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`:
-`DENT-IMPROVE-007` operativni backup, `DENT-IMPROVE-009` Windows
-packaging) ili drugom prioritetu.
+`FIX-02` čeka implementera (vidi "Current development focus"). Nakon
+FIX-02: `FIX-01` (DayView blockout/time-off, MEDIUM — vidi
+`docs/dentaland-desktop-korektivni-plan.md` sekcija 1), pa FIX-03..06
+istim redoslijedom. Prioritet B backloga (`DENT-IMPROVE-007`/`009`) čeka
+poslije cijelog korektivnog paketa.
