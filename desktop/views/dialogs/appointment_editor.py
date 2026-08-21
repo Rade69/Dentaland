@@ -130,7 +130,9 @@ class AppointmentEditorDialog(BaseDialog):
         self.body_layout().addLayout(grid)
 
         # Podrazumijevano trajanje iz prve usluge; promjena usluge ga ažurira.
-        if self.service_combo.count():
+        # U edit modu trajanje je već postavljeno iz _prefill() (end - start)
+        # i ne smije se odmah prepisati defaultom usluge.
+        if not is_edit and self.service_combo.count():
             self._apply_service_duration(self.service_combo.currentIndex())
         self.service_combo.currentIndexChanged.connect(self._apply_service_duration)
 

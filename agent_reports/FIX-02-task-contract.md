@@ -3,7 +3,7 @@ task_id: FIX-02
 risk: LOW
 implementer: pi
 reviewers: [claude]
-status: ASSIGNED — dodijeljeno Pi-ju (implementer), čeka implementaciju
+status: "Implementacija (Pi) + review (Claude): PASS. Vidi agent_reports/2026-08-21-FIX-02-pi.md i .../2026-08-21-FIX-02-review-claude.md. Čeka commit + human approval prije merge-a."
 created_at: 2026-08-21
 ---
 
