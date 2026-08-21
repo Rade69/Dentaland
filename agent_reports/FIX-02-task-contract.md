@@ -1,9 +1,9 @@
 ---
 task_id: FIX-02
 risk: LOW
-implementer: TBD (Crush/Pi/Codex — Radovan dodjeljuje)
+implementer: pi
 reviewers: [claude]
-status: OPEN — spreman za dodjelu implementeru
+status: ASSIGNED — dodijeljeno Pi-ju (implementer), čeka implementaciju
 created_at: 2026-08-21
 ---
 
