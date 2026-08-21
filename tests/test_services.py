@@ -71,6 +71,11 @@ def _at(hour: int, minute: int = 0) -> datetime:
     return datetime(2026, 8, 17, hour, minute, tzinfo=UTC)
 
 
+def _future_at(hour: int, minute: int = 0) -> datetime:
+    """Daleko budući trenutak — za blokade koje moraju biti 'nadolazeće'."""
+    return datetime(2027, 6, 1, hour, minute, tzinfo=UTC)
+
+
 def test_create_bez_konflikta(appointment_service: AppointmentService) -> None:
     dto = appointment_service.create(
         "Ana Anić", "061", "ana@x.com", "Kontrola", "", _at(9), _at(9, 30)
@@ -363,6 +368,80 @@ def test_timeoff_i_split_shift_pauza(
     pause = appointment_service.breaks_for_week(_at(9).date())[0]
     assert pause.label == "PAUZA"
     assert pause.start.hour == 12 and pause.end.hour == 13
+
+
+def test_create_time_off_kreira_blokadu(appointment_service: AppointmentService) -> None:
+    dto = appointment_service.create_time_off(
+        appointment_service.doctor_id, _future_at(12), _future_at(13), "Ručak"
+    )
+    assert dto.reason == "Ručak"
+    assert dto.start == _future_at(12)
+    assert dto.end == _future_at(13)
+    assert [b.id for b in appointment_service.list_time_off()] == [dto.id]
+
+
+def test_create_time_off_odbija_obrnut_interval(
+    appointment_service: AppointmentService,
+) -> None:
+    with pytest.raises(ValueError):
+        appointment_service.create_time_off(
+            appointment_service.doctor_id, _future_at(13), _future_at(12)
+        )
+
+
+def test_create_time_off_odbija_preklapanje_sa_terminom(
+    appointment_service: AppointmentService,
+) -> None:
+    appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    with pytest.raises(OverlapError):
+        appointment_service.create_time_off(
+            appointment_service.doctor_id, _at(9, 15), _at(10)
+        )
+
+
+def test_create_time_off_dozvoljava_drugog_doktora(
+    session_factory: sessionmaker[Session],
+    appointment_service: AppointmentService,
+) -> None:
+    appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    with session_factory() as session:
+        other_id = _make_doctor(session, "Zorka")
+        session.commit()
+    other_service = AppointmentService(session_factory, doctor_id=other_id)
+    dto = other_service.create_time_off(other_id, _at(9), _at(10))
+    assert dto.doctor_id == other_id
+
+
+def test_list_time_off_ne_vraca_prosle(
+    session_factory: sessionmaker[Session],
+    appointment_service: AppointmentService,
+) -> None:
+    future = appointment_service.create_time_off(
+        appointment_service.doctor_id, _future_at(12), _future_at(13)
+    )
+    with session_factory() as session:
+        session.add(
+            TimeOff(
+                doctor_id=appointment_service.doctor_id,
+                od_datetime=_at(8),
+                do_datetime=_at(9),
+            )
+        )
+        session.commit()
+    assert [b.id for b in appointment_service.list_time_off()] == [future.id]
+
+
+def test_delete_time_off_brise(appointment_service: AppointmentService) -> None:
+    dto = appointment_service.create_time_off(
+        appointment_service.doctor_id, _future_at(12), _future_at(13)
+    )
+    appointment_service.delete_time_off(dto.id)
+    assert appointment_service.list_time_off() == []
+
+
+def test_delete_time_off_nepostojeci(appointment_service: AppointmentService) -> None:
+    with pytest.raises(ValueError):
+        appointment_service.delete_time_off(999)
 
 
 def test_update_mijenja_podatke(appointment_service: AppointmentService) -> None:

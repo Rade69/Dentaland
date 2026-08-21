@@ -110,6 +110,18 @@ class CalendarBlockDTO:
     label: str
 
 
+@dataclass
+class TimeOffDTO:
+    """Blokada/odsustvo doktora u obliku koji GUI očekuje."""
+
+    id: int
+    doctor_id: int
+    doctor_name: str
+    start: datetime
+    end: datetime
+    reason: str
+
+
 class OverlapError(Exception):
     """Dva aktivna termina istog doktora se vremenski preklapaju."""
 
@@ -465,6 +477,63 @@ class AppointmentService:
                         )
         return blocks
 
+    def create_time_off(
+        self,
+        doctor_id: int,
+        start: datetime,
+        end: datetime,
+        reason: str | None = None,
+    ) -> TimeOffDTO:
+        """Kreiraj blokadu/odsustvo za doktora.
+
+        Odbija ``end <= start`` i preklapanje sa postojećim ``SCHEDULED``
+        terminom istog doktora — postojeći termini se nikad ne obrišu ni
+        pomjere, korisnik dobija eksplicitnu grešku.
+        """
+        if end <= start:
+            raise ValueError("kraj blokade mora biti poslije početka")
+        with self._session_factory() as session:
+            doctor = session.get(Doctor, doctor_id)
+            if doctor is None:
+                raise ValueError(f"nepoznat doktor: {doctor_id}")
+            self._check_timeoff_overlap(session, doctor_id, start, end)
+            block = TimeOff(
+                doctor_id=doctor_id,
+                od_datetime=start,
+                do_datetime=end,
+                razlog=reason,
+            )
+            session.add(block)
+            session.commit()
+            return TimeOffDTO(
+                id=block.id,
+                doctor_id=doctor_id,
+                doctor_name=doctor.ime,
+                start=start,
+                end=end,
+                reason=reason or "",
+            )
+
+    def list_time_off(self) -> list[TimeOffDTO]:
+        """Aktivne i nadolazeće blokade (``do_datetime >= sada``), hronološki."""
+        now = utcnow()
+        with self._session_factory() as session:
+            rows = session.scalars(
+                select(TimeOff)
+                .where(TimeOff.do_datetime >= now)
+                .order_by(TimeOff.od_datetime)
+            ).all()
+            return [self._timeoff_dto(row) for row in rows]
+
+    def delete_time_off(self, time_off_id: int) -> None:
+        """Trajno ukloni blokadu."""
+        with self._session_factory() as session:
+            block = session.get(TimeOff, time_off_id)
+            if block is None:
+                raise ValueError(f"blokada {time_off_id} nije pronađena")
+            session.delete(block)
+            session.commit()
+
     def move(self, appt_id: int, new_start: datetime, new_end: datetime) -> AppointmentDTO:
         with self._session_factory() as session:
             appt = session.scalar(
@@ -516,6 +585,37 @@ class AppointmentService:
             raise OverlapError(
                 "termin se preklapa sa postojećim aktivnim terminom istog doktora"
             )
+
+    def _check_timeoff_overlap(
+        self,
+        session: Session,
+        doctor_id: int,
+        start: datetime,
+        end: datetime,
+    ) -> None:
+        stmt = select(Appointment).where(
+            Appointment.doctor_id == doctor_id,
+            Appointment.status == AppointmentStatus.SCHEDULED,
+            Appointment.start_time < end,
+            Appointment.end_time > start,
+        )
+        if session.scalar(stmt) is not None:
+            raise OverlapError(
+                "blokada se preklapa sa postojećim zakazanim terminom — "
+                "pomjerite ili otkažite termin prije kreiranja blokade"
+            )
+
+    @staticmethod
+    def _timeoff_dto(block: TimeOff) -> TimeOffDTO:
+        assert block.doctor is not None
+        return TimeOffDTO(
+            id=block.id,
+            doctor_id=block.doctor_id,
+            doctor_name=block.doctor.ime,
+            start=block.od_datetime,
+            end=block.do_datetime,
+            reason=block.razlog or "",
+        )
 
     @staticmethod
     def _service_name(appt: Appointment) -> str:
