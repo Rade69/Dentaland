@@ -3,7 +3,7 @@ task_id: DENT-021
 risk: LOW
 implementer: pi
 reviewers: [claude]
-verdict: "PASS (revizija) — vidi agent_reports/2026-08-21-DENT-021-revizija-review-claude.md. Čeka commit + human approval prije merge-a."
+verdict: "MERGED → INTEGRATION_VERIFIED → DONE (merge 9f08a7e). Fotografije zamijenjene Codex-ovim originalima tokom finalne provjere (Pi-jevi placeholderi bili premali/generisani, ne stvarne fotografije). Human approval: Radovan. Post-merge gate: pytest 264 passed, ruff clean, mypy clean (0 issues, 35 fajlova)."
 commits: []
 created_at: 2026-08-21
 ---

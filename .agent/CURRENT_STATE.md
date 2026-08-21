@@ -19,17 +19,23 @@ FIX-02 → FIX-01 → 03 → 04 → 05 → 06): **FIX-03** (razdvajanje NO_SHOW/
 CANCELLED u UI statusima, MEDIUM) — Task Contract spreman
 (`agent_reports/FIX-03-task-contract.md`), root cause lociran (jedan
 izvor istine u `week_view.py`: `STATUS_META`/`STATUS_ORDER`/
-`_status_key`, ostala 3 fajla su generički potrošači). **BLOKIRANO za
-dodjelu** dok `DENT-021` (Codex, ispod) ne oslobodi
-`main_window.py`/`test_main_window.py`.
+`_status_key`, ostala 3 fajla su generički potrošači). Blokada
+oslobođena (vidi `DENT-021` ispod) — **spreman za dodjelu**.
 
-**Paralelno, van ovog korektivnog paketa:** `DENT-021` (Codex, LOW) —
-panel doktora sa fotografijama u desnoj koloni rasporeda (zamjena
-jednoredne legende), radi DIREKTNO u glavnom checkout-u (ne worktree),
-necommitovano na 21.8.2026. Aktivan claim na `main_window.py`,
-`desktop/assets/doctors/`, `tests/test_gui/test_main_window.py`
-(`python scripts/coordination.py status`). FIX-03 dijeli
-`test_main_window.py` — vidi blokadu gore.
+**Paralelno, van ovog korektivnog paketa:** `DENT-021` (panel doktora sa
+fotografijama u desnoj koloni) je MERGED → INTEGRATION_VERIFIED → DONE
+(merge `9f08a7e`, 21.8.2026). Prošao kroz reviziju — Codex-ova prva
+necommitovana verzija (rađena direktno u glavnom checkout-u, proceduralno
+odstupanje, zabilježeno ali bez štete) je imala premale avatare (38px) i
+prazan indikator boje bez broja; Radovan je tražio veće fotografije
+(48px) i brojčanu znaku (broj termina po doktoru u trenutnom periodu,
+nezavisno od doctor-filter taba). Pi je implementirao reviziju fresh u
+worktree-u; Claude review PASS (adversarno potvrđeno — avatar veličina
+mjerena direktno, filter-nezavisnost dokazana preko `set_filter`).
+Finalna napomena: Pi-jevi placeholder PNG-ovi (generisani, ~370 bajtova)
+zamijenjeni Codex-ovim originalnim realističkim fotografijama tokom
+finalne provjere prije merge-a — kod je Pi-jev, slikovni asseti su
+Codex-ovi. `main_window.py`/`test_main_window.py` claim je oslobođen.
 
 Prioritet A backloga (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`,
 `DENT-IMPROVE-001` do `006`) je MERGED — vidi "Recently completed major
@@ -48,9 +54,9 @@ review runde). `CLAUDE.md` je sada thin router, ne sadrži tabelu uloga.
 
 ## Current verification baseline
 
-Izmjereno 2026-08-21 na `main`, post-merge gate nakon `FIX-01`:
+Izmjereno 2026-08-21 na `main`, post-merge gate nakon `DENT-021`:
 
-- `pytest tests/ -q` → **258 passed**, 11 warnings (deprecation warnings iz
+- `pytest tests/ -q` → **264 passed**, 11 warnings (deprecation warnings iz
   `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda), ~10s.
 - `ruff check src/dentaland desktop backend tests` → **All checks passed**.
 - `mypy src/dentaland desktop backend` → **Success: no issues found in 35
@@ -73,8 +79,7 @@ napamet.
 
 ## Next known work
 
-`FIX-03` čeka da se `DENT-021` (Codex) commituje/mergu i oslobodi
-`main_window.py`/`test_main_window.py`, PA tek onda dodjelu
-implementeru (vidi "Current development focus"). Nakon FIX-03: FIX-04..06
+`FIX-03` je spreman za dodjelu implementeru (vidi "Current development
+focus" — blokada od `DENT-021` je oslobođena). Nakon FIX-03: FIX-04..06
 istim redoslijedom. Prioritet B backloga (`DENT-IMPROVE-007`/`009`) čeka
 poslije cijelog korektivnog paketa.
