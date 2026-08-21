@@ -450,3 +450,65 @@ def test_delete_odustani_ne_brise_termin(
     win._handle_appointment_action(dto.id, "delete")
 
     assert appointment_service.get(dto.id) is not None
+
+
+def test_doctor_badge_prikazuje_broj_termina_po_doktoru(
+    qtbot, appointment_service, week_start
+) -> None:
+    win = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(win)
+    doctor_ids = {d.ime: d.id for d in appointment_service.doctors()}
+    ljubo_id = doctor_ids["Ljubo"]
+
+    assert win._doctor_badge_labels[ljubo_id].text() == "0"
+
+    appointment_service.set_doctor(ljubo_id)
+    appointment_service.create(
+        "Ana", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    win._refresh_dashboard()
+
+    assert win._doctor_badge_labels[ljubo_id].text() == "1"
+
+
+def test_doctor_badge_se_azurira_pri_navigaciji(
+    qtbot, appointment_service, week_start
+) -> None:
+    win = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(win)
+    doctor_ids = {d.ime: d.id for d in appointment_service.doctors()}
+    ljubo_id = doctor_ids["Ljubo"]
+
+    appointment_service.set_doctor(ljubo_id)
+    appointment_service.create(
+        "Ana", "", "", "Kontrola", "",
+        datetime(2026, 8, 24, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 24, 9, 30, tzinfo=SARAJEVO),
+    )
+    win._refresh_dashboard()
+    assert win._doctor_badge_labels[ljubo_id].text() == "0"  # izvan sedmice
+
+    win._move_week(1)
+    assert win._doctor_badge_labels[ljubo_id].text() == "1"  # sada u sedmici
+
+
+def test_doctor_avatar_velicina_je_povecana(
+    qtbot, appointment_service, week_start
+) -> None:
+    win = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(win)
+
+    assert main_window_mod.DOCTOR_AVATAR_SIZE >= 48
+    avatar = win.doctor_legend.findChild(QLabel, "doctorAvatarLjubo")
+    assert avatar is not None
+    assert avatar.width() >= 48
+
+
+def test_doctor_panel_je_sakriven_kad_store_nema_doktore(
+    qtbot, store, week_start
+) -> None:
+    win = MainWindow(store, week_start)  # FakeStore nema doctors
+    qtbot.addWidget(win)
+    assert win.doctor_legend.isHidden()

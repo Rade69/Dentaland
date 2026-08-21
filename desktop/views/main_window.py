@@ -7,7 +7,16 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from PySide6.QtCore import QDate, QSize, Qt, QTimer
-from PySide6.QtGui import QAction, QColor, QCursor, QIcon, QPalette
+from PySide6.QtGui import (
+    QAction,
+    QColor,
+    QCursor,
+    QIcon,
+    QPainter,
+    QPainterPath,
+    QPalette,
+    QPixmap,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QCalendarWidget,
@@ -48,6 +57,40 @@ from desktop.views.week_view import STATUS_META, STATUS_ORDER, WeekView
 
 DEFAULT_MANUAL_DURATION_MINUTES = 60
 AUTO_REFRESH_INTERVAL_MS = 20_000
+DOCTOR_PHOTO_FILES = {
+    "Ljubo": "ljubo.png",
+    "Zorka": "zorka.png",
+    "Ana": "ana.png",
+}
+DOCTOR_AVATAR_SIZE = 48
+
+
+def _circular_doctor_pixmap(doctor_name: str) -> QPixmap:
+    """Učitaj lokalnu fotografiju doktora i isijeci je u kružni avatar."""
+    filename = DOCTOR_PHOTO_FILES.get(doctor_name)
+    if filename is None:
+        return QPixmap()
+    source = QPixmap(str(paths.resource_path("desktop", "assets", "doctors", filename)))
+    if source.isNull():
+        return source
+
+    size = DOCTOR_AVATAR_SIZE
+    scaled = source.scaled(
+        size,
+        size,
+        Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+        Qt.TransformationMode.SmoothTransformation,
+    )
+    avatar = QPixmap(size, size)
+    avatar.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(avatar)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    clip = QPainterPath()
+    clip.addEllipse(0, 0, size, size)
+    painter.setClipPath(clip)
+    painter.drawPixmap(0, 0, scaled)
+    painter.end()
+    return avatar
 
 
 class MainWindow(QMainWindow):
@@ -236,15 +279,42 @@ class MainWindow(QMainWindow):
         right_column.setSpacing(6)
         self.doctor_legend = QFrame()
         self.doctor_legend.setObjectName("doctorLegend")
-        legend_layout = QHBoxLayout(self.doctor_legend)
-        legend_layout.setContentsMargins(10, 0, 0, 0)
-        legend_layout.setSpacing(10)
+        legend_layout = QVBoxLayout(self.doctor_legend)
+        legend_layout.setContentsMargins(12, 10, 12, 10)
+        legend_layout.setSpacing(7)
+        legend_title = QLabel("Doktori")
+        legend_title.setObjectName("doctorLegendTitle")
+        legend_layout.addWidget(legend_title)
+        self._doctor_badge_labels = {}
         for index, doctor in enumerate(self._doctors):
             color = WeekView._DOCTOR_PALETTE[index % len(WeekView._DOCTOR_PALETTE)]
-            label = QLabel(f"● Dr {doctor.ime}")
-            label.setStyleSheet(f"color: {color}; font-weight: 600;")
-            legend_layout.addWidget(label)
-        legend_layout.addStretch()
+            row = QWidget()
+            row.setObjectName("doctorLegendRow")
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setSpacing(9)
+
+            avatar = QLabel()
+            avatar.setObjectName(f"doctorAvatar{doctor.ime}")
+            avatar.setFixedSize(DOCTOR_AVATAR_SIZE, DOCTOR_AVATAR_SIZE)
+            avatar.setPixmap(_circular_doctor_pixmap(doctor.ime))
+            row_layout.addWidget(avatar)
+
+            name = QLabel(f"Dr {doctor.ime}")
+            name.setObjectName("doctorLegendName")
+            row_layout.addWidget(name, 1)
+
+            badge = QLabel("0")
+            badge.setObjectName("doctorLegendBadge")
+            badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            badge.setFixedSize(24, 24)
+            badge.setStyleSheet(
+                f"background-color: {color}; color: #ffffff; font-weight: 700; "
+                f"border-radius: 12px; font-size: 12px;"
+            )
+            self._doctor_badge_labels[doctor.id] = badge
+            row_layout.addWidget(badge)
+            legend_layout.addWidget(row)
         self.doctor_legend.setVisible(bool(self._doctors))
         right_column.addWidget(self.doctor_legend)
         right_column.addWidget(self.dashboard_panels, 1)
@@ -329,6 +399,14 @@ class MainWindow(QMainWindow):
             for key in STATUS_ORDER
         )
         self.status_legend.setText(legend_html)
+        self._update_doctor_panel_counts()
+
+    def _update_doctor_panel_counts(self) -> None:
+        view = self.view_stack.currentWidget()
+        counts_fn = getattr(view, "visible_doctor_counts", None)
+        counts = counts_fn() if callable(counts_fn) else {}
+        for doctor_id, label in self._doctor_badge_labels.items():
+            label.setText(str(counts.get(doctor_id, 0)))
 
     def _on_new_appointment(self) -> None:
         now = datetime.now(SARAJEVO)
@@ -461,7 +539,14 @@ class MainWindow(QMainWindow):
                 padding: 0 5px;
                 background-color: #ffffff;
             }
-            #doctorLegend { background-color: #ffffff; min-height: 26px; }
+            #doctorLegend {
+                background-color: #ffffff;
+                border: 1px solid #d9e3ea;
+                border-radius: 9px;
+            }
+            #doctorLegendTitle { font-size: 14px; font-weight: 700; }
+            #doctorLegendRow { background-color: #ffffff; }
+            #doctorLegendName { font-weight: 600; }
             #dashboardPanels, #dashboardPanelContent { background-color: #ffffff; }
             #dashboardBox { font-size: 12px; }
             #dashboardBox QLabel { font-size: 11px; font-weight: 400; }
