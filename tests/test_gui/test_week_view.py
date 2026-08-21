@@ -212,7 +212,8 @@ def test_termin_od_30_min_nije_spojen(
         ("SCHEDULED", None, None, "◷"),
         ("SCHEDULED", object(), object(), "▲"),
         ("COMPLETED", None, None, "★"),
-        ("NO_SHOW", None, None, "✗"),
+        ("NO_SHOW", None, None, "!"),
+        ("CANCELLED", None, None, "✗"),
     ],
 )
 def test_status_ikonice(status, confirmed, arrived, expected) -> None:

@@ -49,14 +49,17 @@ STATUS_META: dict[str, tuple[str, str, str]] = {
     "waiting": ("◷", "#ff8a00", "Čeka potvrdu"),
     "arrived": ("▲", "#1473e6", "Stigao"),
     "completed": ("★", "#7c3aed", "Završen"),
-    "cancelled": ("✗", "#ef334f", "Otkazan / Nije došao"),
+    "no_show": ("!", "#c2410c", "Nije došao"),
+    "cancelled": ("✗", "#ef334f", "Otkazan"),
 }
-STATUS_ORDER = ["confirmed", "waiting", "arrived", "completed", "cancelled"]
+STATUS_ORDER = ["confirmed", "waiting", "arrived", "completed", "no_show", "cancelled"]
 
 
 def _status_key(appt: AppointmentDTO) -> str:
     status = getattr(getattr(appt, "status", None), "value", None)
-    if status in {"CANCELLED", "NO_SHOW"}:
+    if status == "NO_SHOW":
+        return "no_show"
+    if status == "CANCELLED":
         return "cancelled"
     if status == "COMPLETED":
         return "completed"

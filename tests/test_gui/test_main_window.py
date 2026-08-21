@@ -69,7 +69,8 @@ def test_footer_ostaje_vidljiv_na_laptop_visini(
 
     assert window.status_legend.isVisible()
     assert window.status_legend.height() >= 48
-    assert "Otkazan / Nije došao" in window.status_legend.text()
+    assert "Otkazan" in window.status_legend.text()
+    assert "Nije došao" in window.status_legend.text()
     assert "No-show" not in window.status_legend.text()
     assert window.status_legend.geometry().bottom() <= window.schedule_page.rect().bottom()
     assert window.sidebar.staff.isVisible()
@@ -104,6 +105,50 @@ def test_footer_prikazuje_brojno_stanje_termina_prikazane_sedmice(
     window._refresh_dashboard()
 
     assert "Čeka potvrdu (1)" in window.status_legend.text()
+
+
+def test_status_legenda_odvojeno_broji_no_show_i_cancelled(
+    qtbot, appointment_service, week_start
+) -> None:
+    win = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(win)
+
+    a = appointment_service.create(
+        "A", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    b = appointment_service.create(
+        "B", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 10, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 10, 30, tzinfo=SARAJEVO),
+    )
+    appointment_service.mark_no_show(a.id)
+    appointment_service.cancel(b.id)
+    win._refresh_dashboard()
+
+    text = win.status_legend.text()
+    assert "Nije došao (1)" in text
+    assert "Otkazan (1)" in text
+
+
+def test_status_legend_html_je_kompaktan_bez_overflow_regresije(
+    qtbot, appointment_service, week_start
+) -> None:
+    win = MainWindow(appointment_service, week_start)
+    qtbot.addWidget(win)
+
+    html = win.status_legend.text()
+    # Deterministička provjera uzroka horizontalnog overflow-a — nezavisna
+    # od Qt layout timinga (u pytest-qt/offscreen width() i sizeHint()
+    # konvergiraju, pa geometrijsko poređenje daje lažan PASS na buggy kodu):
+    # font je smanjen (ne 14px) i separator nije 4x &nbsp;.
+    assert "font-size:10px" in html
+    assert "font-size:14px" not in html
+    assert "&nbsp;&nbsp;&nbsp;&nbsp;" not in html
+    # NO_SHOW i CANCELLED nisu spojeni nazad
+    assert "Otkazan" in html
+    assert "Nije došao" in html
 
 
 def test_nema_po_doktoru_paralelno(window: MainWindow) -> None:

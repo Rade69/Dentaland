@@ -115,3 +115,17 @@ def test_operativne_akcije_vracaju_svoje_kodove(qtbot) -> None:
     buttons2 = {b.text(): b for b in dialog2._action_buttons}
     buttons2["Otkaži termin"].click()
     assert dialog2.selected_action() == "cancel"
+
+
+def test_no_show_prikazuje_odvojenu_labelu(qtbot) -> None:
+    dialog = AppointmentDetailsDialog(_appt(status="NO_SHOW"))
+    qtbot.addWidget(dialog)
+    assert "Nije došao" in dialog.status_badge.text()
+    assert "Otkazan" not in dialog.status_badge.text()
+
+
+def test_cancelled_prikazuje_otkazan(qtbot) -> None:
+    dialog = AppointmentDetailsDialog(_appt(status="CANCELLED"))
+    qtbot.addWidget(dialog)
+    assert "Otkazan" in dialog.status_badge.text()
+    assert "Nije došao" not in dialog.status_badge.text()

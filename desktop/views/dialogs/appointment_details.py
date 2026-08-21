@@ -25,6 +25,7 @@ _STATUS_BG = {
     "waiting": "#fff4e6",
     "arrived": "#e8f1fd",
     "completed": "#f3eefd",
+    "no_show": "#fdeee4",
     "cancelled": "#fdecef",
 }
 
