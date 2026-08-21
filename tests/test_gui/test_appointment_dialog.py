@@ -92,6 +92,42 @@ def test_edit_prefill(qtbot) -> None:
     assert dlg.get_data()["start"] == datetime(2026, 8, 17, 10, 0, tzinfo=SARAJEVO)
 
 
+def test_edit_mode_cuva_rucno_trajanje(qtbot) -> None:
+    appt = SimpleNamespace(
+        id=1,
+        patient_name="Ana Anić",
+        phone="",
+        email="",
+        service="Plomba",  # default 60
+        note="",
+        start=datetime(2026, 8, 17, 10, 0, tzinfo=SARAJEVO),
+        end=datetime(2026, 8, 17, 11, 30, tzinfo=SARAJEVO),  # stvarno 90 min
+        doctor_id=1,
+    )
+    dlg = _make_dialog(qtbot, appointment=appt)
+    assert dlg.duration_edit.value() == 90
+
+
+def test_edit_mode_promjena_usluge_azurira_trajanje(qtbot) -> None:
+    services = [("Kontrola", 30), ("Izbjeljivanje", 45), ("Plomba", 60)]
+    appt = SimpleNamespace(
+        id=1,
+        patient_name="Ana Anić",
+        phone="",
+        email="",
+        service="Plomba",
+        note="",
+        start=datetime(2026, 8, 17, 10, 0, tzinfo=SARAJEVO),
+        end=datetime(2026, 8, 17, 11, 30, tzinfo=SARAJEVO),  # 90 min
+        doctor_id=1,
+    )
+    dlg = AppointmentEditorDialog(DOCTORS, services, START, appointment=appt)
+    qtbot.addWidget(dlg)
+    assert dlg.duration_edit.value() == 90  # prefill zadržan
+    dlg.service_combo.setCurrentIndex(1)  # "Izbjeljivanje" default 45
+    assert dlg.duration_edit.value() == 45
+
+
 def test_get_data_vraca_doktora_i_trajanje(qtbot) -> None:
     dlg = _make_dialog(qtbot, selected_doctor_id=1)
     dlg.name_edit.setText("Ana")
