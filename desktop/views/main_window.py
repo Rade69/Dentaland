@@ -40,6 +40,7 @@ from desktop.views.dialogs.cancel_appointment import CancelAppointmentDialog
 from desktop.views.dialogs.delete_appointment import DeleteAppointmentDialog
 from desktop.views.dialogs.move_appointment import MoveAppointmentDialog
 from desktop.views.requests_panel import DashboardPanels
+from desktop.views.settings_panel import SettingsPanel
 from desktop.views.sidebar import Sidebar, svg_icon
 from desktop.views.stub_page import StubPage
 from desktop.views.week_view import STATUS_META, STATUS_ORDER, WeekView
@@ -93,7 +94,6 @@ class MainWindow(QMainWindow):
             ("zahtjevi", "Novi zahtjevi"),
             ("pacijenti", "Pacijenti"),
             ("izvjestaji", "Izvještaji"),
-            ("postavke", "Postavke"),
             ("podsjetnici", "Podsjetnici"),
         ):
             page = StubPage(title)
@@ -103,6 +103,10 @@ class MainWindow(QMainWindow):
         self.blockout_panel.changed.connect(self._refresh_dashboard)
         self._route_pages["blockout"] = self.blockout_panel
         self.page_stack.addWidget(self.blockout_panel)
+        self.settings_panel = SettingsPanel(store, self)
+        self.settings_panel.changed.connect(self._refresh_dashboard)
+        self._route_pages["postavke"] = self.settings_panel
+        self.page_stack.addWidget(self.settings_panel)
 
         central = QWidget()
         root = QHBoxLayout(central)

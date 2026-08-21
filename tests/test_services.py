@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
 
 import pytest
 from sqlalchemy import create_engine, event, select
@@ -658,3 +658,90 @@ def _set_status(session_factory: sessionmaker[Session], status: AppointmentStatu
         assert appt is not None
         appt.status = status
         session.commit()
+
+
+# ── DENT-IMPROVE-005 — postavke (doktori / usluge / radno vrijeme) ──
+
+
+def test_list_doctors_vraca_sve_ukljucujuci_neaktivne(
+    session_factory: sessionmaker[Session], appointment_service: AppointmentService
+) -> None:
+    with session_factory() as session:
+        _make_doctor(session, "Zorka")
+        session.commit()
+
+    doctors = appointment_service.list_doctors()
+    assert [d.ime for d in doctors] == ["Ljubo", "Zorka"]
+    assert all(d.aktivan for d in doctors)
+
+
+def test_set_doctor_active_ne_brise_termine(appointment_service: AppointmentService) -> None:
+    dto = appointment_service.create("Ana", "", "", "Kontrola", "", _at(9), _at(9, 30))
+    doctor_id = appointment_service.doctor_id
+    assert doctor_id is not None
+
+    updated = appointment_service.set_doctor_active(doctor_id, False)
+    assert updated.aktivan is False
+
+    # Termin ostaje u bazi — deaktivacija ne briše istoriju.
+    assert appointment_service.get(dto.id) is not None
+
+
+def test_add_service_validacija(appointment_service: AppointmentService) -> None:
+    with pytest.raises(ValueError, match="naziv"):
+        appointment_service.add_service("  ", 30, 0)
+    with pytest.raises(ValueError, match="trajanje"):
+        appointment_service.add_service("X", 0, 0)
+    with pytest.raises(ValueError, match="buffer"):
+        appointment_service.add_service("X", 30, -1)
+
+
+def test_add_i_update_service(appointment_service: AppointmentService) -> None:
+    added = appointment_service.add_service("Proteza", 90, 20)
+    assert added.naziv == "Proteza"
+    assert added.trajanje_min == 90
+
+    updated = appointment_service.update_service(added.id, "Proteza (nova)", 120, 25)
+    assert updated.naziv == "Proteza (nova)"
+    assert updated.trajanje_min == 120
+    assert updated.buffer_min == 25
+
+    options = {o.naziv: o for o in appointment_service.service_options()}
+    assert options["Proteza (nova)"].trajanje_min == 120
+
+
+def test_set_working_hours_split_shift(appointment_service: AppointmentService) -> None:
+    doctor_id = appointment_service.doctor_id
+    assert doctor_id is not None
+    appointment_service.set_working_hours(
+        doctor_id, 1, [(time(8, 0), time(12, 0)), (time(14, 0), time(18, 0))]
+    )
+    rows = appointment_service.list_working_hours(doctor_id)
+    assert [(r.od_local, r.do_local) for r in rows] == [
+        (time(8, 0), time(12, 0)),
+        (time(14, 0), time(18, 0)),
+    ]
+
+
+def test_set_working_hours_zamjenjuje_prethodne(appointment_service: AppointmentService) -> None:
+    doctor_id = appointment_service.doctor_id
+    assert doctor_id is not None
+    appointment_service.set_working_hours(doctor_id, 1, [(time(8, 0), time(16, 0))])
+    appointment_service.set_working_hours(doctor_id, 1, [(time(9, 0), time(17, 0))])
+
+    rows = appointment_service.list_working_hours(doctor_id)
+    assert [(r.od_local, r.do_local) for r in rows] == [(time(9, 0), time(17, 0))]
+
+
+def test_set_working_hours_validacija(appointment_service: AppointmentService) -> None:
+    doctor_id = appointment_service.doctor_id
+    assert doctor_id is not None
+
+    with pytest.raises(ValueError, match="dan"):
+        appointment_service.set_working_hours(doctor_id, 0, [(time(8, 0), time(16, 0))])
+    with pytest.raises(ValueError, match="poslije"):
+        appointment_service.set_working_hours(doctor_id, 1, [(time(16, 0), time(8, 0))])
+    with pytest.raises(ValueError, match="preklapati"):
+        appointment_service.set_working_hours(
+            doctor_id, 1, [(time(8, 0), time(12, 0)), (time(11, 0), time(14, 0))]
+        )
