@@ -1,35 +1,29 @@
 ---
 task_id: FIX-03
 risk: MEDIUM
-implementer: TBD (Crush/Pi/Codex — Radovan dodjeljuje)
+implementer: pi
 reviewers: [claude]
-status: OPEN — BLOKIRANO dok DENT-021 (Codex) ne oslobodi main_window.py/test_main_window.py
+status: ASSIGNED — dodijeljeno Pi-ju (implementer). Blokada od DENT-021 je oslobođena (merge 9f08a7e) — main_window.py/test_main_window.py su slobodni.
 created_at: 2026-08-21
 ---
 
 # FIX-03 — Razdvojiti NO_SHOW i CANCELLED u UI statusima
 
-## ⚠ Koordinacijska blokada — pročitati PRIJE dodjele
+## ⚠ Koordinacijska blokada — RIJEŠENA (21.8.2026)
 
-`python scripts/coordination.py status` (21.8.2026) pokazuje aktivan
-claim:
+`DENT-021` (panel doktora sa fotografijama) je MERGED (`9f08a7e`) i
+claim je oslobođen. FIX-03 je spreman za dodjelu.
 
-```text
-DENT-021   codex   paths: desktop/views/main_window.py,
-                          desktop/assets/doctors,
-                          tests/test_gui/test_main_window.py, ...
-```
-
-Codex trenutno radi DIREKTNO u glavnom checkout-u (ne worktree),
-necommitovano, na panelu doktora sa fotografijama u desnoj koloni
-(vizuelno nevezano za ovaj task — vidi screenshot koji je Radovan
-poslao). FIX-03 treba `tests/test_gui/test_main_window.py` (postojeći
-test na liniji 72 tvrdi `"Otkazan / Nije došao" in
-window.status_legend.text()`, što se mora promijeniti). **Ne
-dodjeljivati FIX-03 dok DENT-021 nije commitovan/mergovan i claim
-oslobođen** — inače garantovan konflikt na istom fajlu. Provjeriti
-`coordination.py status` neposredno prije starta; ako je DENT-021 i
-dalje aktivan, sačekati.
+Napomena za implementera: `main_window.py`/`test_main_window.py` su se
+promijenili kroz DENT-021 (dodat `_update_doctor_panel_counts()`,
+brojčane znake pored doktora — nevezano za status semantiku). Provjereno
+da referenca ispod (`tests/test_gui/test_main_window.py:72`, tvrdnja
+`"Otkazan / Nije došao" in window.status_legend.text()`) i dalje stoji
+na istoj liniji — DENT-021 je dodao testove na KRAJ fajla, nije mijenjao
+postojeće linije. `week_view.py`-ov `STATUS_META`/`_status_key` (root
+cause ispod) DENT-021 uopšte nije dirao — analiza ostaje potpuno
+validna. Ipak, provjeri `coordination.py status` prije `claim`-a kao i
+uvijek (mogao je u međuvremenu krenuti neki drugi paralelan task).
 
 ## Task Contract
 
