@@ -1,10 +1,24 @@
 ---
 task_id: DENT-IMPROVE-004
 risk: MEDIUM
-implementer: TBD
+implementer: pi
 reviewers: [claude]
+verdict: PASS_WITH_NOTES
+status: MERGED_INTEGRATION_VERIFIED
+commits: [83203c8]
 created_at: 2026-08-20
 ---
+
+## Integration status
+
+`MERGED → INTEGRATION_VERIFIED → DONE` (20.8.2026). Review: Claude
+`PASS_WITH_NOTES` (`agent_reports/2026-08-20-DENT-IMPROVE-004-review-claude.md`)
+— adversarno testirani boundary-touch i potpuno-obuhvatanje overlap
+slučajevi, oba prošla. Human approval: Radovan ("komituj i merdžuj").
+Merge commit na `main` (`--no-ff`). Post-merge gate: `pytest` → 240
+passed, `ruff` → All checks passed, `mypy` → 0 grešaka (33 fajlova).
+Dvije manje napomene (GUI test coverage za OverlapError prikaz i "No"
+granu potvrde brisanja) ostaju kao mogući sitan follow-up, ne blocking.
 
 # DENT-IMPROVE-004 — Implementirati „Blokiraj vrijeme"
 
