@@ -34,8 +34,11 @@ mogu davati lažan PASS.
 
 Sljedeći u korektivnom paketu (`docs/dentaland-desktop-korektivni-plan.md`,
 redoslijed FIX-02 → FIX-01 → 03 → 04 → 05 → 06): **FIX-04** (tiho
-gutanje `ValueError` grešaka bez feedbacka, LOW/MEDIUM) — priprema u
-toku.
+gutanje `ValueError` grešaka bez feedbacka, MEDIUM) — Task Contract
+spreman (`agent_reports/FIX-04-task-contract.md`), root cause tačno
+locirano (3 `suppress(ValueError)` mjesta u `main_window.py`, linije
+767/790/800; servisni sloj već baca čiste poruke, samo se gutaju).
+Dodijeljeno Pi-ju.
 
 **Paralelno, van ovog korektivnog paketa:** `DENT-021` (panel doktora sa
 fotografijama u desnoj koloni) je MERGED → INTEGRATION_VERIFIED → DONE
@@ -94,7 +97,6 @@ napamet.
 
 ## Next known work
 
-`FIX-04` (tiho gutanje `ValueError` grešaka, LOW/MEDIUM — vidi
-`docs/dentaland-desktop-korektivni-plan.md` sekcija 5) — priprema u
-toku. Nakon toga FIX-05/06. Prioritet B backloga
-(`DENT-IMPROVE-007`/`009`) čeka poslije cijelog korektivnog paketa.
+`FIX-04` čeka implementaciju (Pi, vidi "Current development focus").
+Nakon toga FIX-05/06. Prioritet B backloga (`DENT-IMPROVE-007`/`009`)
+čeka poslije cijelog korektivnog paketa.
