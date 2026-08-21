@@ -32,6 +32,7 @@ from dentaland.services import OverlapError
 from dentaland.services.print_schedule import build_day_schedule, build_week_schedule
 from desktop.fake_data import SARAJEVO
 from desktop.print_document import build_day_document, build_week_document, preview_document
+from desktop.views.blockout_panel import BlockoutPanel
 from desktop.views.day_view import DayView
 from desktop.views.dialogs.appointment_details import AppointmentDetailsDialog
 from desktop.views.dialogs.appointment_editor import AppointmentEditorDialog
@@ -93,12 +94,15 @@ class MainWindow(QMainWindow):
             ("pacijenti", "Pacijenti"),
             ("izvjestaji", "Izvještaji"),
             ("postavke", "Postavke"),
-            ("blockout", "Blokiraj vrijeme"),
             ("podsjetnici", "Podsjetnici"),
         ):
             page = StubPage(title)
             self._route_pages[route] = page
             self.page_stack.addWidget(page)
+        self.blockout_panel = BlockoutPanel(store, self)
+        self.blockout_panel.changed.connect(self._refresh_dashboard)
+        self._route_pages["blockout"] = self.blockout_panel
+        self.page_stack.addWidget(self.blockout_panel)
 
         central = QWidget()
         root = QHBoxLayout(central)
