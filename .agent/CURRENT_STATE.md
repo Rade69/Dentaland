@@ -14,7 +14,12 @@ DONE (merge `ae6e52f`, 21.8.2026). Implementer Pi, review Claude PASS
 (adversarno potvrđeno — bug reprodukovan bez fixa, zatvoren sa fixom).
 Sljedeći u korektivnom paketu (`docs/dentaland-desktop-korektivni-plan.md`,
 Radovanov redoslijed FIX-02 → FIX-01 → 03 → 04 → 05 → 06): **FIX-01**
-(DayView ne prikazuje blockout/time-off, MEDIUM) — priprema u toku.
+(DayView ne prikazuje blockout/time-off, MEDIUM) — Task Contract spreman
+(`agent_reports/FIX-01-task-contract.md`), root cause i tačan fix već
+locirani (kopirati `WeekView._fetch_blocks`/`_block_cell_span` obrazac,
+prilagođen na doctor-kolone umjesto day-kolona). Čeka dodjelu
+implementeru; MEDIUM risk znači human approval je obavezan prije
+merge-a (za razliku od FIX-02/LOW).
 
 Prioritet A backloga (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`,
 `DENT-IMPROVE-001` do `006`) je MERGED — vidi "Recently completed major
@@ -58,7 +63,6 @@ napamet.
 
 ## Next known work
 
-`FIX-01` (DayView blockout/time-off, MEDIUM — vidi
-`docs/dentaland-desktop-korektivni-plan.md` sekcija 1) — priprema u
-toku. Nakon toga FIX-03..06 istim redoslijedom. Prioritet B backloga
+`FIX-01` čeka implementera (vidi "Current development focus"). Nakon
+toga FIX-03..06 istim redoslijedom. Prioritet B backloga
 (`DENT-IMPROVE-007`/`009`) čeka poslije cijelog korektivnog paketa.
