@@ -392,10 +392,10 @@ class MainWindow(QMainWindow):
         view = self.view_stack.currentWidget()
         counts_fn = getattr(view, "visible_status_counts", None)
         counts = counts_fn() if callable(counts_fn) else dict.fromkeys(STATUS_META, 0)
-        legend_html = "&nbsp;&nbsp;&nbsp;&nbsp;".join(
-            f"<span style='color:{STATUS_META[key][1]}; font-size:14px; "
-            f"font-weight:700'>{STATUS_META[key][0]}</span>&nbsp; "
-            f"{STATUS_META[key][2]} ({counts[key]})"
+        legend_html = "&nbsp;".join(
+            f"<span style='color:{STATUS_META[key][1]}; font-size:10px; "
+            f"font-weight:700'>{STATUS_META[key][0]}</span>&nbsp;"
+            f"<span style='font-size:10px'>{STATUS_META[key][2]} ({counts[key]})</span>"
             for key in STATUS_ORDER
         )
         self.status_legend.setText(legend_html)

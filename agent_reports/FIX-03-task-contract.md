@@ -3,7 +3,7 @@ task_id: FIX-03
 risk: MEDIUM
 implementer: pi
 reviewers: [claude]
-status: ASSIGNED — dodijeljeno Pi-ju (implementer). Blokada od DENT-021 je oslobođena (merge 9f08a7e) — main_window.py/test_main_window.py su slobodni.
+status: "PASS runda 3 (Claude review 21.8.2026) — sve tri komponente adversarno potvrđene (status logika, appointment_details fix, legend overflow + pouzdan regresioni test). Vidi agent_reports/2026-08-21-FIX-03-review3-claude.md. Čeka commit + human approval (Radovan, MEDIUM obavezan) prije merge-a."
 created_at: 2026-08-21
 ---
 
@@ -111,22 +111,31 @@ prostora (eksplicitno pravilo iz plana). Ako treba layout izmjenu u
 `main_window.py` (npr. dozvoliti wrap u 2 reda), to je razlog VIŠE da se
 sačeka da DENT-021 oslobodi taj fajl — ne raditi paralelno.
 
-## Allowed paths
+## Allowed paths (proširen 21.8.2026, poslije Claude review-a — vidi ⚠ REJECT ispod)
 
 ```text
 desktop/views/week_view.py
+desktop/views/main_window.py
 tests/test_gui/test_week_view.py
 tests/test_gui/test_day_view.py
 tests/test_gui/test_appointment_details_dialog.py
 tests/test_gui/test_main_window.py
 ```
 
-`desktop/views/main_window.py` je dodano u forbidden (ispod) SAMO ako
-se pokaže da produkcijska izmjena tamo nije potrebna (očekivano — vidi
-root cause analizu). Ako se tokom rada pokaže da JE potrebna izmjena u
-`main_window.py` (npr. layout za 6. stavku), to je
-`OUT_OF_SCOPE_FINDING` — prijaviti, ne implementirati bez odobrenja,
-JER je taj fajl trenutno pod tuđim claim-om (DENT-021).
+`desktop/views/main_window.py` je DODAT u allowed_paths (uklonjen iz
+forbidden) — DENT-021 je odavno mergovan (`9f08a7e`), originalni razlog
+zabrane više ne važi. Dozvoljena izmjena je USKO ograničena na
+`_update_status_legend()` (font-size/spacing u HTML-u, ili wrap u 2
+reda) radi popravke potvrđenog vizuelnog overflow-a — vidi
+`agent_reports/2026-08-21-FIX-03-review-claude.md`. Ne širiti izmjenu
+van te jedne metode.
+
+`desktop/views/dialogs/appointment_details.py` je već bio formalno u
+forbidden_paths, ALI Pi je ispravno prijavio i primijenio nužan
+1-linijski dodatak (`_STATUS_BG["no_show"]`) — bez njega Details dialog
+puca `KeyError` na NO_SHOW terminu, nezavisno adversarno potvrđeno u
+review-u. Ta izmjena OSTAJE, tretirati kao dio prihvaćenog scope-a, ne
+ponovo uklanjati.
 
 ## Forbidden paths
 
@@ -135,10 +144,34 @@ src/dentaland/models.py
 migrations/
 src/dentaland/services/booking.py
 desktop/views/day_view.py
-desktop/views/main_window.py
-desktop/views/dialogs/appointment_details.py
 desktop/views/dialogs/**
 ```
+
+(`appointment_details.py` uklonjen iz forbidden liste retroaktivno —
+vidi napomenu iznad, već sadrži prihvaćenu izmjenu.)
+
+## ⚠ REJECT (21.8.2026) — status legenda vizuelno pretiče kontejner
+
+Claude review: `agent_reports/2026-08-21-FIX-03-review-claude.md`.
+Izmjereno na 1536×760: `status_legend.sizeHint().width()` = 1358px,
+`status_legend.width()` = 973px (dodijeljeno) → **385px teksta se
+odsijeca** (`wordWrap=False`, bez elide-a). Logika razdvajanja statusa
+(week_view.py) je PASS — problem je isključivo prezentacioni, u
+`main_window.py::_update_status_legend()`.
+
+**Popravka (dozvoljena po ovom kontraktu, sad i po allowed_paths):**
+smanjiti `font-size`/spacing u HTML-u koji `_update_status_legend()`
+generiše DOK `sizeHint().width()` ne stane u `status_legend.width()` na
+1536×760, ILI dozvoliti wrap u 2 reda (`setWordWrap(True)` + provjeriti
+da `setFixedHeight(48)` i dalje ima smisla ili treba blago povećati).
+**NE spajati `no_show`/`cancelled` nazad zbog prostora** — to poražava
+cilj cijelog taska.
+
+Dodati regresioni test koji ovo hvata (test suite je trenutno slijep za
+horizontalni overflow — postojeći `test_footer_ostaje_vidljiv_na_laptop_visini`
+provjerava samo vertikalnu poziciju), npr. provjera da
+`status_legend.sizeHint().width() <= status_legend.width()` nakon
+punog seta statusa na fiksnoj test-širini.
 
 ## Obavezni regression testovi
 
