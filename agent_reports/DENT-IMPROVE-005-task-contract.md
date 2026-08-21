@@ -1,10 +1,26 @@
 ---
 task_id: DENT-IMPROVE-005
 risk: MEDIUM
-implementer: TBD
+implementer: crush
 reviewers: [claude]
+verdict: PASS_WITH_NOTES
+status: MERGED_INTEGRATION_VERIFIED
+commits: [a0c7ef4]
 created_at: 2026-08-20
 ---
+
+## Integration status
+
+`MERGED → INTEGRATION_VERIFIED → DONE` (21.8.2026). Review: Claude
+`PASS_WITH_NOTES` (`agent_reports/2026-08-21-DENT-IMPROVE-005-review-claude.md`)
+— adversarno testirani touching-boundary, prazna-lista i
+po-danu-izolacija slučajevi, svi prošli. Human approval: Radovan
+("komituj i merdžuj"). Merge commit na `main` (`--no-ff`). Post-merge
+gate: `pytest` → 251 passed, `ruff` → All checks passed, `mypy` → 0
+grešaka (34 fajlova). Dvije manje napomene (GUI test coverage na Radno
+vrijeme tabu; `doctors()`/`list_doctors()` asimetrija — deaktiviran
+doktor nestaje iz Radno vrijeme combo-a, podaci ostaju u bazi) nisu
+blocking.
 
 # DENT-IMPROVE-005 — Minimalne Postavke
 

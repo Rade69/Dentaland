@@ -1,6 +1,6 @@
 # Current State
 
-Last updated: 2026-08-20
+Last updated: 2026-08-21
 
 Ovaj fajl drži KRATKOTRAJNE informacije — stvari koje realno mogu zastarjeti
 za nekoliko dana/sedmica. Trajna pravila ostaju u `CLAUDE.md`/`AGENTS.md`/
@@ -11,14 +11,14 @@ sedmica, provjeriti da li je i dalje tačno prije oslanjanja na njega.
 
 Nema aktivnog zadatka u toku. Pored ranije MERGED rada (6 faza desktop
 redizajna, Faza 2 agentskog workflow-a, `DENT-020`), sada su MERGED i
-`DENT-IMPROVE-001` (Context Debt cleanup), `DENT-IMPROVE-002` (GitHub
-Actions CI), `DENT-IMPROVE-003` (centralne runtime/data/resource putanje)
-i `DENT-IMPROVE-004` (Blokiraj vrijeme UI — `BlockoutPanel` +
-`create_time_off`/`list_time_off`/`delete_time_off` u `booking.py`,
-implementer Pi, review Claude PASS_WITH_NOTES, adversarno testirani
-boundary/overlap slučajevi). Sljedeći u redu: `DENT-IMPROVE-005`
-(Postavke) — koordinaciona napomena: dira iste navigacione fajlove kao
-`006`, preporučen strogo sekvencijalni redoslijed `005 → 006`.
+`DENT-IMPROVE-001` do `004` (Context Debt cleanup, CI, centralne putanje,
+Blokiraj vrijeme) i `DENT-IMPROVE-005` (minimalne Postavke —
+`SettingsPanel`: doktori aktivan/neaktivan, usluge dodaj/uredi, radno
+vrijeme split shift; implementer Crush, review Claude PASS_WITH_NOTES,
+adversarno testirani touching-boundary/prazna-lista/po-danu-izolacija
+slučajevi). Sljedeći u redu: `DENT-IMPROVE-006` (Novi zahtjevi ekran) —
+koordinaciona napomena: dira iste navigacione fajlove kao `004`/`005`
+(već MERGED), nema više konflikta na čekanju.
 
 ## Agent availability
 
@@ -32,12 +32,12 @@ review runde). `CLAUDE.md` je sada thin router, ne sadrži tabelu uloga.
 
 ## Current verification baseline
 
-Izmjereno 2026-08-20 na `main`, post-merge gate nakon `DENT-IMPROVE-004`:
+Izmjereno 2026-08-21 na `main`, post-merge gate nakon `DENT-IMPROVE-005`:
 
-- `pytest tests/ -q` → **240 passed**, 11 warnings (deprecation warnings iz
-  `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda), ~8s.
+- `pytest tests/ -q` → **251 passed**, 11 warnings (deprecation warnings iz
+  `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda), ~12s.
 - `ruff check src/dentaland desktop backend tests` → **All checks passed**.
-- `mypy src/dentaland desktop backend` → **Success: no issues found in 33
+- `mypy src/dentaland desktop backend` → **Success: no issues found in 34
   source files.**
 
 Ne tretirati broj testova kao trajno pravilo — raste sa svakim novim
@@ -57,7 +57,8 @@ napamet.
 
 ## Next known work
 
-`DENT-IMPROVE-005` (Postavke) je pripremljen
-(`agent_reports/DENT-IMPROVE-005-task-contract.md`), čeka dodjelu
-implementeru. Nakon njega: `006` (Novi zahtjevi ekran) — vidi
-koordinacionu napomenu iznad.
+`DENT-IMPROVE-006` (Novi zahtjevi ekran) je pripremljen
+(`agent_reports/DENT-IMPROVE-006-task-contract.md`), čeka dodjelu
+implementeru. Ovo je posljednja stavka iz Prioriteta A backloga
+(`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`) — nakon nje Prioritet B
+(`007` backup, `009` packaging).
