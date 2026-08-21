@@ -39,6 +39,7 @@ from desktop.views.dialogs.appointment_editor import AppointmentEditorDialog
 from desktop.views.dialogs.cancel_appointment import CancelAppointmentDialog
 from desktop.views.dialogs.delete_appointment import DeleteAppointmentDialog
 from desktop.views.dialogs.move_appointment import MoveAppointmentDialog
+from desktop.views.requests_page import RequestsPage
 from desktop.views.requests_panel import DashboardPanels
 from desktop.views.settings_panel import SettingsPanel
 from desktop.views.sidebar import Sidebar, svg_icon
@@ -91,7 +92,6 @@ class MainWindow(QMainWindow):
         self.page_stack.addWidget(self.schedule_page)
         self._route_pages: dict[str, QWidget] = {"raspored": self.schedule_page}
         for route, title in (
-            ("zahtjevi", "Novi zahtjevi"),
             ("pacijenti", "Pacijenti"),
             ("izvjestaji", "Izvještaji"),
             ("podsjetnici", "Podsjetnici"),
@@ -99,6 +99,10 @@ class MainWindow(QMainWindow):
             page = StubPage(title)
             self._route_pages[route] = page
             self.page_stack.addWidget(page)
+        self.requests_page = RequestsPage(store, self)
+        self.requests_page.changed.connect(self._refresh_dashboard)
+        self._route_pages["zahtjevi"] = self.requests_page
+        self.page_stack.addWidget(self.requests_page)
         self.blockout_panel = BlockoutPanel(store, self)
         self.blockout_panel.changed.connect(self._refresh_dashboard)
         self._route_pages["blockout"] = self.blockout_panel
@@ -252,6 +256,8 @@ class MainWindow(QMainWindow):
     def _show_route(self, route: str) -> None:
         page = self._route_pages.get(route)
         if page is not None:
+            if page is self.requests_page:
+                self.requests_page.refresh()
             self.page_stack.setCurrentWidget(page)
 
     def _move_week(self, offset: int) -> None:
@@ -304,6 +310,7 @@ class MainWindow(QMainWindow):
 
     def _refresh_dashboard(self) -> None:
         self.dashboard_panels.refresh()
+        self.requests_page.refresh()
         self.week_view.refresh()
         self.day_view.refresh()
         pending = getattr(self.store, "pending_requests", None)

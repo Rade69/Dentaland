@@ -48,6 +48,13 @@ def test_navigacija_mijenja_sedmicu_i_sidebar_rutu(window: MainWindow) -> None:
     assert window.page_stack.currentWidget() is window._route_pages["pacijenti"]
 
 
+def test_novi_zahtjevi_ruta_vodi_na_dedicated_stranicu(window: MainWindow) -> None:
+    window.sidebar.route_selected.emit("zahtjevi")
+
+    assert window.page_stack.currentWidget() is window.requests_page
+    assert window._route_pages["zahtjevi"] is window.requests_page
+
+
 def test_datumski_raspon_zavrsava_subotom(window: MainWindow) -> None:
     assert "17 – 22. avgust 2026" in window.range_label.text()
 
