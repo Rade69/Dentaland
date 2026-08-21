@@ -136,3 +136,26 @@ def test_klik_na_blockout_slot_ne_emituje_slot_selected(
     zorka_col = view._doctor_ids.index(zorka_id)
     view.cellClicked.emit(2, zorka_col)  # 10:00, blokirano
     assert emitted == []
+
+
+def test_visible_doctor_counts_za_dan(qtbot, appointment_service) -> None:
+    doctor_ids = {d.ime: d.id for d in appointment_service.doctors()}
+    appointment_service.set_doctor(doctor_ids["Ljubo"])
+    appointment_service.create(
+        "A", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    appointment_service.set_doctor(doctor_ids["Ana"])
+    appointment_service.create(
+        "B", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 11, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 11, 30, tzinfo=SARAJEVO),
+    )
+    view = DayView(appointment_service, DAY)
+    qtbot.addWidget(view)
+
+    assert view.visible_doctor_counts() == {
+        doctor_ids["Ljubo"]: 1,
+        doctor_ids["Ana"]: 1,
+    }

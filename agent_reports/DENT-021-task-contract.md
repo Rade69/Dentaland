@@ -3,7 +3,7 @@ task_id: DENT-021
 risk: LOW
 implementer: pi
 reviewers: [claude]
-verdict: PENDING (revizija)
+verdict: "PASS (revizija) — vidi agent_reports/2026-08-21-DENT-021-revizija-review-claude.md. Čeka commit + human approval prije merge-a."
 commits: []
 created_at: 2026-08-21
 ---

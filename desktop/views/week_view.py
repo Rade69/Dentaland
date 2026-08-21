@@ -265,6 +265,20 @@ class WeekView(QTableWidget):
             counts[_status_key(appt)] += 1
         return counts
 
+    def visible_doctor_counts(self) -> dict[int, int]:
+        """Broj vidljivih termina po doktoru u trenutnom periodu —
+        NAMJERNO ignoriše ``self._filter_doctor_id``, panel doktora mora
+        prikazivati sve doktore bez obzira na aktivni tab."""
+        counts: dict[int, int] = {}
+        for appt in self._fetch_appointments():
+            if self._cell_span(appt) is None:
+                continue
+            doctor_id = getattr(appt, "doctor_id", None)
+            if doctor_id is None:
+                continue
+            counts[doctor_id] = counts.get(doctor_id, 0) + 1
+        return counts
+
     def _appointments_by_cell(self) -> dict[tuple[int, int], list[AppointmentDTO]]:
         result: dict[tuple[int, int], list[AppointmentDTO]] = {}
         for (row, col), span, appt in self._visible_appointments():

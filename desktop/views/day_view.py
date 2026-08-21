@@ -188,6 +188,18 @@ class DayView(QTableWidget):
             counts[_status_key(appt)] += 1
         return counts
 
+    def visible_doctor_counts(self) -> dict[int, int]:
+        """Broj vidljivih termina po doktoru za prikazani dan."""
+        counts: dict[int, int] = {}
+        for appt in self._fetch_appointments():
+            if self._cell_span(appt) is None:
+                continue
+            doctor_id = getattr(appt, "doctor_id", None)
+            if doctor_id is None:
+                continue
+            counts[doctor_id] = counts.get(doctor_id, 0) + 1
+        return counts
+
     def refresh(self) -> None:
         self.clearSpans()
         for row in range(self.rowCount()):

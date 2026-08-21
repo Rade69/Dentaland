@@ -279,3 +279,30 @@ def test_izbrisi_termin_emituje_delete_akciju(
     action.trigger()
 
     assert emitted == [(appt.id, "delete")]
+
+
+def test_visible_doctor_counts_nezavisno_od_filtera(
+    qtbot, appointment_service, week_start
+) -> None:
+    doctor_ids = {d.ime: d.id for d in appointment_service.doctors()}
+    appointment_service.set_doctor(doctor_ids["Ljubo"])
+    appointment_service.create(
+        "A", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    appointment_service.set_doctor(doctor_ids["Zorka"])
+    appointment_service.create(
+        "B", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 10, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 10, 30, tzinfo=SARAJEVO),
+    )
+    view = WeekView(appointment_service, week_start)
+    qtbot.addWidget(view)
+
+    view.set_filter(doctor_ids["Ljubo"])  # filter NE utiče na count
+
+    assert view.visible_doctor_counts() == {
+        doctor_ids["Ljubo"]: 1,
+        doctor_ids["Zorka"]: 1,
+    }
