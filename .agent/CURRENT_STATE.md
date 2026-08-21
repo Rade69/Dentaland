@@ -9,16 +9,14 @@ sedmica, provjeriti da li je i dalje tačno prije oslanjanja na njega.
 
 ## Current development focus
 
-Nema aktivnog zadatka u toku. Pored ranije MERGED rada (6 faza desktop
-redizajna, Faza 2 agentskog workflow-a, `DENT-020`), sada su MERGED i
-`DENT-IMPROVE-001` do `004` (Context Debt cleanup, CI, centralne putanje,
-Blokiraj vrijeme) i `DENT-IMPROVE-005` (minimalne Postavke —
-`SettingsPanel`: doktori aktivan/neaktivan, usluge dodaj/uredi, radno
-vrijeme split shift; implementer Crush, review Claude PASS_WITH_NOTES,
-adversarno testirani touching-boundary/prazna-lista/po-danu-izolacija
-slučajevi). Sljedeći u redu: `DENT-IMPROVE-006` (Novi zahtjevi ekran) —
-koordinaciona napomena: dira iste navigacione fajlove kao `004`/`005`
-(već MERGED), nema više konflikta na čekanju.
+Nema aktivnog zadatka u toku. Cijeli Prioritet A backloga
+(`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`) je sada MERGED:
+`DENT-IMPROVE-001` do `006` (Context Debt cleanup, CI, centralne putanje,
+Blokiraj vrijeme, Postavke, i sada `006` — dedicated "Novi zahtjevi"
+ekran, `RequestsPage` + izdvojen `process_pending_request()` helper
+dijeljen sa `DashboardPanels`, implementer Codex, review Claude
+PASS_WITH_NOTES). Čeka se Radovanova odluka o Prioritetu B (`007` backup,
+`009` Windows packaging) ili drugom prioritetu.
 
 ## Agent availability
 
@@ -32,12 +30,12 @@ review runde). `CLAUDE.md` je sada thin router, ne sadrži tabelu uloga.
 
 ## Current verification baseline
 
-Izmjereno 2026-08-21 na `main`, post-merge gate nakon `DENT-IMPROVE-005`:
+Izmjereno 2026-08-21 na `main`, post-merge gate nakon `DENT-IMPROVE-006`:
 
-- `pytest tests/ -q` → **251 passed**, 11 warnings (deprecation warnings iz
-  `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda), ~12s.
+- `pytest tests/ -q` → **254 passed**, 11 warnings (deprecation warnings iz
+  `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda), ~9s.
 - `ruff check src/dentaland desktop backend tests` → **All checks passed**.
-- `mypy src/dentaland desktop backend` → **Success: no issues found in 34
+- `mypy src/dentaland desktop backend` → **Success: no issues found in 35
   source files.**
 
 Ne tretirati broj testova kao trajno pravilo — raste sa svakim novim
@@ -57,8 +55,7 @@ napamet.
 
 ## Next known work
 
-`DENT-IMPROVE-006` (Novi zahtjevi ekran) je pripremljen
-(`agent_reports/DENT-IMPROVE-006-task-contract.md`), čeka dodjelu
-implementeru. Ovo je posljednja stavka iz Prioriteta A backloga
-(`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`) — nakon nje Prioritet B
-(`007` backup, `009` packaging).
+Nema otvorenog zadatka — Prioritet A backloga je kompletan. Čeka se
+Radovanova odluka o Prioritetu B (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`:
+`DENT-IMPROVE-007` operativni backup, `DENT-IMPROVE-009` Windows
+packaging) ili drugom prioritetu.

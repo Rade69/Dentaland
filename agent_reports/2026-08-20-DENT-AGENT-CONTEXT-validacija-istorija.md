@@ -92,3 +92,40 @@ fajlove/putanje ako je cilj da agent stvarno koristi routing sloj —
 navesti samo cilj i uputiti na `.agent/TASK_ROUTING.md`, ostaviti agentu
 da sam odredi put. Faza 2 (`DENT-AGENT-CONTEXT-002`) je mergovana na
 osnovu ovog i ranijih nalaza.
+
+## Nastavak validacije — DENT-IMPROVE-002 do 006 (2026-08-20/21)
+
+Nakon Faze 1/2 zaključka, praksa "lean" task brief-a (cilj + uputa na
+`.agent/TASK_ROUTING.md`, bez unaprijed navedenih tačnih fajlova) je
+primijenjena dosljedno na svih pet backlog taskova, uklj. dva nova tipa
+zadatka (CI/tooling, desktop path/infrastructure) i jedan refaktor
+zadatak sa dijeljenom logikom:
+
+| Task | Implementer | Tip zadatka (nov?) | Fajlova prije 1. izmjene | Koristio `.agent/`? | Scope prekršaj? |
+|---|---|---|---|---|---|
+| DENT-IMPROVE-002 (CI) | pi | CI/tooling (NOV) | 11 | DA — nema namjenskog paketa, primijenio najbliži obrazac | NE |
+| DENT-IMPROVE-003 (paths) | pi | desktop path/infra (NOV) | 10 | DA — Entry points + Desktop scheduler sekcije | NE |
+| DENT-IMPROVE-004 (blockout) | pi | feature (servis+GUI) | 11 | DA — kombinovao Booking + Desktop GUI pakete | NE |
+| DENT-IMPROVE-005 (postavke) | crush | feature (servis+GUI) | 6 | DA — isti paketi, najmanji broj fajlova dosad | NE |
+| DENT-IMPROVE-006 (zahtjevi) | codex | feature + refaktor dijeljene logike | 18 | DA — najveći broj fajlova, ali odgovara stvarnoj složenosti (refaktor zahtijeva razumijevanje dva postojeća toka) | NE |
+
+Svih 5 taskova: nula scope prekršaja, nula pitanja za pojašnjenje
+strukture (Codex je "tražio pojašnjenje" u smislu ciljanog `git
+diff`/postojeće pokriće provjere, ne strukturnog pitanja Radovanu).
+
+**Nalaz:** koncept se potvrđuje i na tipovima zadataka koji nisu bili
+testirani u Fazi 1/2 (CI, path/infrastructure, refaktor dijeljene
+logike) — `.agent/` sloj daje koristan polazni obrazac čak i kad
+`TASK_ROUTING.md` nema namjenski paket za taj tačan tip (implementer
+sam generalizuje najbliži postojeći paket, umjesto `ls`/`find`
+istraživanja). Broj pročitanih fajlova prirodno raste sa stvarnom
+složenošću zadatka (6 za samostalan CRUD feature, 18 za refaktor koji
+dira dijeljenu logiku dva ekrana) — to je očekivano i ne ukazuje na
+lutanje, jer je scope u svih pet slučajeva ostao čist.
+
+**Specifično za Codex (DENT-IMPROVE-006):** ovo je drugi Codex
+implementacioni probni signal (nakon `DENT-020`), sada na zadatku van
+njegove ranije privremene "odstupanje od uloge" situacije — ovo je
+njegova redovna LOW/MEDIUM implementer uloga. Signal je konzistentan sa
+`DENT-020`: kratak, lean task brief → Codex koristi `.agent/` sloj bez
+poziva da mu se to eksplicitno kaže.

@@ -1,10 +1,24 @@
 ---
 task_id: DENT-IMPROVE-006
 risk: LOW/MEDIUM
-implementer: TBD
+implementer: codex
 reviewers: [claude]
+verdict: PASS_WITH_NOTES
+status: MERGED_INTEGRATION_VERIFIED
+commits: [3e5a72e]
 created_at: 2026-08-20
 ---
+
+## Integration status
+
+`MERGED → INTEGRATION_VERIFIED → DONE` (21.8.2026). Review: Claude
+`PASS_WITH_NOTES` (`agent_reports/2026-08-21-DENT-IMPROVE-006-review-claude.md`)
+— refaktor `_confirm` ručno provjeren bit-za-bit ekvivalentan originalu
+(svih 5 grana). Human approval: Radovan ("komituj i meredžuj"). Merge
+commit na `main` (`--no-ff`). Post-merge gate: `pytest` → 254 passed,
+`ruff` → All checks passed, `mypy` → 0 grešaka (35 fajlova). Manja
+napomena (RequestsPage ne refreshuje na "zatvoreno bez akcije", za
+razliku od Dashboard-a — ispravnije, ali nekonzistentno) nije blocking.
 
 # DENT-IMPROVE-006 — Pretvoriti „Novi zahtjevi" u pravi ekran
 
