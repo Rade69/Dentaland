@@ -9,7 +9,8 @@ prazan slot emituje ``slot_selected``. Drag&drop ostaje WeekView-specific.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+import math
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from PySide6.QtCore import QPoint, Qt, Signal
@@ -17,6 +18,7 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
+    QLabel,
     QMenu,
     QSizePolicy,
     QTableWidget,
@@ -110,6 +112,18 @@ class DayView(QTableWidget):
             if appt.start.astimezone(SARAJEVO).date() == self.day
         ]
 
+    def _fetch_blocks(self) -> list:
+        week_start = self.day - timedelta(days=self.day.weekday())
+        blocks: list = []
+        for method_name in ("time_off_for_week", "breaks_for_week"):
+            method = getattr(self.store, method_name, None)
+            if not callable(method):
+                continue
+            for block in method(week_start):
+                if block.start.astimezone(SARAJEVO).date() == self.day:
+                    blocks.append(block)
+        return blocks
+
     def _slot_datetime(self, row: int, extra_minutes: int = 0) -> datetime:
         minutes = DAY_START_HOUR * 60 + row * SLOT_MINUTES + extra_minutes
         return datetime(
@@ -140,6 +154,23 @@ class DayView(QTableWidget):
         span = max(int((duration_minutes + SLOT_MINUTES - 1) // SLOT_MINUTES), 1)
         return (row, col), min(span, self.rowCount() - row)
 
+    def _block_row_span(self, block: Any) -> tuple[int, int] | None:
+        if block.doctor_id not in self._doctor_names:
+            return None
+        local_start = block.start.astimezone(SARAJEVO)
+        local_end = block.end.astimezone(SARAJEVO)
+        start_minutes = local_start.hour * 60 + local_start.minute
+        end_minutes = local_end.hour * 60 + local_end.minute
+        first = DAY_START_HOUR * 60
+        last = DAY_END_HOUR * 60
+        start_minutes = max(start_minutes, first)
+        end_minutes = min(end_minutes, last)
+        if end_minutes <= start_minutes:
+            return None
+        row = max(0, (start_minutes - first) // SLOT_MINUTES)
+        span = max(1, math.ceil((end_minutes - start_minutes) / SLOT_MINUTES))
+        return row, min(span, self.rowCount() - row)
+
     def _appointments_by_cell(self) -> dict[tuple[int, int], list[AppointmentDTO]]:
         result: dict[tuple[int, int], list[AppointmentDTO]] = {}
         for appt in self._fetch_appointments():
@@ -168,6 +199,29 @@ class DayView(QTableWidget):
                 item = QTableWidgetItem("")
                 item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
                 self.setItem(row, col, item)
+
+        for block in self._fetch_blocks():
+            block_span = self._block_row_span(block)
+            if block_span is None:
+                continue
+            row, span = block_span
+            col = self._doctor_ids.index(block.doctor_id)
+            if span > 1:
+                self.setSpan(row, col, span, 1)
+            block_item = self.item(row, col)
+            assert block_item is not None
+            block_item.setText(block.label)
+            block_item.setBackground(QColor("#ffffff"))
+            block_item.setData(_BLOCK_ROLE, True)
+            block_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+            block_card = QLabel(block.label)
+            block_card.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            block_card.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+            block_card.setStyleSheet(
+                "background:#f1f3f5; color:#1f2937; border:1px solid #cfd6dd; "
+                "border-radius:7px; margin:5px 9px; padding:5px; font-weight:600;"
+            )
+            self.setCellWidget(row, col, block_card)
 
         grouped: dict[tuple[int, int], tuple[int, list[AppointmentDTO]]] = {}
         for appt in self._fetch_appointments():
@@ -258,4 +312,6 @@ class DayView(QTableWidget):
         if appts:
             self.appointment_clicked.emit(appts[0].id)
             return
-        self.slot_selected.emit(self._slot_datetime(row, self._pending_click_minutes))
+        item = self.item(row, col)
+        if item is not None and not item.data(_BLOCK_ROLE):
+            self.slot_selected.emit(self._slot_datetime(row, self._pending_click_minutes))

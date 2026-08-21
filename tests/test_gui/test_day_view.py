@@ -99,3 +99,40 @@ def test_izbrisi_termin_emituje_delete_akciju(qtbot, appointment_service) -> Non
     action.trigger()
 
     assert emitted == [(dto.id, "delete")]
+
+
+def test_day_view_prikazuje_blockout(qtbot, appointment_service) -> None:
+    doctor_ids = {d.ime: d.id for d in appointment_service.doctors()}
+    zorka_id = doctor_ids["Zorka"]
+    appointment_service.create_time_off(
+        zorka_id,
+        datetime(2026, 8, 17, 10, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 12, 0, tzinfo=SARAJEVO),
+        reason="Godišnji",
+    )
+    view = DayView(appointment_service, DAY)
+    qtbot.addWidget(view)
+
+    zorka_col = view._doctor_ids.index(zorka_id)
+    item = view.item(2, zorka_col)  # 10:00 = red 2
+    assert item is not None and item.text() == "Godišnji"
+
+
+def test_klik_na_blockout_slot_ne_emituje_slot_selected(
+    qtbot, appointment_service
+) -> None:
+    doctor_ids = {d.ime: d.id for d in appointment_service.doctors()}
+    zorka_id = doctor_ids["Zorka"]
+    appointment_service.create_time_off(
+        zorka_id,
+        datetime(2026, 8, 17, 10, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 12, 0, tzinfo=SARAJEVO),
+    )
+    view = DayView(appointment_service, DAY)
+    qtbot.addWidget(view)
+
+    emitted: list[datetime] = []
+    view.slot_selected.connect(emitted.append)
+    zorka_col = view._doctor_ids.index(zorka_id)
+    view.cellClicked.emit(2, zorka_col)  # 10:00, blokirano
+    assert emitted == []
