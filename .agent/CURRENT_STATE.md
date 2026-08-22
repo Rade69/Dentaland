@@ -37,8 +37,15 @@ mogu davati lažan PASS.
 
 Sljedeći u korektivnom paketu (`docs/dentaland-desktop-korektivni-plan.md`,
 redoslijed FIX-02 → FIX-01 → 03 → 04 → 05 → 06): **FIX-06** (vizuelno
-usklađivanje Settings/Blockout, LOW) — posljednji u paketu, priprema
-još nije urađena.
+usklađivanje Settings/Blockout, LOW) — posljednji u paketu. Task
+Contract spreman (`agent_reports/FIX-06-task-contract.md`): (A)
+`ServiceDialog`/`IntervalDialog` u `settings_panel.py` prelaze sa
+`QDialog`+`QDialogButtonBox` na `BaseDialog` (poziv-ugovor prema
+`SettingsPanel` nepromijenjen — `exec()`/`values()` isti); (B)
+`blockout_panel.py`-ova `QMessageBox.question` potvrda brisanja
+zamijenjena Dentaland destructive-confirm dijalogom po uzoru na
+`delete_appointment.py` (BEZ Enter-safety izuzetka — taj je specifičan
+samo za hard-delete termina). Dodijeljeno Pi-ju.
 
 **Paralelno, van ovog korektivnog paketa (Codex, ne moj task):**
 `DENT-021` (panel doktora sa fotografijama) je MERGED (`9f08a7e`,
@@ -98,6 +105,6 @@ napamet.
 
 ## Next known work
 
-`FIX-06` (LOW, vizuelno usklađivanje Settings/Blockout) — posljednji u
-korektivnom paketu, priprema još nije urađena. Prioritet B backloga
-(`DENT-IMPROVE-007`/`009`) čeka poslije cijelog korektivnog paketa.
+`FIX-06` čeka implementaciju (Pi, vidi "Current development focus") —
+posljednji u korektivnom paketu. Nakon toga Prioritet B backloga
+(`DENT-IMPROVE-007`/`009`).
