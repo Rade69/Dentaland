@@ -3,7 +3,7 @@ task_id: FIX-06
 risk: LOW
 implementer: pi
 reviewers: [claude]
-status: ASSIGNED — dodijeljeno Pi-ju (implementer)
+status: "Implementacija (Pi, commit b392954) + review (Claude): PASS. Vidi agent_reports/2026-08-21-FIX-06-pi.md i .../2026-08-21-FIX-06-review-claude.md. LOW risk — čeka Radovanovu odluku o human approval-u prije merge-a. Posljednji task korektivnog paketa FIX-01..06."
 created_at: 2026-08-21
 ---
 
