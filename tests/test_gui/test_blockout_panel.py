@@ -6,10 +6,12 @@ from datetime import datetime
 from types import SimpleNamespace
 
 from PySide6.QtCore import QDate, Qt, QTime
-from PySide6.QtWidgets import QLabel, QMessageBox, QPushButton
+from PySide6.QtWidgets import QDialog, QLabel, QPushButton
 
 from desktop.fake_data import SARAJEVO
+from desktop.views import blockout_panel as blockout_panel_mod
 from desktop.views.blockout_panel import BlockoutPanel
+from desktop.views.dialogs.blockout_delete_confirm import BlockoutDeleteConfirmDialog
 
 
 class BlockoutStore:
@@ -109,14 +111,57 @@ def test_delete_uz_potvrdu_poziva_delete_time_off(qtbot, monkeypatch) -> None:
     panel = BlockoutPanel(store)
     qtbot.addWidget(panel)
 
-    monkeypatch.setattr(
-        QMessageBox,
-        "question",
-        staticmethod(lambda *args, **kwargs: QMessageBox.StandardButton.Yes),
-    )
+    class FakeDeleteDialog:
+        def __init__(self, block, parent=None):
+            self.block = block
+
+        def exec(self):
+            return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(blockout_panel_mod, "BlockoutDeleteConfirmDialog", FakeDeleteDialog)
 
     qtbot.mouseClick(_button(panel, "Obriši"), Qt.MouseButton.LeftButton)
     qtbot.wait(10)  # dovrši deleteLater() stare stavke
 
     assert store.deleted == [1]
     assert panel.list_box.title() == "Aktivne blokade (0)"
+
+
+def test_delete_odustani_ne_brise_blokadu(qtbot, monkeypatch) -> None:
+    store = BlockoutStore()
+    panel = BlockoutPanel(store)
+    qtbot.addWidget(panel)
+
+    class FakeDeleteDialog:
+        def __init__(self, block, parent=None):
+            pass
+
+        def exec(self):
+            return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(blockout_panel_mod, "BlockoutDeleteConfirmDialog", FakeDeleteDialog)
+
+    qtbot.mouseClick(_button(panel, "Obriši"), Qt.MouseButton.LeftButton)
+    qtbot.wait(10)  # dovrši deleteLater() stare stavke
+
+    assert store.deleted == []
+    assert panel.list_box.title() == "Aktivne blokade (1)"
+
+
+def test_blockout_delete_dialog_prikazuje_doktora_vrijeme_i_razlog(qtbot) -> None:
+    block = SimpleNamespace(
+        id=1,
+        doctor_name="Ljubo",
+        start=datetime(2026, 8, 18, 12, 0, tzinfo=SARAJEVO),
+        end=datetime(2026, 8, 18, 13, 0, tzinfo=SARAJEVO),
+        reason="Ručak",
+    )
+    dialog = BlockoutDeleteConfirmDialog(block)
+    qtbot.addWidget(dialog)
+
+    patient = dialog.findChild(QLabel, "deletePatient")
+    when = dialog.findChild(QLabel, "deleteWhen")
+    reason = dialog.findChild(QLabel, "deleteNote")
+    assert patient is not None and patient.text() == "Ljubo"
+    assert when is not None and "12:00" in when.text() and "13:00" in when.text()
+    assert reason is not None and "Ručak" in reason.text()

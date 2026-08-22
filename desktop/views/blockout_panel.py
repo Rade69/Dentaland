@@ -9,12 +9,12 @@ from PySide6.QtCore import QDate, Qt, QTime, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QDateEdit,
+    QDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QPushButton,
     QScrollArea,
     QTimeEdit,
@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from dentaland.services import OverlapError
 from desktop.fake_data import SARAJEVO
+from desktop.views.dialogs.blockout_delete_confirm import BlockoutDeleteConfirmDialog
 
 
 class BlockoutPanel(QScrollArea):
@@ -143,7 +144,7 @@ class BlockoutPanel(QScrollArea):
             delete = QPushButton("Obriši")
             delete.setObjectName("rejectButton")
             delete.clicked.connect(
-                lambda _checked=False, block_id=block.id: self._on_delete(block_id)
+                lambda _checked=False, block=block: self._on_delete(block)
             )
             row_layout.addWidget(delete)
             old.addWidget(row)
@@ -185,19 +186,13 @@ class BlockoutPanel(QScrollArea):
         self.refresh()
         self.changed.emit()
 
-    def _on_delete(self, block_id: int) -> None:
-        answer = QMessageBox.question(
-            self,
-            "Obriši blokadu",
-            "Sigurno želite obrisati ovu blokadu?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if answer != QMessageBox.StandardButton.Yes:
+    def _on_delete(self, block: Any) -> None:
+        dialog = BlockoutDeleteConfirmDialog(block, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         self._clear_error()
         try:
-            self.store.delete_time_off(block_id)
+            self.store.delete_time_off(block.id)
         except ValueError as exc:
             self._show_error(str(exc))
             return
