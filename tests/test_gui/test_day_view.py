@@ -159,3 +159,100 @@ def test_visible_doctor_counts_za_dan(qtbot, appointment_service) -> None:
         doctor_ids["Ljubo"]: 1,
         doctor_ids["Ana"]: 1,
     }
+
+
+def test_prevlacenje_unutar_iste_doktor_kolone_azurira_vrijeme(
+    qtbot, appointment_service
+) -> None:
+    doctor_ids = {d.ime: d.id for d in appointment_service.doctors()}
+    ljubo = doctor_ids["Ljubo"]
+    appointment_service.set_doctor(ljubo)
+    appt = appointment_service.create(
+        "Ana", "061", "a@x", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    view = DayView(appointment_service, DAY)
+    qtbot.addWidget(view)
+
+    ljubo_col = view._doctor_ids.index(ljubo)
+    assert view.move_appointment_to_slot(appt.id, 3, ljubo_col) is True  # 11:00
+    assert appointment_service.get(appt.id).start == datetime(
+        2026, 8, 17, 11, 0, tzinfo=SARAJEVO
+    )
+
+
+def test_prevlacenje_u_zauzetu_celiju_se_odbija(
+    qtbot, appointment_service
+) -> None:
+    doctor_ids = {d.ime: d.id for d in appointment_service.doctors()}
+    ljubo = doctor_ids["Ljubo"]
+    appointment_service.set_doctor(ljubo)
+    first = appointment_service.create(
+        "Ana", "061", "a@x", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    appointment_service.create(
+        "Marko", "062", "m@x", "Kontrola", "",
+        datetime(2026, 8, 17, 11, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 11, 30, tzinfo=SARAJEVO),
+    )
+    view = DayView(appointment_service, DAY)
+    qtbot.addWidget(view)
+
+    ljubo_col = view._doctor_ids.index(ljubo)
+    assert view.move_appointment_to_slot(first.id, 3, ljubo_col) is False  # 11:00 zauzeto
+    assert appointment_service.get(first.id).start == datetime(
+        2026, 8, 17, 9, 0, tzinfo=SARAJEVO
+    )
+
+
+def test_prevlacenje_u_drugu_doktor_kolonu_se_odbija(
+    qtbot, appointment_service
+) -> None:
+    doctor_ids = {d.ime: d.id for d in appointment_service.doctors()}
+    ljubo = doctor_ids["Ljubo"]
+    zorka = doctor_ids["Zorka"]
+    appointment_service.set_doctor(ljubo)
+    appt = appointment_service.create(
+        "Ana", "061", "a@x", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    view = DayView(appointment_service, DAY)
+    qtbot.addWidget(view)
+
+    zorka_col = view._doctor_ids.index(zorka)
+    assert view.move_appointment_to_slot(appt.id, 1, zorka_col) is False
+    moved = appointment_service.get(appt.id)
+    assert moved.doctor_id == ljubo
+    assert moved.start == datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO)
+
+
+def test_preklapanje_sa_terminom_van_prikaza_se_odbija(
+    qtbot, appointment_service
+) -> None:
+    """OverlapError iz store.move() — termin prije radnog vremena DayView-a
+    nije u _appointments_by_cell, ali se vremenski preklapa sa ciljnim slotom."""
+    doctor_ids = {d.ime: d.id for d in appointment_service.doctors()}
+    ljubo = doctor_ids["Ljubo"]
+    appointment_service.set_doctor(ljubo)
+    appt = appointment_service.create(
+        "Ana", "061", "a@x", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    appointment_service.create(
+        "Marko", "062", "m@x", "Kontrola", "",
+        datetime(2026, 8, 17, 7, 30, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 8, 30, tzinfo=SARAJEVO),
+    )
+    view = DayView(appointment_service, DAY)
+    qtbot.addWidget(view)
+
+    ljubo_col = view._doctor_ids.index(ljubo)
+    assert view.move_appointment_to_slot(appt.id, 0, ljubo_col) is False  # 08:00
+    assert appointment_service.get(appt.id).start == datetime(
+        2026, 8, 17, 9, 0, tzinfo=SARAJEVO
+    )
