@@ -3,7 +3,7 @@ task_id: FIX-05
 risk: MEDIUM
 implementer: pi
 reviewers: [claude]
-status: "Implementacija (Pi, commit 40eb79a) + review (Claude): PASS. Vidi agent_reports/2026-08-21-FIX-05-pi.md i .../2026-08-21-FIX-05-review-claude.md. MEDIUM risk — čeka human approval prije merge-a."
+status: "MERGED → INTEGRATION_VERIFIED → DONE (merge 8576408). Human approval: Radovan. Post-merge gate: pytest 277 passed (276 FIX-05 baseline + Codex-ov paralelni necommitovan FIX-07 rad prisutan u istom checkout-u u trenutku mjerenja), ruff clean, mypy clean (0 issues, 35 fajlova). Izolovan FIX-05-samo test u worktree-u prije merge-a: 276 passed."
 created_at: 2026-08-21
 ---
 

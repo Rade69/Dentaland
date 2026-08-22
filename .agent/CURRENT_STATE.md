@@ -9,12 +9,14 @@ sedmica, provjeriti da li je i dalje tačno prije oslanjanja na njega.
 
 ## Current development focus
 
-`FIX-02` (LOW), `FIX-01` (MEDIUM), `FIX-03` (MEDIUM, NO_SHOW/CANCELLED)
-i `FIX-04` (MEDIUM, ne gutati `ValueError`) su svi MERGED →
-INTEGRATION_VERIFIED → DONE (merge `ae6e52f`, `9808475`, `53db57c`,
-`a6cdc2a`, 21.8.2026). Implementer sva četiri puta Pi, review Claude
-PASS. FIX-03 je trebao **tri runde** review-a — vrijedi zapamtiti kao
-presedan:
+`FIX-02` (LOW), `FIX-01`, `FIX-03`, `FIX-04` i `FIX-05` (sve MEDIUM osim
+FIX-02) su svi MERGED → INTEGRATION_VERIFIED → DONE (merge `ae6e52f`,
+`9808475`, `53db57c`, `a6cdc2a`, `8576408`, 21.8.2026). Implementer svih
+pet puta Pi, review Claude PASS. FIX-05 napomena: implementer je ovaj
+put SAM commitovao rad prije traženja odobrenja (odstupanje od
+dosadašnjeg "nikad commit bez eksplicitnog zahtjeva" obrasca) — bez
+štete, ali vrijedi pratiti da li se ponavlja. FIX-03 je trebao **tri
+runde** review-a — vrijedi zapamtiti kao presedan:
 1. Implementacija PASS na logici statusa, ali status legenda (6 stavki
    umjesto 5) vizuelno pretjecala kontejner na 1536×760 (385px
    odsijecanja) — REJECT.
@@ -34,25 +36,22 @@ buggy kod i potvrditi da test PADA) — ovakva geometrijska poređenja
 mogu davati lažan PASS.
 
 Sljedeći u korektivnom paketu (`docs/dentaland-desktop-korektivni-plan.md`,
-redoslijed FIX-02 → FIX-01 → 03 → 04 → 05 → 06): **FIX-05** (DayView
-drag & drop, MEDIUM) — Task Contract spreman
-(`agent_reports/FIX-05-task-contract.md`), root cause/referentna
-implementacija locirana (WeekView već ima kompletan radni obrazac —
-`setDragDropMode`, `ItemIsDragEnabled`/`ItemIsDropEnabled` flagovi,
-`move_appointment_to_slot`, `mousePressEvent`/`dropEvent`). Arhitektonska
-odluka VEĆ DONESENA u kontraktu: DayView kolone su doktori (ne dani kao
-u WeekView), pa je drag u OVOJ iteraciji ograničen na istu doktor-kolonu
-(samo promjena vremena) — cross-doctor drag eksplicitno odbijen, ostaje
-"Uredi termin" za promjenu doktora. Dodijeljeno Pi-ju. **FIX-06**
-(vizuelno usklađivanje Settings/Blockout, LOW) ostaje posljednji u
-paketu, priprema još nije urađena.
+redoslijed FIX-02 → FIX-01 → 03 → 04 → 05 → 06): **FIX-06** (vizuelno
+usklađivanje Settings/Blockout, LOW) — posljednji u paketu, priprema
+još nije urađena.
 
+**Paralelno, van ovog korektivnog paketa (Codex, ne moj task):**
 `DENT-021` (panel doktora sa fotografijama) je MERGED (`9f08a7e`,
-21.8.2026) — van korektivnog paketa. Prošao kroz reviziju (Radovan
-tražio veće fotografije + brojčanu znaku umjesto praznog kružića boje),
-Claude review PASS. Vrijedi zapamtiti: Pi-jevi placeholder PNG-ovi
-(generisani, sitni) su prije merge-a zamijenjeni Codex-ovim originalnim
-realističkim fotografijama — kod Pi-jev, slikovni asseti Codex-ovi.
+21.8.2026). Vrijedi zapamtiti: Pi-jevi placeholder PNG-ovi su prije
+merge-a zamijenjeni Codex-ovim originalnim realističkim fotografijama —
+kod Pi-jev, slikovni asseti Codex-ovi.
+
+`FIX-07` (WeekView kartica odsječena na donjoj granici prikaza, LOW,
+`agent_reports/FIX-07-task-contract.md`) — Codex trenutno radi DIREKTNO
+u glavnom checkout-u (ne worktree, isti obrazac kao DENT-021), stanje
+21.8.2026 necommitovano. `python scripts/coordination.py status`
+pokazuje aktivan claim na `week_view.py`/`test_week_view.py`. Provjeriti
+claim status prije bilo kakvog rada na tim fajlovima.
 
 Prioritet A backloga (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`,
 `DENT-IMPROVE-001` do `006`) je MERGED — vidi "Recently completed major
@@ -71,10 +70,13 @@ review runde). `CLAUDE.md` je sada thin router, ne sadrži tabelu uloga.
 
 ## Current verification baseline
 
-Izmjereno 2026-08-21 na `main`, post-merge gate nakon `FIX-04`:
+Izmjereno 2026-08-21 na `main`, post-merge gate nakon `FIX-05` (broj
+uključuje Codex-ov paralelni necommitovan `FIX-07` rad prisutan u
+checkout-u u trenutku mjerenja — izolovan FIX-05-samo test u worktree-u
+prije merge-a bio je 276):
 
-- `pytest tests/ -q` → **272 passed**, 11 warnings (deprecation warnings iz
-  `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda), ~10s.
+- `pytest tests/ -q` → **277 passed**, 11 warnings (deprecation warnings iz
+  `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda), ~11s.
 - `ruff check src/dentaland desktop backend tests` → **All checks passed**.
 - `mypy src/dentaland desktop backend` → **Success: no issues found in 35
   source files.**
@@ -96,7 +98,6 @@ napamet.
 
 ## Next known work
 
-`FIX-05` čeka implementaciju (Pi, vidi "Current development focus").
-Nakon toga `FIX-06` (LOW) — posljednji u korektivnom paketu, priprema
-još nije urađena. Prioritet B backloga (`DENT-IMPROVE-007`/`009`) čeka
-poslije cijelog korektivnog paketa.
+`FIX-06` (LOW, vizuelno usklađivanje Settings/Blockout) — posljednji u
+korektivnom paketu, priprema još nije urađena. Prioritet B backloga
+(`DENT-IMPROVE-007`/`009`) čeka poslije cijelog korektivnog paketa.
