@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
-    QDialogButtonBox,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -31,6 +30,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from desktop.views.dialogs.base_dialog import BaseDialog
+
 DAN_NAMES = [
     "Ponedjeljak",
     "Utorak",
@@ -42,15 +43,14 @@ DAN_NAMES = [
 ]
 
 
-class ServiceDialog(QDialog):
+class ServiceDialog(BaseDialog):
     """Dodaj/uredi uslugu — naziv, trajanje, buffer."""
 
     def __init__(
         self, parent: QWidget | None = None, *, naziv: str = "", trajanje: int = 30, buffer: int = 0
     ) -> None:
-        super().__init__(parent)
-        self.setWindowTitle("Usluga")
-        form = QFormLayout(self)
+        super().__init__("Usluga", parent, icon="settings")
+        form = QFormLayout()
         self.naziv_edit = QComboBox()
         self.naziv_edit.setEditable(True)
         self.naziv_edit.setCurrentText(naziv)
@@ -65,12 +65,9 @@ class ServiceDialog(QDialog):
         self.buffer_spin.setValue(buffer)
         self.buffer_spin.setSuffix(" min")
         form.addRow("Buffer", self.buffer_spin)
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        form.addRow(buttons)
+        self.body_layout().addLayout(form)
+        self.add_secondary_button("Odustani")
+        self.add_primary_button("Sačuvaj")
 
     def values(self) -> tuple[str, int, int]:
         return (
@@ -80,13 +77,12 @@ class ServiceDialog(QDialog):
         )
 
 
-class IntervalDialog(QDialog):
+class IntervalDialog(BaseDialog):
     """Dodaj interval radnog vremena — od/do."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setWindowTitle("Interval radnog vremena")
-        form = QFormLayout(self)
+        super().__init__("Interval radnog vremena", parent, icon="clock")
+        form = QFormLayout()
         self.od_edit = QTimeEdit()
         self.od_edit.setDisplayFormat("HH:mm")
         self.od_edit.setTime(self.od_edit.time().fromString("08:00", "HH:mm"))
@@ -95,12 +91,9 @@ class IntervalDialog(QDialog):
         self.do_edit.setDisplayFormat("HH:mm")
         self.do_edit.setTime(self.do_edit.time().fromString("09:00", "HH:mm"))
         form.addRow("Do", self.do_edit)
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        form.addRow(buttons)
+        self.body_layout().addLayout(form)
+        self.add_secondary_button("Odustani")
+        self.add_primary_button("Sačuvaj")
 
     def values(self) -> tuple[time, time]:
         qod = self.od_edit.time()
