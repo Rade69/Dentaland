@@ -4,7 +4,9 @@ Zaseban widget (ne mega-WeekView): kolone = doktori, redovi = vremenski
 slotovi za izabrani datum. Dijeli male stabilne helpere iz ``week_view``
 (status/boje). Isti click/context model kao WeekView — lijevi klik na termin
 emituje ``appointment_clicked``, desni klik daje status-aware brze akcije,
-prazan slot emituje ``slot_selected``. Drag&drop ostaje WeekView-specific.
+prazan slot emituje ``slot_selected``. Drag&drop mijenja vrijeme termina
+unutar iste doktor-kolone (cross-doctor drop se odbija — promjena doktora
+ide kroz "Uredi termin").
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from PySide6.QtCore import QPoint, Qt, Signal
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QDropEvent, QMouseEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
@@ -26,7 +28,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from dentaland.services import AppointmentDTO
+from dentaland.services import AppointmentDTO, OverlapError
 from desktop.fake_data import SARAJEVO
 from desktop.views.week_view import STATUS_META, WeekView, _status_key, status_icon
 
@@ -45,11 +47,13 @@ class DayView(QTableWidget):
     slot_selected = Signal(object)  # datetime početka praznog slota
     appointment_clicked = Signal(int)  # klik na termin -> Detalji
     appointment_action_requested = Signal(int, str)  # akcija iz kontekst menija
+    appointment_moved = Signal(object)  # Appointment koji je pomjeren
 
     def __init__(self, store: Any, day: date, parent: QWidget | None = None):
         super().__init__(parent)
         self.store = store
         self.day = day
+        self._drag_appt_id: int | None = None
         self._pending_click_minutes = 0
         self._doctor_ids: list[int] = []
         self._doctor_names: dict[int, str] = {}
@@ -83,6 +87,9 @@ class DayView(QTableWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored)
         self.setMinimumHeight(300)
         self.setWordWrap(True)
+        # PySide6 stub gap: QTableWidget.DragDrop postoji u runtime-u, ali
+        # nedostaje u tip stubovima — ne mijenjati logiku.
+        self.setDragDropMode(QTableWidget.DragDrop)  # type: ignore[attr-defined]
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -209,7 +216,11 @@ class DayView(QTableWidget):
                 if old_widget is not None:
                     old_widget.deleteLater()
                 item = QTableWidgetItem("")
-                item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+                item.setFlags(
+                    Qt.ItemFlag.ItemIsEnabled
+                    | Qt.ItemFlag.ItemIsSelectable
+                    | Qt.ItemFlag.ItemIsDropEnabled
+                )
                 self.setItem(row, col, item)
 
         for block in self._fetch_blocks():
@@ -269,7 +280,9 @@ class DayView(QTableWidget):
             cell_item.setForeground(QColor(text_color))
             cell_item.setData(_APPT_ID_ROLE, appt.id)
             cell_item.setFlags(
-                Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
+                Qt.ItemFlag.ItemIsEnabled
+                | Qt.ItemFlag.ItemIsSelectable
+                | Qt.ItemFlag.ItemIsDragEnabled
             )
 
     def _get_appointment(self, appt_id: int) -> Any:
@@ -327,3 +340,45 @@ class DayView(QTableWidget):
         item = self.item(row, col)
         if item is not None and not item.data(_BLOCK_ROLE):
             self.slot_selected.emit(self._slot_datetime(row, self._pending_click_minutes))
+
+    # ---- drag & drop (samo unutar iste doktor-kolone) ----
+
+    def move_appointment_to_slot(self, appt_id: int, row: int, col: int) -> bool:
+        appt = self.store.get(appt_id)
+        if appt is None:
+            return False
+        # Cross-doctor drag je van obima FIX-05: kolona je doktor, a promjena
+        # doktora ide kroz "Uredi termin" — drop u drugu kolonu se odbija.
+        if col < 0 or col >= len(self._doctor_ids) or self._doctor_ids[col] != appt.doctor_id:
+            return False
+        occupied = self._appointments_by_cell().get((row, col), [])
+        if any(a.id != appt_id for a in occupied):
+            return False
+        new_start = self._slot_datetime(row)
+        new_end = new_start + (appt.end - appt.start)
+        try:
+            self.store.move(appt_id, new_start, new_end)
+        except OverlapError:
+            return False
+        self.refresh()
+        self.appointment_moved.emit(appt)
+        return True
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            row = self.rowAt(event.position().toPoint().y())
+            col = self.columnAt(event.position().toPoint().x())
+            appts = self._appointments_by_cell().get((row, col), [])
+            self._drag_appt_id = appts[0].id if appts else None
+        super().mousePressEvent(event)
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        row = self.rowAt(event.position().toPoint().y())
+        col = self.columnAt(event.position().toPoint().x())
+        if self._drag_appt_id is None or row < 0 or col < 0:
+            event.ignore()
+            return
+        if self.move_appointment_to_slot(self._drag_appt_id, row, col):
+            event.accept()
+        else:
+            event.ignore()
