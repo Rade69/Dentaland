@@ -48,16 +48,20 @@ dosljedan — nema više poznatih otvorenih stavki iz
 merge-a zamijenjeni Codex-ovim originalnim realističkim fotografijama —
 kod Pi-jev, slikovni asseti Codex-ovi.
 
-`FIX-07` (WeekView kartica odsječena na donjoj granici prikaza, LOW,
-`agent_reports/FIX-07-task-contract.md`) — Codex je commitovao direktno
-na `main` (`4f47565`, 21.8.2026), rađeno direktno u glavnom checkout-u
-(ne worktree, isti obrazac kao DENT-021). **Nije prošlo kroz Claude
-nezavisan review niti human approval koliko je poznato** — commitovano
-mimo Task Contract review toka. Vrijedi provjeriti sa Radovanom da li je
-to namjerno prihvaćeno ili treba naknadni review. Untracked
-`.tmp-pytest-fix08/` u checkout-u nagovještava da Codex možda već radi
-i na FIX-08 — nema još task contracta za to, provjeriti
-`coordination.py status` uživo prije pretpostavke.
+`FIX-07` (WeekView kartica odsječena na donjoj granici, LOW) i `FIX-08`
+(avatari doktora 48→56px, LOW) — Codex je oba implementirao i sam
+mergovao (FIX-07 direktno u glavnom checkout-u kao DENT-021, `4f47565`,
+već pušovano; FIX-08 u zasebnom worktree-u/grani ali onda lokalno
+mergovano bez pushovanja, `18f264a`+`5fac891` merge) — oba MIMO Task
+Contract review toka (Codex-ov vlastiti "independent-codex" review nije
+stvaran nezavisan review). Radovan je tražio naknadnu provjeru
+("Provjeri ovo što je Codex radio") — Claude je uradio pravi nezavisan
+review za oba, oba adversarno potvrđena PASS (vidi
+`agent_reports/2026-08-22-FIX-07-review-claude.md`,
+`.../2026-08-22-FIX-08-review-claude.md`). Kod je ispravan za oba;
+otvoreno pitanje je SAMO proces (treći put da Codex zaobiđe review/
+worktree-izolaciju — DENT-021, FIX-07, FIX-08) — vrijedi razgovarati sa
+Radovanom o tome treba li nešto promijeniti u Codex-ovom usmjeravanju.
 
 Prioritet A backloga (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`,
 `DENT-IMPROVE-001` do `006`) je MERGED — vidi "Recently completed major
