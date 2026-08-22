@@ -395,7 +395,12 @@ class WeekView(QTableWidget):
                 symbol, status_color = _status_visual(appt)
                 doctor = getattr(appt, "doctor_name", None) or "Doktor"
                 duration_minutes = (appt.end - appt.start).total_seconds() / 60
-                compact = duration_minutes <= self.SLOT_MINUTES
+                # Termin može trajati iza donje granice tabele (npr.
+                # 19:00–20:30 u prikazu koji završava u 20:00). Tada je span
+                # namjerno skraćen na jedan vidljivi red, pa troredna kartica
+                # ne staje i bude odsječena. Sadržaj ostaje sa stvarnim
+                # vremenom, samo koristi kompaktni dvoredni raspored.
+                compact = duration_minutes <= self.SLOT_MINUTES or span == 1
                 if compact:
                     card_text = (
                         f"<b>{appt.patient_name}</b><br>"

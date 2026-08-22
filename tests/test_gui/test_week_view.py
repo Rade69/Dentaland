@@ -129,6 +129,27 @@ def test_termin_od_90_min_je_spojen_preko_dva_satna_slota(
     assert week_view.rowSpan(1, 0) == 2  # ponedjeljak 09:00–10:30
 
 
+def test_termin_preko_donje_granice_koristi_kompaktnu_karticu(
+    store: FakeStore,
+    week_view: WeekView,
+) -> None:
+    store.create(
+        "Radovan Stojanović", "", "", "Kontrola", "",
+        datetime(2026, 8, 17, 19, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 20, 30, tzinfo=SARAJEVO),
+    )
+    week_view.refresh()
+
+    last_row = week_view.rowCount() - 1
+    assert week_view.rowSpan(last_row, 0) == 1
+    card = week_view.cellWidget(last_row, 0)
+    assert isinstance(card, QLabel)
+    assert card.property("compact") is True
+    assert "19:00" in card.text()
+    assert "20:30" in card.text()
+    assert card.text().count("<br>") == 1
+
+
 def test_klik_na_pokrivenu_celiju_ne_otvara_dijalog(
     store: FakeStore, week_view: WeekView
 ) -> None:
