@@ -3,7 +3,7 @@ task_id: FIX-06
 risk: LOW
 implementer: pi
 reviewers: [claude]
-status: "Implementacija (Pi, commit b392954) + review (Claude): PASS. Vidi agent_reports/2026-08-21-FIX-06-pi.md i .../2026-08-21-FIX-06-review-claude.md. LOW risk — čeka Radovanovu odluku o human approval-u prije merge-a. Posljednji task korektivnog paketa FIX-01..06."
+status: "MERGED → INTEGRATION_VERIFIED → DONE (merge fca60f8). Human approval: Radovan. Post-merge gate: pytest 285 passed (uključuje Codex-ov paralelni necommitovan FIX-07 rad prisutan u checkout-u; izolovan FIX-06-samo test u worktree-u prije merge-a: 284), ruff clean, mypy clean (0 issues, 36 fajlova). Posljednji task korektivnog paketa FIX-01..06 — paket zatvoren."
 created_at: 2026-08-21
 ---
 
