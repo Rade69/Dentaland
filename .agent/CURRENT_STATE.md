@@ -35,8 +35,17 @@ mogu davati lažan PASS.
 
 Sljedeći u korektivnom paketu (`docs/dentaland-desktop-korektivni-plan.md`,
 redoslijed FIX-02 → FIX-01 → 03 → 04 → 05 → 06): **FIX-05** (DayView
-drag & drop, MEDIUM) ili **FIX-06** (vizuelno usklađivanje Settings/
-Blockout, LOW) — posljednja dva u paketu, priprema još nije urađena.
+drag & drop, MEDIUM) — Task Contract spreman
+(`agent_reports/FIX-05-task-contract.md`), root cause/referentna
+implementacija locirana (WeekView već ima kompletan radni obrazac —
+`setDragDropMode`, `ItemIsDragEnabled`/`ItemIsDropEnabled` flagovi,
+`move_appointment_to_slot`, `mousePressEvent`/`dropEvent`). Arhitektonska
+odluka VEĆ DONESENA u kontraktu: DayView kolone su doktori (ne dani kao
+u WeekView), pa je drag u OVOJ iteraciji ograničen na istu doktor-kolonu
+(samo promjena vremena) — cross-doctor drag eksplicitno odbijen, ostaje
+"Uredi termin" za promjenu doktora. Dodijeljeno Pi-ju. **FIX-06**
+(vizuelno usklađivanje Settings/Blockout, LOW) ostaje posljednji u
+paketu, priprema još nije urađena.
 
 `DENT-021` (panel doktora sa fotografijama) je MERGED (`9f08a7e`,
 21.8.2026) — van korektivnog paketa. Prošao kroz reviziju (Radovan
@@ -87,7 +96,7 @@ napamet.
 
 ## Next known work
 
-`FIX-05` (DayView drag & drop, MEDIUM) i `FIX-06` (vizuelno
-usklađivanje Settings/Blockout, LOW) su posljednja dva u korektivnom
-paketu — priprema još nije urađena. Prioritet B backloga
-(`DENT-IMPROVE-007`/`009`) čeka poslije cijelog korektivnog paketa.
+`FIX-05` čeka implementaciju (Pi, vidi "Current development focus").
+Nakon toga `FIX-06` (LOW) — posljednji u korektivnom paketu, priprema
+još nije urađena. Prioritet B backloga (`DENT-IMPROVE-007`/`009`) čeka
+poslije cijelog korektivnog paketa.
