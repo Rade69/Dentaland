@@ -546,10 +546,14 @@ def test_doctor_avatar_velicina_je_povecana(
     win = MainWindow(appointment_service, week_start)
     qtbot.addWidget(win)
 
-    assert main_window_mod.DOCTOR_AVATAR_SIZE >= 48
-    avatar = win.doctor_legend.findChild(QLabel, "doctorAvatarLjubo")
-    assert avatar is not None
-    assert avatar.width() >= 48
+    assert main_window_mod.DOCTOR_AVATAR_SIZE == 56
+    for doctor_name in ("Ljubo", "Zorka", "Ana"):
+        avatar = win.doctor_legend.findChild(QLabel, f"doctorAvatar{doctor_name}")
+        assert avatar is not None
+        assert avatar.width() == 56
+        assert avatar.height() == 56
+        assert avatar.pixmap() is not None
+        assert avatar.pixmap().size() == avatar.size()
 
 
 def test_doctor_panel_je_sakriven_kad_store_nema_doktore(

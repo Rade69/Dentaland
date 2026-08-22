@@ -62,7 +62,7 @@ DOCTOR_PHOTO_FILES = {
     "Zorka": "zorka.png",
     "Ana": "ana.png",
 }
-DOCTOR_AVATAR_SIZE = 48
+DOCTOR_AVATAR_SIZE = 56
 
 
 def _circular_doctor_pixmap(doctor_name: str) -> QPixmap:
