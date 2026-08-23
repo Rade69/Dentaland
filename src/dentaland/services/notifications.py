@@ -93,10 +93,13 @@ def send_due_appointment_reminders(
 ) -> int:
     """Pošalji podsjetnike za SCHEDULED termine u uskom 24h prozoru.
 
-    Prozor je ``[now + 24h, now + 24h + 15min)``. Bez schema polja za
-    "podsjetnik poslan" isti termin može biti izabran nakon restarta ili
-    slučajnog duplog pokretanja; taj rizik je eksplicitno prihvaćen u
-    DENT-020 Task Contractu dok se ne odobri HIGH-risk migracija.
+    Prozor je ``[now + 24h, now + 24h + 15min)``. ``reminder_sent_at``
+    (DENT-022) sprečava duplo slanje istog termina nakon restarta
+    scheduler-a ili slučajnog duplog pokretanja — vidi
+    ``agent_reports/2026-08-23-DENT-022-plan.md``. Termin se označava
+    poslanim NAKON best-effort pokušaja slanja, bez obzira na SMTP ishod
+    (``send_appointment_reminder`` nikad ne baca izuzetak — nastavak
+    postojeće best-effort filozofije, ne novi retry mehanizam).
     """
     current = now or datetime.now(UTC)
     if current.tzinfo is None or current.utcoffset() is None:
@@ -114,15 +117,20 @@ def send_due_appointment_reminders(
                 Appointment.start_time < window_end,
                 Appointment.email.is_not(None),
                 Appointment.email != "",
+                Appointment.reminder_sent_at.is_(None),
             )
             .order_by(Appointment.start_time)
         ).all()
 
-    for appointment in appointments:
-        if appointment.email and appointment.start_time:
-            send_appointment_reminder(appointment.email, appointment.start_time)
+        sent_count = 0
+        for appointment in appointments:
+            if appointment.email and appointment.start_time:
+                send_appointment_reminder(appointment.email, appointment.start_time)
+                appointment.reminder_sent_at = current
+                sent_count += 1
+        session.commit()
 
-    return len(appointments)
+    return sent_count
 
 
 def _dispatch(to_email: str, compose: Callable[[str, str], EmailMessage]) -> None:

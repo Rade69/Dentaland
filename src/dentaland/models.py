@@ -169,6 +169,12 @@ class Appointment(Base):
     # će ih koristiti) — vidi agent_reports/2026-08-17-DENT-012-plan.md.
     confirmed_at: Mapped[datetime | None] = mapped_column(TZDateTime(), nullable=True)
     arrived_at: Mapped[datetime | None] = mapped_column(TZDateTime(), nullable=True)
+    # Aditivna dopuna (DENT-022, 23.8.2026) — dedup oznaka za email
+    # podsjetnik (DENT-020). NULL = podsjetnik još nije poslan. Postavlja
+    # ga isključivo send_due_appointment_reminders() nakon best-effort
+    # slanja (bez obzira na SMTP ishod — vidi
+    # agent_reports/2026-08-23-DENT-022-plan.md).
+    reminder_sent_at: Mapped[datetime | None] = mapped_column(TZDateTime(), nullable=True)
     created_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         TZDateTime(), nullable=False, default=utcnow, onupdate=utcnow

@@ -260,6 +260,46 @@ def test_scheduler_bira_samo_scheduled_termine_u_uskom_prozoru(
     assert sent_addresses == {due_at_start.email, due_inside.email}
 
 
+def test_scheduler_ne_salje_dvaput_isti_termin(
+    session_factory: sessionmaker[Session], doctor_and_service: tuple[int, int]
+) -> None:
+    """DENT-022 — restart/dvostruko pokretanje scheduler-a ne smije duplirati slanje."""
+    now = datetime(2026, 8, 20, 8, 0, tzinfo=UTC)
+    doctor_id, service_id = doctor_and_service
+    start = now + REMINDER_LEAD_TIME
+
+    appt = Appointment(
+        doctor_id=doctor_id,
+        service_id=service_id,
+        ime="Pacijent",
+        email="pacijent@example.com",
+        start_time=start,
+        end_time=start + timedelta(minutes=30),
+        status=AppointmentStatus.SCHEDULED,
+    )
+    with session_factory() as session:
+        session.add(appt)
+        session.commit()
+        appt_id = appt.id
+
+    with patch("dentaland.services.notifications.send_appointment_reminder") as send:
+        first = send_due_appointment_reminders(session_factory, now=now)
+        # Isti (ili blago pomjeren, i dalje preklapajući) prozor — simulira
+        # restart scheduler-a koji ponovo računa "now" od trenutnog vremena.
+        second = send_due_appointment_reminders(
+            session_factory, now=now + timedelta(minutes=1)
+        )
+
+    assert first == 1
+    assert second == 0
+    assert send.call_count == 1
+
+    with session_factory() as session:
+        stored = session.get(Appointment, appt_id)
+        assert stored is not None
+        assert stored.reminder_sent_at is not None
+
+
 def test_scheduler_odbija_naivno_trenutno_vrijeme(
     session_factory: sessionmaker[Session],
 ) -> None:
