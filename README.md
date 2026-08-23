@@ -63,6 +63,38 @@ koristi kod i `dentaland.db` IZ TOG worktree-a, ne iz `main`-a. Nema
 potrebe ručno mijenjati foldere/PYTHONPATH između testiranja različitih
 grana.
 
+## Email obavještenja (SMTP)
+
+Email obavještenja (potvrda primljenog zahtjeva, potvrda termina, podsjetnik)
+su **opciona** — aplikacija radi normalno i bez njih, samo tiho preskače
+slanje ako SMTP nije konfigurisan. Postavke se čitaju iz env varijabli
+`DENTALAND_SMTP_HOST`, `DENTALAND_SMTP_PORT`, `DENTALAND_SMTP_USER`,
+`DENTALAND_SMTP_PASSWORD` i `DENTALAND_SMTP_FROM`
+(`src/dentaland/services/notifications.py`). Sve su dokumentovane u
+[.env.example](.env.example).
+
+Varijable moraju biti postavljene u **istom terminalu/procesu** koji
+pokreće `dev_local.py` — `_build_env()` u toj skripti kopira `os.environ`
+u trenutku poziva i ne čita `.env` fajl automatski. `.env.example` je samo
+referenca za ručno kucanje; automatsko učitavanje `.env` fajla trenutno
+nije implementirano.
+
+PowerShell, prije pokretanja:
+
+```powershell
+$env:DENTALAND_SMTP_HOST = "smtp.gmail.com"
+$env:DENTALAND_SMTP_PORT = "587"
+$env:DENTALAND_SMTP_USER = "tvoja.adresa@gmail.com"
+$env:DENTALAND_SMTP_PASSWORD = "tvoj-app-password"
+$env:DENTALAND_SMTP_FROM = "tvoja.adresa@gmail.com"
+python scripts/dev_local.py
+```
+
+Za Gmail je obavezan **App Password** (16 znakova, generisan na
+`myaccount.google.com/apppasswords` uz uključenu 2-Step Verification), NE
+obična Gmail lozinka — obična lozinka vraća grešku
+`534 5.7.9 Application-specific password required`.
+
 ## Testovi i provjera koda
 
 ```bash
