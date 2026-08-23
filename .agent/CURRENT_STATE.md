@@ -1,6 +1,6 @@
 # Current State
 
-Last updated: 2026-08-21
+Last updated: 2026-08-23
 
 Ovaj fajl drži KRATKOTRAJNE informacije — stvari koje realno mogu zastarjeti
 za nekoliko dana/sedmica. Trajna pravila ostaju u `CLAUDE.md`/`AGENTS.md`/
@@ -15,18 +15,41 @@ potvrđen) stigla su u inbox tačnog sadržaja. Radovan je zatim tražio da
 se riješe dvije poznate praznine iz audita:
 
 - **`DENT-022`** (HIGH, zaštita od dupliranog slanja podsjetnika —
-  aditivna kolona `Appointment.reminder_sent_at`) — IMPLEMENTED, čeka
-  Reviewer 1 (Codex, obavezan na HIGH) i Reviewer 2 (Crush ili Pi), pa
-  human approval. Plan: `agent_reports/2026-08-23-DENT-022-plan.md`
-  (pušovan na `main` prije koda, commit `d1a3330`). Implementacija u
-  `Dentaland-worktrees/DENT-022-reminder-dedup`,
-  `task/DENT-022-reminder-dedup`, commit `770452d` (necommitovano na
-  `main`). Migracija `d4e5f6a7b8c9` ručno potvrđena simetrična na pravoj
-  SQLite bazi (ne samo test suite); dedup test adversarno potvrđen
-  (genuinski pada bez fixa).
+  aditivna kolona `Appointment.reminder_sent_at`) — runda 2, čeka
+  **Codexov Reviewer 1** (obavezan na HIGH, i dalje nedostaje). Tok:
+  - Plan: `agent_reports/2026-08-23-DENT-022-plan.md` (pušovan na `main`
+    prije koda, commit `d1a3330`).
+  - Runda 1 (implementacija, commit `770452d`): Codex kao Reviewer 1
+    **REJECT** — SELECT+slanje+upis marker nije bio atomski, dokazan
+    pravi race (`CONCURRENT_SEND_COUNT 2`, dvije sesije/threada na
+    file-backed SQLite). Dodatno: implementerov (Claude) vlastiti
+    adversarni claim u izvještaju runde 1 je bio **faktički netačan**
+    (tvrdio `send.call_count == 2`, stvaran rezultat je bio drugačiji
+    failure) — uhvaćeno Codexovim nezavisnim review-om, ne prije.
+  - Runda 2 (fix, commit `e479446`, pa `778ade8` za metadata
+    ispravku): promijenjen redoslijed u "zauzmi pa pošalji" — atomski
+    `UPDATE ... WHERE reminder_sent_at IS NULL` + `rowcount` prije SMTP
+    poziva. Ispravljen i vremenski bug u postojećem testu (termin je bio
+    na granici prozora, nije stvarno testirao dedup) i dodat nov
+    paralelni test (file-backed SQLite, dva threada, barijera).
+    Implementer je ovaj put zapisao stvaran, provjeren tool output u
+    adversarnoj samo-provjeri (ne parafrazu).
+  - **Pi review** (`agent_reports/2026-08-23-DENT-022-review-pi.md`,
+    PASS, temeljit i nezavisno adversarno potvrđen — 30/30 sopstvenih
+    repro rundi) je izvorno sebe označio kao "Reviewer 1 (ponovni)" —
+    **INVALID kao Reviewer 1** jer je Codex obavezan na HIGH kad je
+    dostupan (jeste). Ispravljeno naknadno (commit `778ade8`) na
+    **Reviewer 2** — sadržaj review-a nije mijenjan, samo frontmatter
+    rola i "SLJEDEĆE" blok.
+  - **Sljedeći korak**: Codex mora uraditi svoj Reviewer 1 review runde
+    2 nad commitom `e479446` na grani `task/DENT-022-reminder-dedup`
+    (pušovano). Tek nakon Codexovog PASS-a slijedi Radovanov human
+    approval i merge — Pi-jev PASS kao Reviewer 2 sam po sebi nije
+    dovoljan.
 - **`DENT-023`** (LOW, `.env.example` + README SMTP dokumentacija) —
-  Task Contract spreman (`agent_reports/DENT-023-task-contract.md`),
-  dodijeljeno Pi-ju.
+  implementacija Pi (`795aa12`), review Claude PASS
+  (`agent_reports/2026-08-23-DENT-023-review-claude.md`). Čeka samo
+  Radovanovu odluku o merge-u (LOW risk, human approval opcion).
 
 **Korektivni paket FIX-01 do FIX-06 je KOMPLETAN** — svih šest je
 MERGED → INTEGRATION_VERIFIED → DONE (merge `ae6e52f`, `9808475`,
@@ -94,17 +117,12 @@ Prioritet A backloga (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`,
 work" ispod. Prioritet B (`007` backup, `009` Windows packaging) čeka
 poslije korektivnog paketa.
 
-**Email obavještenja — Radovan ih uživo testira (22.8.2026).** Kod je
-potvrđen produkcijski spreman uz dvije poznate praznine (nema zaštite od
-dupliranog slanja podsjetnika — prihvaćen rizik iz DENT-020; nema
-`.env.example`/dokumentacije za `DENTALAND_SMTP_*` env varijable). Prvi
-pokušaj live testa (Gmail SMTP kroz `scripts/dev_local.py`) je pao na
-`534 5.7.9 Application-specific password required` — Radovan je koristio
-običnu Gmail lozinku umjesto pravog App Password-a. Uputio sam ga da
-generiše pravi App Password na myaccount.google.com/apppasswords i
-ponovi test — ishod tog ponovnog pokušaja još nije poznat. Njegov
-`dev_local.py` (backend+web+desktop) je možda i dalje aktivan u
-zasebnom terminalu — provjeriti prije pretpostavke da nije.
+**Email live test je ZAVRŠEN uspješno (23.8.2026)** — vidi prvi odjeljak
+iznad. Obje poznate praznine iz tog audita (dedup zaštita, SMTP env var
+dokumentacija) su u toku/gotove kao `DENT-022`/`DENT-023` iznad. Radovanov
+`dev_local.py` je možda i dalje aktivan u zasebnom terminalu iz tog
+testiranja — provjeriti prije pretpostavke da nije, prije nego što se
+sam pokreće drugi backend/web server na istim portovima.
 
 ## Agent availability
 
@@ -146,8 +164,10 @@ napamet.
 ## Next known work
 
 Korektivni paket FIX-01..06 i Codex-ov FIX-07/08/09 su svi zatvoreni
-(mergovani, pušovani). Email SMTP live test čeka Radovanov drugi
-pokušaj sa pravim App Password-om — ishod još nepoznat. Sljedeći
-prioritet po `docs/DENTALAND_IMPROVEMENT_BACKLOG.md`: **Prioritet B** —
+(mergovani, pušovani). Email live test je uspješno završen. Neposredno
+sljedeće: Codexov Reviewer 1 review DENT-022 runde 2 (commit `e479446`
+na `task/DENT-022-reminder-dedup`), zatim human approval i merge
+DENT-022 i DENT-023. Poslije toga, sljedeći prioritet po
+`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`: **Prioritet B** —
 `DENT-IMPROVE-007` (operativni automatski backup) ili
 `DENT-IMPROVE-009` (Windows packaging), Radovanova odluka koji prvo.
