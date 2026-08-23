@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime
 from types import SimpleNamespace
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QPushButton
+from PySide6.QtWidgets import QFrame, QLabel, QPushButton
 
 from desktop.views import requests_page as requests_page_mod
 from desktop.views.requests_page import RequestsPage
@@ -42,11 +42,36 @@ def test_stranica_prikazuje_pending_count_i_sve_trazene_podatke(qtbot) -> None:
     qtbot.addWidget(page)
 
     labels = _labels(page)
-    assert "Neobrađeni zahtjevi: 1" in labels
+    assert "1 neobrađen zahtjev" in labels
     assert "Jelena Kovač" in labels
-    assert "061/111-222 · jelena@example.com" in labels
+    assert "061/111-222" in labels
+    assert "jelena@example.com" in labels
     assert "Traženi datum: 22.08.2026." in labels
     assert "Poslano: 21.08.2026. u 09:15" in labels
+    assert "JK" in labels
+    assert "NOVO" in labels
+    assert "Savjet" in labels
+
+
+def test_stranica_koristi_nove_summary_kartice_i_status_elemente(qtbot) -> None:
+    page = RequestsPage(RequestsStore())
+    qtbot.addWidget(page)
+
+    assert page.findChild(QFrame, "requestsSummary") is not None
+    assert page.findChild(QFrame, "requestsTip") is not None
+    row = page.findChild(QFrame, "requestPageRow")
+    assert row is not None
+    assert row.findChild(QLabel, "requestInitials").text() == "JK"
+    assert row.findChild(QLabel, "requestNewBadge").text() == "NOVO"
+    assert row.findChild(QLabel, "requestMore").text() == "⋮"
+    assert _process_button(page).size().width() == 98
+
+
+def test_vrijeme_slanja_koristi_danas_za_danasnji_zahtjev() -> None:
+    sent = datetime(2026, 8, 22, 5, 51, tzinfo=UTC)
+    assert requests_page_mod._sent_text(sent, date(2026, 8, 22)) == (
+        "Poslano: danas u 07:51"
+    )
 
 
 def test_obrada_koristi_zajednicki_tok_i_osvjezava_listu(qtbot, monkeypatch) -> None:
@@ -66,5 +91,5 @@ def test_obrada_koristi_zajednicki_tok_i_osvjezava_listu(qtbot, monkeypatch) -> 
     qtbot.wait(10)
 
     assert processed == [(store, 1, page)]
-    assert "Neobrađeni zahtjevi: 0" in _labels(page)
+    assert "0 neobrađena zahtjeva" in _labels(page)
     assert "Sve je obrađeno." in _labels(page)
