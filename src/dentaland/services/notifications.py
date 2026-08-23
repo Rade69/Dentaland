@@ -25,9 +25,11 @@ import smtplib
 from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 from email.message import EmailMessage
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 from dentaland.models import Appointment, AppointmentStatus
@@ -95,11 +97,21 @@ def send_due_appointment_reminders(
 
     Prozor je ``[now + 24h, now + 24h + 15min)``. ``reminder_sent_at``
     (DENT-022) sprečava duplo slanje istog termina nakon restarta
-    scheduler-a ili slučajnog duplog pokretanja — vidi
-    ``agent_reports/2026-08-23-DENT-022-plan.md``. Termin se označava
-    poslanim NAKON best-effort pokušaja slanja, bez obzira na SMTP ishod
-    (``send_appointment_reminder`` nikad ne baca izuzetak — nastavak
-    postojeće best-effort filozofije, ne novi retry mehanizam).
+    scheduler-a ILI paralelnog/dvostrukog pokretanja — vidi
+    ``agent_reports/2026-08-23-DENT-022-plan.md``.
+
+    Zauzimanje termina je ATOMSKO: prije SMTP poziva radi se
+    ``UPDATE ... WHERE reminder_sent_at IS NULL`` i provjerava
+    ``rowcount``. Samo worker čiji UPDATE stvarno pogodi red (rowcount
+    == 1) šalje email — ako je neki drugi worker već zauzeo taj red
+    (rowcount == 0), termin se preskače. Ovo je namjerna izmjena
+    redoslijeda "zauzmi pa pošalji" (ne "pošalji pa zauzmi") — spriječava
+    da dva paralelna procesa oba pročitaju NULL i oba pošalju prije nego
+    što bilo koji commituje (dokazano review-om, DENT-022 REJECT runda
+    1). ``send_appointment_reminder`` nikad ne baca izuzetak (best-effort);
+    ako SMTP zakaže NAKON uspješnog zauzimanja, podsjetnik se ne
+    ponovo pokušava — isti postojeći best-effort kompromis kao i prije,
+    sad primijenjen na nivou zauzimanja umjesto slanja.
     """
     current = now or datetime.now(UTC)
     if current.tzinfo is None or current.utcoffset() is None:
@@ -122,13 +134,28 @@ def send_due_appointment_reminders(
             .order_by(Appointment.start_time)
         ).all()
 
-        sent_count = 0
-        for appointment in appointments:
-            if appointment.email and appointment.start_time:
-                send_appointment_reminder(appointment.email, appointment.start_time)
-                appointment.reminder_sent_at = current
-                sent_count += 1
-        session.commit()
+    sent_count = 0
+    for appointment in appointments:
+        if not (appointment.email and appointment.start_time):
+            continue
+        with session_factory() as session:
+            result = cast(
+                "CursorResult[Any]",
+                session.execute(
+                    update(Appointment)
+                    .where(
+                        Appointment.id == appointment.id,
+                        Appointment.reminder_sent_at.is_(None),
+                    )
+                    .values(reminder_sent_at=current)
+                ),
+            )
+            session.commit()
+            claimed = result.rowcount == 1
+        if not claimed:
+            continue  # drugi worker je vec zauzeo ovaj termin
+        send_appointment_reminder(appointment.email, appointment.start_time)
+        sent_count += 1
 
     return sent_count
 
