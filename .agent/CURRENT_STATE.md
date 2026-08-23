@@ -9,6 +9,25 @@ sedmica, provjeriti da li je i dalje tačno prije oslanjanja na njega.
 
 ## Current development focus
 
+**Email obavještenja su uživo testirane i potvrđene da rade** (23.8.2026,
+Radovan, pravi Gmail SMTP) — oba trenutna tipa (zahtjev primljen, termin
+potvrđen) stigla su u inbox tačnog sadržaja. Radovan je zatim tražio da
+se riješe dvije poznate praznine iz audita:
+
+- **`DENT-022`** (HIGH, zaštita od dupliranog slanja podsjetnika —
+  aditivna kolona `Appointment.reminder_sent_at`) — IMPLEMENTED, čeka
+  Reviewer 1 (Codex, obavezan na HIGH) i Reviewer 2 (Crush ili Pi), pa
+  human approval. Plan: `agent_reports/2026-08-23-DENT-022-plan.md`
+  (pušovan na `main` prije koda, commit `d1a3330`). Implementacija u
+  `Dentaland-worktrees/DENT-022-reminder-dedup`,
+  `task/DENT-022-reminder-dedup`, commit `770452d` (necommitovano na
+  `main`). Migracija `d4e5f6a7b8c9` ručno potvrđena simetrična na pravoj
+  SQLite bazi (ne samo test suite); dedup test adversarno potvrđen
+  (genuinski pada bez fixa).
+- **`DENT-023`** (LOW, `.env.example` + README SMTP dokumentacija) —
+  Task Contract spreman (`agent_reports/DENT-023-task-contract.md`),
+  dodijeljeno Pi-ju.
+
 **Korektivni paket FIX-01 do FIX-06 je KOMPLETAN** — svih šest je
 MERGED → INTEGRATION_VERIFIED → DONE (merge `ae6e52f`, `9808475`,
 `53db57c`, `a6cdc2a`, `8576408`, `fca60f8`, 21.8.2026). Implementer svih
