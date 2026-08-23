@@ -50,25 +50,25 @@ kod Pi-jev, slikovni asseti Codex-ovi.
 
 `FIX-07` (WeekView kartica odsječena na donjoj granici, LOW), `FIX-08`
 (avatari doktora 48→56px, LOW) i `FIX-09` (redizajn "Novi zahtjevi"
-stranice, LOW) — Codex je sve implementirao van Task Contract review
-toka (FIX-07 direktno u glavnom checkout-u kao DENT-021, `4f47565`, već
-pušovano; FIX-08 u worktree-u ali lokalno mergovano bez pushovanja,
-`18f264a`+`5fac891`; FIX-09 u worktree-u `task/FIX-09-new-requests-design`,
-necommitovano). Codex-ov vlastiti "independent-codex"/"independent"
+stranice, LOW) su sada svi MERGED → INTEGRATION_VERIFIED → DONE (merge
+`4f47565`, `18f264a`+`5fac891`, `7f1386f`+`6b3196c`, 21–22.8.2026), svi
+pušovani. Codex je sve implementirao van Task Contract review toka
+(FIX-07 direktno u glavnom checkout-u kao DENT-021; FIX-08/09 u
+worktree-ovima, ali FIX-08 lokalno mergovan bez pushovanja dok Claude
+nije provjerio). Codex-ov vlastiti "independent-codex"/"independent"
 review nije stvaran nezavisan review. Radovan je tražio naknadnu
 provjeru ("Provjeri ovo što je Codex radio") — Claude je uradio pravi
 nezavisan review za sva tri, adversarno potvrđena PASS (vidi
 `agent_reports/2026-08-22-FIX-07-review-claude.md`,
 `.../2026-08-22-FIX-08-review-claude.md`,
-`.../2026-08-22-FIX-09-review-claude.md`, potonji u worktree-u dok se ne
-commituje). FIX-09 review je uključivao stvaran klik na "Obradi" dugme
-do stvarnog upisa u bazu (ne samo testove) i pogodio isti poznat
+`.../2026-08-22-FIX-09-review-claude.md`), Radovan je potom dao human
+approval za sve. FIX-09 review je uključivao stvaran klik na "Obradi"
+dugme do stvarnog upisa u bazu (ne samo testove) i pogodio isti poznat
 `QDialog.exec()` monkeypatch-hang gotcha (vidi taj review za detalje
 kako je bezbjedno riješeno — samo ciljani PID, ne blanket taskkill). Kod
 je ispravan za sve; otvoreno pitanje je SAMO proces (treći+ put da
 Codex zaobiđe review/worktree-izolaciju) — vrijedi razgovarati sa
 Radovanom o tome treba li nešto promijeniti u Codex-ovom usmjeravanju.
-FIX-09 još nije commitovan/mergovan — čeka Radovanovu odluku.
 
 Prioritet A backloga (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`,
 `DENT-IMPROVE-001` do `006`) je MERGED — vidi "Recently completed major
@@ -99,12 +99,12 @@ review runde). `CLAUDE.md` je sada thin router, ne sadrži tabelu uloga.
 
 ## Current verification baseline
 
-Izmjereno 2026-08-22 na `main` (nakon FIX-07/FIX-08 mergovani, prije
-FIX-09 commit/merge — FIX-09 test u svom worktree-u dao 287):
+Izmjereno 2026-08-22 na `main`, post-merge gate nakon `FIX-09` (merge
+`6b3196c`):
 
-- `pytest tests/ -q` → **285 passed** na `main`, 11 warnings (deprecation
+- `pytest tests/ -q` → **287 passed**, 11 warnings (deprecation
   warnings iz `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog
-  koda), ~10s.
+  koda), ~10-20s.
 - `ruff check src/dentaland desktop backend tests` → **All checks passed**.
 - `mypy src/dentaland desktop backend` → **Success: no issues found in 36
   source files.**
@@ -126,11 +126,9 @@ napamet.
 
 ## Next known work
 
-Korektivni paket FIX-01..06 je zatvoren. `FIX-09` čeka Radovanovu odluku
-o commit/merge (već review-ovan PASS). Email SMTP live test čeka
-Radovanov drugi pokušaj sa pravim App Password-om. Sljedeći prioritet po
-`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`: **Prioritet B** —
+Korektivni paket FIX-01..06 i Codex-ov FIX-07/08/09 su svi zatvoreni
+(mergovani, pušovani). Email SMTP live test čeka Radovanov drugi
+pokušaj sa pravim App Password-om — ishod još nepoznat. Sljedeći
+prioritet po `docs/DENTALAND_IMPROVEMENT_BACKLOG.md`: **Prioritet B** —
 `DENT-IMPROVE-007` (operativni automatski backup) ili
 `DENT-IMPROVE-009` (Windows packaging), Radovanova odluka koji prvo.
-(`FIX-07`/`FIX-08`/`FIX-09` su Codex-ov paralelan rad, ne dio ovog
-plana — vidi "Current development focus".)

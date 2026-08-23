@@ -3,8 +3,8 @@ task_id: FIX-09
 risk: LOW
 implementer: codex
 reviewers: [claude]
-verdict: PASS
-commits: []
+verdict: "MERGED → INTEGRATION_VERIFIED → DONE (merge 6b3196c). Human approval: Radovan. Post-merge gate: pytest 287 passed, ruff clean, mypy clean (0 issues, 36 fajlova)."
+commits: [7f1386f, 6b3196c]
 created_at: 2026-08-22
 ---
 
