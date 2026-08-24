@@ -9,35 +9,46 @@ sedmica, provjeriti da li je i dalje tačno prije oslanjanja na njega.
 
 ## Current development focus
 
-**Email-audit paket je KOMPLETAN — sve tri stavke MERGED u `main` i DONE**
-(23–24.8.2026), počevši od uživo potvrđenog Gmail SMTP testa (23.8.2026):
+**Prioritet A i B backloga (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`) su
+sad KOMPLETNO MERGED u `main`** (23–24.8.2026):
 
-- **`DENT-022`** (HIGH, zaštita od dupliranog slanja podsjetnika) — MERGED
-  (`768706e`). Vrijedan presedan: runda 1 (Codex Reviewer 1) REJECT —
-  dokazan pravi paralelni race, i implementerov (Claude) vlastiti
-  adversarni claim u izvještaju runde 1 bio je **faktički netačan**,
-  uhvaćeno tek Codexovim nezavisnim review-om. Runda 2: atomski
-  claim-prije-SMTP fix, Codex PASS_WITH_NOTES, Pi PASS kao Reviewer 2
-  (Codex je obavezan Reviewer 1 na HIGH kad je dostupan — Pi ga nije
-  smio zamijeniti). **Prihvaćen kompromis**: sistem sad garantuje
-  at-most-once, ne exactly-once (crash između claim-commita i SMTP
-  poziva može trajno propustiti podsjetnik) — Radovan eksplicitno
-  odobrio prije merge-a. Detalji: `agent_reports/2026-08-24-DENT-022-review-codex-round2.md`.
-- **`DENT-023`** (LOW, SMTP env dokumentacija) — MERGED (`3eef6e4`).
-- **`DENT-IMPROVE-007`** (MEDIUM, operativni backup CLI + Windows Task
-  Scheduler vodič) — MERGED (`4472cc9`). Backup engine (`backup.py`,
-  već postojao i testiran) nedirana; nov `backup_cli.py`
-  (`run`/`restore-test`/`status`), `DENTALAND_BACKUP_CLOUD_DIR` env
-  override (fallback lokalni folder), `docs/dentaland-backup-operativni-vodic.md`.
-  Implementer Pi, review Claude PASS — nezavisno potvrđeno vlastitim
-  live ciklusom i adversarnim testom (korumpiran backup fajl → genuinski
-  fail, ne samo čitanjem Pi-jevog izvještaja).
+- Email-audit paket: `DENT-022` (HIGH, dedup podsjetnika — MERGED
+  `768706e`) i `DENT-023` (LOW, SMTP env dokumentacija — MERGED `3eef6e4`).
+  DENT-022 vrijedan presedan za buduće HIGH taskove: runda 1 Codex
+  REJECT (dokazan pravi paralelni race), implementerov (Claude) vlastiti
+  adversarni claim u izvještaju runde 1 bio je **faktički netačan** —
+  uhvaćeno tek Codexovim nezavisnim review-om, ne prije. Prihvaćen
+  kompromis: sistem sad garantuje at-most-once, ne exactly-once. Detalji:
+  `agent_reports/2026-08-24-DENT-022-review-codex-round2.md`.
+- **`DENT-IMPROVE-007`** (MEDIUM, operativni backup CLI) — MERGED
+  (`4472cc9`). `backup_cli.py` (`run`/`restore-test`/`status`) oko
+  postojećeg, nedirana backup engine-a.
+- **`DENT-IMPROVE-009`** (MEDIUM, Windows packaging) — MERGED (`cb980a6`).
+  `packaging/dentaland.spec` (PyInstaller, `--onedir`, samo desktop app —
+  backend/web namjerno van obima, Faza 0 je lokalni desktop). Review
+  Claude nezavisno reprodukovao Pi-jev nalaz: svjež build od nule, exe
+  pokrenut iz izolovanog foldera van repoa bez `PYTHONPATH`-a — ista šema
+  tabela kao Pi-jeva tvrdnja. **Clean-machine test je samo simuliran na
+  istoj mašini** (nema fizičke druge mašine/VM-a u ovoj sesiji) — stvaran
+  test na drugoj mašini (vizuelni prikaz, SmartScreen ponašanje) ostaje
+  Radovanova provjera, nije blokirao merge.
+- Za sva tri MEDIUM/HIGH taska ponovljen isti obrazac: implementer (Pi ili
+  Claude) tvrdi PASS, ali review (Claude ili Codex) uvijek nezavisno
+  REPRODUKUJE dokaz (živi build/test/repro), ne samo čita izvještaj —
+  ovo je uhvatilo bar jednu genuinski netačnu tvrdnju (DENT-022 runda 1).
 
-Post-merge integration gate na `main` nakon sve tri: 298 pytest passed,
+Post-merge integration gate na `main` nakon svih: 298 pytest passed,
 ruff/mypy čisti (vidi "Current verification baseline" ispod).
 
 Worktree-ovi (`DENT-022-reminder-dedup`, `DENT-023-smtp-env-dokumentacija`,
-`DENT-IMPROVE-007-backup-cli`) su ostavljeni netaknuti — ukloniti po potrebi.
+`DENT-IMPROVE-007-backup-cli`, `DENT-IMPROVE-009-windows-packaging`) su
+ostavljeni netaknuti — ukloniti po potrebi.
+
+Nema trenutno aktivnog HIGH/MEDIUM/LOW taska — Prioritet A, B i email-audit
+paket su svi zatvoreni. Sljedeći poznati posao je Prioritet C
+(`DENT-IMPROVE-010`..`015`, "prije javnog online bookinga") — veći korak
+(Faza 1: PostgreSQL, javni booking, auth/RBAC), čeka Radovanovu odluku
+da li i kada krenuti.
 
 **Korektivni paket FIX-01 do FIX-06 je KOMPLETAN** — svih šest je
 MERGED → INTEGRATION_VERIFIED → DONE (merge `ae6e52f`, `9808475`,
@@ -125,13 +136,14 @@ review runde). `CLAUDE.md` je sada thin router, ne sadrži tabelu uloga.
 ## Current verification baseline
 
 Izmjereno 2026-08-24 na `main`, post-merge gate nakon `DENT-022`+`DENT-023`+
-`DENT-IMPROVE-007` (merge `768706e`, `3eef6e4`, `4472cc9`):
+`DENT-IMPROVE-007`+`DENT-IMPROVE-009` (merge `768706e`, `3eef6e4`,
+`4472cc9`, `cb980a6`):
 
 - `pytest tests/ -q` → **298 passed**, 11 warnings (deprecation
   warnings iz `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog
   koda), ~15-20s.
 - `ruff check src/dentaland desktop backend tests` → **All checks passed**.
-- `mypy src/dentaland desktop backend` → **Success: no issues found in 36
+- `mypy src/dentaland desktop backend` → **Success: no issues found in 37
   source files.**
 
 Ne tretirati broj testova kao trajno pravilo — raste sa svakim novim
@@ -152,7 +164,11 @@ napamet.
 ## Next known work
 
 Korektivni paket FIX-01..06, Codex-ov FIX-07/08/09, email-audit paket
-DENT-022/DENT-023, i `DENT-IMPROVE-007` (backup CLI) su svi zatvoreni
-(mergovani, pušovani, DONE). Nema trenutno aktivnog HIGH/MEDIUM taska.
-Preostaje **Prioritet B** — `DENT-IMPROVE-009` (Windows packaging + clean-
-machine test) je sad jedina neurađena stavka tog prioriteta.
+DENT-022/DENT-023, `DENT-IMPROVE-007` (backup CLI) i `DENT-IMPROVE-009`
+(Windows packaging) su svi zatvoreni (mergovani, pušovani, DONE). Nema
+trenutno aktivnog HIGH/MEDIUM/LOW taska — Prioritet A i B backloga su
+kompletni. Preostaje samo **Prioritet C** (`DENT-IMPROVE-010`..`015`,
+"prije javnog online bookinga" — veći korak ka Fazi 1), čeka Radovanovu
+odluku da li i kada krenuti. Podsjetnik: fizičan clean-machine test za
+`DENT-IMPROVE-009` (na drugoj mašini) ostaje Radovanova provjera —
+implementacija/review su samo simulirali to lokalno.

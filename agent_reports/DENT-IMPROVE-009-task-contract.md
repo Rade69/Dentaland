@@ -3,8 +3,9 @@ task_id: DENT-IMPROVE-009
 risk: MEDIUM
 implementer: pi
 reviewers: [claude]
-status: ASSIGNED — dodijeljeno Pi-ju (implementer)
+status: "DONE — MERGED u main (merge commit cb980a6, 2026-08-24), post-merge integration gate PASS (298 pytest, ruff, mypy). Clean-machine test na fizički drugoj mašini ostaje Radovanova provjera (vidi review napomenu)."
 created_at: 2026-08-24
+merged_at: 2026-08-24
 ---
 
 # DENT-IMPROVE-009 — Windows packaging + clean-machine test
