@@ -22,6 +22,7 @@ from pathlib import Path
 APP_DIR_NAME = "Dentaland"
 DB_FILENAME = "dentaland.db"
 ENV_DATA_DIR = "DENTALAND_DATA_DIR"
+ENV_BACKUP_CLOUD_DIR = "DENTALAND_BACKUP_CLOUD_DIR"
 
 
 def data_dir(env: Mapping[str, str] | None = None) -> Path:
@@ -64,6 +65,20 @@ def log_dir(env: Mapping[str, str] | None = None) -> Path:
 def backup_dir(env: Mapping[str, str] | None = None) -> Path:
     """Folder za backup (vidi ``dentaland.backup.BackupConfig``)."""
     return data_dir(env) / "backups"
+
+
+def backup_cloud_dir(env: Mapping[str, str] | None = None) -> Path:
+    """Cloud/sync folder za backup (vidi ``DENTALAND_BACKUP_CLOUD_DIR``).
+
+    Default je lokalni ``backup_dir()`` — radi odmah bez podešavanja. Ako je
+    postavljena ``DENTALAND_BACKUP_CLOUD_DIR`` (npr. Google Drive/Dropbox sync
+    folder), koristi se ta putanja.
+    """
+    environ: Mapping[str, str] = os.environ if env is None else env
+    override = environ.get(ENV_BACKUP_CLOUD_DIR)
+    if override:
+        return Path(override).expanduser()
+    return backup_dir(env)
 
 
 def resource_path(*parts: str) -> Path:
