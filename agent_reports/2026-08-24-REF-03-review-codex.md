@@ -5,7 +5,7 @@ implementer: crush
 reviewers: [codex, claude]
 reviewer: codex
 verdict: REJECT
-commits: [e8d1ab7]
+commits: [e8d1ab7, 6e5680c]
 created_at: 2026-08-24
 ---
 
@@ -18,15 +18,82 @@ acceptance: REJECT
 architecture: PASS
 security: PASS
 blocking_findings:
-  - "F1 tests/test_ref03_booking_split.py:21-35 — string-based provjere facade-a propuštaju stvarni appointment CRUD/overlap SQL koji izbjegne nekoliko tačnih stringova; nakon dodavanja raw SELECT nad appointments sa start/end overlap uslovima oba ciljna testa i dalje prolaze (2 passed), pa testovi daju lažni PASS za ključnu granicu REF-03."
+  - "F1 tests/test_ref03_booking_split.py:37-96 — AST denylist hvata direktni text/execute oblik, ali propušta aliasirani `select as sel` i dinamički `getattr(session, 'execute')`; alternativni SQLAlchemy oblik daje svih 6 passed, a dinamički execute oba ključna testa zelena (2 passed)."
 ```
 
-## Zaključak
+## Finalni zaključak — re-review runda 2
 
-Produkcijska podjela trenutno izgleda behavior-compatible, puni gate-ovi su
-zeleni i scope je čist. Review je `REJECT` jer ključni novi arhitektonski
-testovi ne padaju kada se u `booking.py` vrati upravo ona SQL/overlap logika
-čije odsustvo tvrde da dokazuju.
+Commit `6e5680c` popravlja prvobitni raw-SQL slučaj, ali F1 nije zatvoren:
+novi AST denylist i dalje daje lažni PASS za dva druga data-access oblika.
+Finalni Codex verdikt ostaje `REJECT`.
+
+### Runda 2 — standardni gate
+
+```text
+pytest tests/ -q
+336 passed, 11 warnings in 18.60s (exit 0)
+
+ruff check src/dentaland desktop backend tests
+All checks passed! (exit 0)
+
+mypy src/dentaland desktop backend
+Success: no issues found in 40 source files (exit 0)
+```
+
+Fix diff `cde97ce..6e5680c` mijenja samo
+`tests/test_ref03_booking_split.py` i dodaje `agent_reports/**` evidence.
+`booking.py` nije dirnut.
+
+### Mutacija 1 — direktni raw SQL: zatvoreno
+
+Ponovljena privatna metoda sa
+`session.execute(text("SELECT * FROM appointments ..."))` sada ruši
+`test_booking_facade_ne_sadrzi_sql_data_access`. Stvarni nalaz testa je
+`AppointmentService._hidden_raw_sql sadrži data-access poziv`.
+
+### Mutacija 2 — aliasirani SQLAlchemy select: još prolazi
+
+U facade je privremeno dodano:
+
+```python
+from sqlalchemy import select as sel
+
+def _hidden_aliased_select(self):
+    return sel(
+        Doctor
+    ).where(
+        Doctor.id > 0
+    )
+```
+
+Stvarni rezultat cijelog REF-03 arhitektonskog fajla:
+
+```text
+6 passed in 0.40s
+```
+
+AST provjera poredi samo `ast.Name.id` sa literalnim imenom `select`, bez
+razrješavanja import aliasa.
+
+### Mutacija 3 — dinamički execute: još prolazi
+
+U facade je dodatno privremeno dodano:
+
+```python
+run_query = getattr(session, "execute")
+return list(run_query("SELECT * FROM appointments"))
+```
+
+Stvarni rezultat data-access i delegation testa:
+
+```text
+2 passed in 0.36s
+```
+
+Pozitivna provjera delegacije preskače privatne metode, a denylist ne prati
+`getattr`/lokalni alias poziva. Fix treba dokazati granicu bez oslanjanja na
+otvorenu listu sintaksnih oblika koju je lako zaobići; oba navedena oblika
+moraju biti uključena u sljedeću adversarnu provjeru.
 
 ## Precondition i scope
 
@@ -119,12 +186,12 @@ eksplicitno dozvoljena facade state provjera iz Task Contracta.
 CILJ: dokazati da REF-03 testovi stvarno štite tanku facade granicu i javnu
 kompatibilnost.
 
-URAĐENO: REJECT — gate-ovi i REF-00 contract prolaze, ali F1 pokazuje da oba
-ključna string testa propuštaju stvarni CRUD/overlap SQL u facade-u.
+URAĐENO: REJECT — direktni raw SQL je sada uhvaćen, ali aliasirani SQLAlchemy
+select i dinamički execute i dalje daju lažni PASS.
 
 NE DIRATI: produkcijsku implementaciju bez novog nalaza; F1 je ograničen na
 kvalitet `tests/test_ref03_booking_split.py`.
 
-SLJEDEĆE: Crush mijenja F1 testove tako da ne zavise od tačnog formatiranja,
-Codex ponavlja raw-SQL i alternativni-SQLAlchemy mutacioni test. Claude review
+SLJEDEĆE: Crush zatvara alias/getattr rupe ili zamjenjuje otvoreni denylist
+robustnijom granicom; Codex ponavlja sva tri mutaciona testa. Claude review
 ide tek poslije Codex PASS re-review-a, zatim Radovan human approval.
