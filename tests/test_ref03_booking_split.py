@@ -52,6 +52,11 @@ _FACADE_ALLOWED_MODULES = {"appointments", "availability", "settings"}
 _FACADE_ALLOWED_FUNCTIONS = {"list_pending", "confirm_request", "reject_request"}
 # Facade-interni poziv (state provjera, bez SQL-a) — dozvoljen po Task Contractu.
 _FACADE_ALLOWED_INTERNAL = {"self._require_doctor"}
+_FACADE_MODULE_OBJECTS = {
+    "appointments": appointments,
+    "availability": availability,
+    "settings": settings,
+}
 
 
 def _dotted_name(expr: ast.expr) -> str | None:
@@ -75,7 +80,10 @@ def _is_delegation_call(call: ast.Call) -> bool:
         return False
     if name in _FACADE_ALLOWED_FUNCTIONS:
         return True
-    return name.split(".", 1)[0] in _FACADE_ALLOWED_MODULES
+    parts = name.split(".")
+    if len(parts) != 2 or parts[0] not in _FACADE_ALLOWED_MODULES:
+        return False
+    return callable(getattr(_FACADE_MODULE_OBJECTS[parts[0]], parts[1], None))
 
 
 def _is_allowed_call(call: ast.Call) -> bool:
@@ -85,6 +93,39 @@ def _is_allowed_call(call: ast.Call) -> bool:
     if name in _FACADE_ALLOWED_INTERNAL:
         return True
     return _is_delegation_call(call)
+
+
+def _is_forwarded_argument(expr: ast.expr) -> bool:
+    """Delegacija prosljeđuje samo argument metode ili session factory."""
+    return isinstance(expr, ast.Name) or _dotted_name(expr) == "self._session_factory"
+
+
+def _assert_delegation_call_is_pure(method: ast.FunctionDef, call: ast.Call) -> None:
+    assert _is_delegation_call(call), (
+        f"AppointmentService.{method.name} ne delegira ka stvarnoj dozvoljenoj "
+        f"funkciji: {ast.unparse(call)}"
+    )
+    forwarded = [*call.args, *(kw.value for kw in call.keywords)]
+    bad = [ast.unparse(arg) for arg in forwarded if not _is_forwarded_argument(arg)]
+    assert not bad, (
+        f"AppointmentService.{method.name} ima izračunavanje/sporedni efekat "
+        f"u argumentima delegacije: {bad}"
+    )
+
+
+def _delegation_call_from_statement(
+    method: ast.FunctionDef, statement: ast.stmt
+) -> ast.Call:
+    if isinstance(statement, (ast.Return, ast.Expr)) and isinstance(
+        statement.value, ast.Call
+    ):
+        call = statement.value
+        _assert_delegation_call_is_pure(method, call)
+        return call
+    raise AssertionError(
+        f"AppointmentService.{method.name} ne završava čistom delegacijom: "
+        f"{ast.unparse(statement)}"
+    )
 
 
 def test_booking_facade_pozivi_su_samo_iz_allowlista() -> None:
@@ -102,35 +143,48 @@ def test_booking_facade_pozivi_su_samo_iz_allowlista() -> None:
         )
 
 
-def test_booking_facade_javne_metode_su_jedna_delegacija() -> None:
-    """Svaka javna metoda ima tačno jedan delegacijski poziv kao posljednji izraz."""
+def test_booking_facade_javne_metode_imaju_samo_dozvoljeni_oblik() -> None:
+    """Cijelo tijelo javne metode je delegacija, uz opcioni doctor guard."""
     checked = 0
     for method in _appointment_service_methods():
         name = method.name
-        if name.startswith("_") or name in _FACADE_EXEMPT_METHODS:
+        if name in _FACADE_EXEMPT_METHODS:
             continue
-        checked += 1
-
-        calls = [n for n in ast.walk(method) if isinstance(n, ast.Call)]
-        delegations = [c for c in calls if _is_delegation_call(c)]
-        assert len(delegations) == 1, (
-            f"AppointmentService.{name} ima {len(delegations)} delegacijskih poziva, "
-            f"očekivan tačno 1"
+        assert not name.startswith("_"), (
+            f"AppointmentService ima neočekivanu privatnu metodu: {name}"
         )
+        checked += 1
 
         body = method.body
         assert body, f"AppointmentService.{name} ima prazno tijelo"
-        last = body[-1]
-        if isinstance(last, (ast.Return, ast.Expr)):
-            call_node = last.value
+        if len(body) == 2:
+            guard, delegation = body
+            assert isinstance(guard, ast.Assign) and len(guard.targets) == 1, (
+                f"AppointmentService.{name} ima nedozvoljenu naredbu prije delegacije: "
+                f"{ast.unparse(guard)}"
+            )
+            target = guard.targets[0]
+            assert isinstance(target, ast.Name), (
+                f"AppointmentService.{name} mijenja state prije delegacije: "
+                f"{ast.unparse(guard)}"
+            )
+            assert isinstance(guard.value, ast.Call), (
+                f"AppointmentService.{name} ima nedozvoljen assignment: "
+                f"{ast.unparse(guard)}"
+            )
+            assert _dotted_name(guard.value.func) == "self._require_doctor", (
+                f"AppointmentService.{name} ima nedozvoljen setup poziv: "
+                f"{ast.unparse(guard)}"
+            )
+            assert not guard.value.args and not guard.value.keywords
+            _delegation_call_from_statement(method, delegation)
+        elif len(body) == 1:
+            _delegation_call_from_statement(method, body[0])
         else:
             raise AssertionError(
-                f"AppointmentService.{name} ne završava delegacijom: {ast.unparse(last)}"
+                f"AppointmentService.{name} ima dodatne naredbe: "
+                f"{[ast.unparse(stmt) for stmt in body]}"
             )
-        assert isinstance(call_node, ast.Call) and _is_delegation_call(call_node), (
-            f"AppointmentService.{name} ne delegira ka dozvoljenom modulu: "
-            f"{ast.unparse(last)}"
-        )
     assert checked >= 30, f"očekivano >=30 javnih delegacijskih metoda, dobijeno {checked}"
 
 
