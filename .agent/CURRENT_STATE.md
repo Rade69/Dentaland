@@ -28,10 +28,25 @@ standardnog MEDIUM procesa, dogovoreno sa Radovanom), pa human approval.
   ugla — nova javna metoda ne kvari API contract test, potvrđuje da
   granica toleriše rast, ne samo brani od brisanja).
 - **`REF-01`** (MEDIUM, centralizacija availability/overlap invarijante) —
-  U TOKU, implementer Crush, fajlovi već claimovani preko
-  `coordination.py` (čekao je REF-00 merge). Mora eksplicitno riješiti
-  OverlapError nalaz iz REF-00 (jedna kanonična klasa, ne dvije) — vidi
-  plan sekciju 8 za tačan zahtjev.
+  MERGED (`fa53340`). Implementer Crush: nov `src/dentaland/services/availability.py`
+  (jedini overlap query, acikličan — `requests.py`/`booking.py` zavise od
+  njega, ne obrnuto), `OverlapError` kanonizovana u JEDNU klasu (rješava
+  REF-00 nalaz), facade (`_check_overlap`) svedena na čistu delegaciju,
+  backward-compat import putanje očuvane za GUI. REF-00 testovi za
+  dvije-klase stanje svjesno ažurirani (5 asercija `is not` → `is`,
+  pregledano liniju po liniju). Detalji:
+  `agent_reports/2026-08-24-REF-01-review-claude.md`.
+  **Procesna napomena (presedan za buduće REF taskove):** prvi pokušaj
+  Crush-a je bio urađen na grani granatoj PRIJE REF-00 merge-a (grana nije
+  sadržavala REF-00 sigurnosnu mrežu) — otkriveno prije review-a, vraćeno
+  na sinhronizaciju (`git merge origin/main` + svjesno ažuriranje 5 REF-00
+  testova), tek onda review. **Uvijek provjeriti da je zavisni task
+  stvarno mergovan u `main` PRIJE početka rada, ne samo da postoji kao
+  grana.** Odvojeno: REF-01 je mergovan sa SAMO jednim reviewerom
+  (Claude) — Radovan je eksplicitno odobrio preskakanje Codexovog review-a
+  za ovaj task (odstupanje od dogovorenog "oba reviewera" pravila za
+  cijeli REF paket, njegova odluka, ne podrazumijevano ponašanje za
+  REF-02+).
 - Raspored ostatka: REF-02 Pi, REF-03 Crush, REF-04 Pi, REF-05 Crush,
   REF-06 Pi, REF-07 Crush, REF-08 Pi (plan sekcija 17) — namjerno
   sekvencijalno, hotspot fajlovi bi inače stvarali merge konflikte.
@@ -47,19 +62,19 @@ build/test/repro), ne samo čita izvještaj — DENT-022 runda 1 je pokazala
 da čak i pažljiv implementer može zapisati netačnu tvrdnju, uhvaćeno tek
 nezavisnim review-om.
 
-Post-merge integration gate na `main` nakon REF-00: 317 pytest passed,
+Post-merge integration gate na `main` nakon REF-01: 322 pytest passed,
 ruff/mypy čisti (vidi "Current verification baseline" ispod).
 
 Stari worktree-ovi (`DENT-022-reminder-dedup`, `DENT-023-smtp-env-dokumentacija`,
-`DENT-IMPROVE-007-backup-cli`, `DENT-IMPROVE-009-windows-packaging`) su
-ostavljeni netaknuti — ukloniti po potrebi. Aktivan worktree za REF-01:
-`Dentaland-worktrees/REF-01-availability-invariant` (Crush).
+`DENT-IMPROVE-007-backup-cli`, `DENT-IMPROVE-009-windows-packaging`,
+`REF-00-characterization-tests`, `REF-01-availability-invariant`) su
+ostavljeni netaknuti — ukloniti po potrebi.
 
-**Aktivan task: REF-01 (Crush)** — vidi "Current development focus" iznad.
-Prioritet A, B i email-audit paket su zatvoreni prije ovog refaktora.
+**Nema trenutno aktivnog REF taska** — REF-01 je DONE. Sljedeći na redu je
+**REF-02 (Pi)** po planu (sekcija 17), zavisnost REF-01 (sad zadovoljena).
 Prioritet C (`DENT-IMPROVE-010`..`015`, "prije javnog online bookinga")
-čeka da se refaktor završi (plan sekcija 23 — Prioritet C nema smisla
-prije finalnog architecture review-a poslije REF-08).
+čeka da se cijeli refaktor završi (plan sekcija 23 — nema smisla prije
+finalnog architecture review-a poslije REF-08).
 
 Novo: `docs/dentaland-komunikacija-agenata.md` — komunikacijska pravila za
 agente (pozitivni/negativni obrasci, referentni kodovi F1/D1/R1..., primjeri
@@ -151,14 +166,14 @@ review runde). `CLAUDE.md` je sada thin router, ne sadrži tabelu uloga.
 
 ## Current verification baseline
 
-Izmjereno 2026-08-24 na `main`, post-merge gate nakon REF-00 (merge
-`ce8d65a`):
+Izmjereno 2026-08-24 na `main`, post-merge gate nakon REF-01 (merge
+`fa53340`):
 
-- `pytest tests/ -q` → **317 passed**, 11 warnings (deprecation
+- `pytest tests/ -q` → **322 passed**, 11 warnings (deprecation
   warnings iz `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog
   koda), ~15-20s.
 - `ruff check src/dentaland desktop backend tests` → **All checks passed**.
-- `mypy src/dentaland desktop backend` → **Success: no issues found in 37
+- `mypy src/dentaland desktop backend` → **Success: no issues found in 38
   source files.**
 
 Ne tretirati broj testova kao trajno pravilo — raste sa svakim novim
@@ -179,14 +194,13 @@ napamet.
 ## Next known work
 
 Korektivni paket FIX-01..06, Codex-ov FIX-07/08/09, email-audit paket
-DENT-022/DENT-023, `DENT-IMPROVE-007`/`009` su svi zatvoreni (DONE) prije
-ovog refaktora. **Trenutni aktivan rad: REF-01 (Crush)** — vidi
-"Current development focus" iznad za tačan status i šta REF-01 mora
-riješiti (OverlapError nalaz iz REF-00). Nakon REF-01, redoslijed po
-planu (sekcija 17): REF-02 Pi, REF-03 Crush, REF-04 Pi, REF-05 Crush,
-REF-06 Pi, REF-07 Crush, REF-08 Pi, pa finalni arhitektonski acceptance
-review (Codex + Claude, plan sekcija 20) prije nego što ima smisla krenuti
-na Prioritet C (`DENT-IMPROVE-010`..`015`, Faza 1 priprema).
+DENT-022/DENT-023, `DENT-IMPROVE-007`/`009`, REF-00 i REF-01 su svi
+zatvoreni (DONE). **Sljedeći na redu: REF-02 (Pi)** — range-based
+scheduling reads + eager loading, zavisnost REF-01 (zadovoljena), plan
+sekcija 9. Nakon toga: REF-03 Crush, REF-04 Pi, REF-05 Crush, REF-06 Pi,
+REF-07 Crush, REF-08 Pi, pa finalni arhitektonski acceptance review
+(Codex + Claude, plan sekcija 20) prije nego što ima smisla krenuti na
+Prioritet C (`DENT-IMPROVE-010`..`015`, Faza 1 priprema).
 
 Podsjetnik: fizičan clean-machine test za `DENT-IMPROVE-009` (na drugoj
 mašini) ostaje Radovanova provjera — implementacija/review su samo
