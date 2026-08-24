@@ -5,11 +5,15 @@ Ovi testovi zaključavaju strukturu koju uvodi REF-03 (razbijanje
 testova iz ``test_services.py``. Ključna invarijanta: poslovna logika NE
 živi u facade-u, već u fokusiranim modulima.
 
-Provjera da facade ne sadrži SQL/data-access NIJE tekstualna (string-match)
-nego strukturna — ``ast.parse`` nad ``booking.py``. Time se hvataju i raw SQL
-(``text()``/``execute()``) i SQLAlchemy izrazi (``select()``/``scalar()``/
-``scalars()``) bez obzira na formatiranje, naziv varijable ili prelamanje
-linija.
+Provjera je POZITIVNA (allowlist), ne negativna (denylist). Tijelo svake
+facade metode smije sadržavati SAMO pozive ka dozvoljenim modulima
+(``appointments``/``availability``/``settings``) ili ka dozvoljenim
+funkcijama (``list_pending``/``confirm_request``/``reject_request``), plus
+eksplicitno dozvoljeni facade-interni ``self._require_doctor``. Bilo koji
+drugi poziv (raw SQL, aliasirani ``select``, ``getattr``/``__getattribute__``,
+uvoz cijelog modula, ...) automatski pada — jer default je "odbij", ne
+"dozvoli osim nabrojanih". Provjera je strukturna (``ast.parse``), pa ne
+zavisi od teksta, formatiranja ni imena varijabli.
 """
 
 from __future__ import annotations
@@ -38,75 +42,82 @@ def _appointment_service_methods() -> list[ast.FunctionDef]:
     return [n for n in _appointment_service_class().body if isinstance(n, ast.FunctionDef)]
 
 
-# Data-access pozivi zabranjeni u facade metodama (osim dozvoljenog
-# ``from_sqlite`` bootstrap-a). Pokriva i raw SQL (``text``/``execute``) i
-# SQLAlchemy Core/ORM (``select``/``scalar``/``scalars``/``query``/``get``)
-# i write operacije (``add``/``delete``/``commit``/``flush``).
-_FORBIDDEN_CALL_NAMES = {"select", "text"}
-_FORBIDDEN_CALL_ATTRS = {
-    "execute", "scalar", "scalars", "query", "add", "delete", "commit", "flush"
-}
+# Metode koje NISU delegacije nego facade infrastruktura — izuzete iz
+# allowlist provjere. Sve ostalo (javne delegacije + bilo koje privatne)
+# mora da prođe allowlist.
+_FACADE_EXEMPT_METHODS = {"__init__", "from_sqlite", "set_doctor", "_require_doctor"}
+
+# Allowlist: root imena na koje facade smije delegirati.
+_FACADE_ALLOWED_MODULES = {"appointments", "availability", "settings"}
+_FACADE_ALLOWED_FUNCTIONS = {"list_pending", "confirm_request", "reject_request"}
+# Facade-interni poziv (state provjera, bez SQL-a) — dozvoljen po Task Contractu.
+_FACADE_ALLOWED_INTERNAL = {"self._require_doctor"}
 
 
-def _is_data_access_func(func: ast.expr) -> bool:
-    if isinstance(func, ast.Name):
-        return func.id in _FORBIDDEN_CALL_NAMES
-    if isinstance(func, ast.Attribute):
-        if func.attr in _FORBIDDEN_CALL_ATTRS:
-            return True
-        return (
-            func.attr == "get"
-            and isinstance(func.value, ast.Name)
-            and func.value.id == "session"
-        )
-    return False
+def _dotted_name(expr: ast.expr) -> str | None:
+    """Puni kvalifikovani naziv poziva, ili ``None`` ako nije prost Name/Attribute.
 
-
-def _data_access_calls(method: ast.FunctionDef) -> list[ast.Call]:
-    """Vrati sve SQL/SQLAlchemy data-access pozive unutar tijela metode."""
-    return [
-        node
-        for node in ast.walk(method)
-        if isinstance(node, ast.Call) and _is_data_access_func(node.func)
-    ]
-
-
-def test_booking_facade_ne_sadrzi_sql_data_access() -> None:
-    """Nijedna facade metoda (osim ``from_sqlite``) ne smije dirati bazu."""
-    for method in _appointment_service_methods():
-        if method.name == "from_sqlite":
-            continue
-        bad = _data_access_calls(method)
-        assert not bad, (
-            f"AppointmentService.{method.name} sadrži data-access poziv: "
-            f"{ast.unparse(bad[0])}"
-        )
-
-
-# Facade javne metode smiju SAMO delegirati ka fokusiranim modulima ili ka
-# requests funkcijama. ``from_sqlite`` (bootstrap) i ``set_doctor`` (state
-# setter) su eksplicitno izuzeti.
-_DELEGATION_MODULES = {"appointments", "availability", "settings"}
-_DELEGATION_FUNCTIONS = {"list_pending", "confirm_request", "reject_request"}
+    ``getattr(...)()``, ``session.__getattribute__(...)()`` i slični dinamički
+    pozivi vraćaju ``None`` (njihov ``func`` je ``ast.Call``), pa automatski
+    padaju allowlist — default "odbij".
+    """
+    if isinstance(expr, ast.Name):
+        return expr.id
+    if isinstance(expr, ast.Attribute):
+        base = _dotted_name(expr.value)
+        return f"{base}.{expr.attr}" if base is not None else None
+    return None
 
 
 def _is_delegation_call(call: ast.Call) -> bool:
-    func = call.func
-    if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
-        return func.value.id in _DELEGATION_MODULES
-    if isinstance(func, ast.Name):
-        return func.id in _DELEGATION_FUNCTIONS
-    return False
+    name = _dotted_name(call.func)
+    if name is None:
+        return False
+    if name in _FACADE_ALLOWED_FUNCTIONS:
+        return True
+    return name.split(".", 1)[0] in _FACADE_ALLOWED_MODULES
 
 
-def test_booking_facade_javne_metode_su_delegacije() -> None:
-    """Svaka javna facade metoda završava delegacijskim pozivom."""
+def _is_allowed_call(call: ast.Call) -> bool:
+    name = _dotted_name(call.func)
+    if name is None:
+        return False
+    if name in _FACADE_ALLOWED_INTERNAL:
+        return True
+    return _is_delegation_call(call)
+
+
+def test_booking_facade_pozivi_su_samo_iz_allowlista() -> None:
+    """Svaki poziv u facade metodama je dozvoljen (allowlist), default odbij."""
+    for method in _appointment_service_methods():
+        if method.name in _FACADE_EXEMPT_METHODS:
+            continue
+        bad = [
+            ast.unparse(node)
+            for node in ast.walk(method)
+            if isinstance(node, ast.Call) and not _is_allowed_call(node)
+        ]
+        assert not bad, (
+            f"AppointmentService.{method.name} ima nedozvoljene pozive: {bad}"
+        )
+
+
+def test_booking_facade_javne_metode_su_jedna_delegacija() -> None:
+    """Svaka javna metoda ima tačno jedan delegacijski poziv kao posljednji izraz."""
     checked = 0
     for method in _appointment_service_methods():
         name = method.name
-        if name.startswith("_") or name in {"from_sqlite", "set_doctor"}:
+        if name.startswith("_") or name in _FACADE_EXEMPT_METHODS:
             continue
         checked += 1
+
+        calls = [n for n in ast.walk(method) if isinstance(n, ast.Call)]
+        delegations = [c for c in calls if _is_delegation_call(c)]
+        assert len(delegations) == 1, (
+            f"AppointmentService.{name} ima {len(delegations)} delegacijskih poziva, "
+            f"očekivan tačno 1"
+        )
+
         body = method.body
         assert body, f"AppointmentService.{name} ima prazno tijelo"
         last = body[-1]
