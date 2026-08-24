@@ -13,6 +13,8 @@ Ovo je Dentaland — sistem zakazivanja za stomatološku ordinaciju, građen za 
 5. Za pun proces (risk nivoi, Task Contract format, ko je
    Implementer/Reviewer, review verdikt) — `docs/dentaland-agentski-razvoj.md`,
    ne `CLAUDE.md` direktno.
+6. Za stil komunikacije (kako pisati u chatu i u `agent_reports/**`, ne
+   šta raditi) — `docs/dentaland-komunikacija-agenata.md`.
 
 Ne dupliramo taj sadržaj ovdje — jedan izvor istine, da se pravila ne raziđu kad se izvorni dokument ažurira.
 
