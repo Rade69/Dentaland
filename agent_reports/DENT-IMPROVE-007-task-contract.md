@@ -3,8 +3,9 @@ task_id: DENT-IMPROVE-007
 risk: MEDIUM
 implementer: pi
 reviewers: [claude]
-status: ASSIGNED — dodijeljeno Pi-ju (implementer)
+status: "DONE — MERGED u main (merge commit 4472cc9, 2026-08-24), post-merge integration gate PASS (298 pytest, ruff, mypy)."
 created_at: 2026-08-24
+merged_at: 2026-08-24
 ---
 
 # DENT-IMPROVE-007 — Operativni automatski backup (CLI + Windows Task Scheduler)
