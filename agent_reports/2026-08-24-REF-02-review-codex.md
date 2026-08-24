@@ -4,29 +4,64 @@ risk: MEDIUM
 implementer: pi
 reviewers: [codex, claude]
 reviewer: codex
-verdict: REJECT
-commits: [df88ae3]
+verdict: PASS
+commits: [df88ae3, 730081b]
 created_at: 2026-08-24
 ---
 
 # REF-02 — Codex review (test kvalitet)
 
 ```yaml
-verdict: REJECT
+verdict: PASS
 scope: PASS
-acceptance: REJECT
+acceptance: PASS
 architecture: PASS
 security: PASS
-blocking_findings:
-  - "F1 tests/test_ref02_range_reads.py:155-192 — eager-load test koristi samo jednog doktora i jedan servis; nakon potpunog uklanjanja oba selectinload poziva test i dalje prolazi (1 passed), pa ne dokazuje konstantan broj upita niti štiti N+1 invariant."
-  - "F2 tests/test_ref02_range_reads.py:84-128 — nema termina koji tačno dodiruje range granicu; nakon promjene start_time < range_end u start_time <= range_end sva tri relevantna range testa i dalje prolaze (3 passed), pa half-open overlap contract nije zaključan."
+blocking_findings: []
 ```
 
-## Zaključak
+## Finalni zaključak — re-review runda 2
 
-Produkcijska implementacija izgleda konzistentno sa Task Contractom, puni
-gate-ovi su zeleni i scope je čist. Review je ipak `REJECT` jer dva nova
-testa ne padaju kada se pokvare invarijante koje tvrde da štite.
+Pi je u commitu `730081b` zatvorio oba nalaza iz prve runde. Ponovljene
+mutacije sada daju očekivani FAIL, puni gate-ovi su zeleni i produkcijski kod
+nije mijenjan. Finalni Codex verdikt je `PASS`.
+
+### Runda 2 — verifikacija
+
+```text
+pytest tests/ -q
+330 passed, 11 warnings in 11.11s (exit 0)
+
+ruff check src/dentaland desktop backend tests
+All checks passed! (exit 0)
+
+mypy src/dentaland desktop backend
+Success: no issues found in 38 source files (exit 0)
+```
+
+Fix diff `3e126b9..730081b` sadrži samo
+`tests/test_ref02_range_reads.py` i novi `agent_reports/**` izvještaj.
+
+### F1 zatvoren
+
+Nakon ponovnog uklanjanja oba `selectinload` poziva:
+
+```text
+test_range_eager_load_konstantan_broj_upita
+FAILED: očekivano <=5 upita, dobijeno 11
+```
+
+Fixture sa 4 doktora i 6 servisa sada deterministički razlikuje lazy
+varijantu (11 upita) od eager varijante (3 upita).
+
+### F2 zatvoren
+
+Mutacija `Appointment.start_time < range_end` u `<=` ruši
+`test_range_start_na_granici_kraja_se_ne_ukljucuje`: termin na desnoj
+granici pogrešno se vraća. Odvojena mutacija `Appointment.end_time >
+range_start` u `>=` ruši
+`test_range_end_na_granici_pocetka_se_ne_ukljucuje`. Obje half-open granice
+su sada stvarno zaključane.
 
 ## Scope
 
@@ -59,7 +94,7 @@ mypy src/dentaland desktop backend
 Success: no issues found in 38 source files (exit 0)
 ```
 
-## Adversarne provjere
+## Adversarne provjere — runda 1 (istorija nalaza)
 
 ### F1 — eager-load test daje lažan PASS
 
@@ -152,12 +187,11 @@ regresije.
 CILJ: dokazati da REF-02 testovi štite range i eager-load invarijante prije
 arhitektonskog review-a.
 
-URAĐENO: REJECT — produkcijski gate-ovi prolaze, ali F1 i F2 daju
-adversarni lažni PASS.
+URAĐENO: PASS — F1 i F2 su zatvoreni; obje ponovljene mutacije daju
+očekivani FAIL, a puni gate daje 330 passed.
 
-NE DIRATI: produkcijsku implementaciju bez novog nalaza; trenutni blocking
-nalazi su ograničeni na kvalitet `tests/test_ref02_range_reads.py`.
+NE DIRATI: produkcijsku implementaciju; re-review fix mijenja samo testove i
+evidence izvještaj.
 
-SLJEDEĆE: Pi dopunjava F1 fixture različitim relationship entitetima i F2
-adjacency slučajevima; Codex ponavlja oba mutaciona testa. Claude review ide
-tek poslije Codex PASS re-review-a, zatim Radovan human approval.
+SLJEDEĆE: Claude radi Reviewer 2 arhitektonski review, zatim Radovan human
+approval; merge tek poslije oba koraka.
