@@ -20,10 +20,20 @@ Relevant tests: `tests/test_models.py`, `tests/test_backup.py`
 
 ## Booking domain
 
-- `src/dentaland/services/booking.py` — kreiranje, izmjena, statusi, slotovi,
-  overlap logika.
+Od REF-03, `booking.py` je tanak compatibility facade (`AppointmentService`)
+— ne drži poslovnu logiku, samo delegira ka fokusiranim modulima:
 
-Relevant tests: `tests/test_services.py`, `tests/test_models.py`
+- `src/dentaland/services/booking.py` — facade `AppointmentService` (delegacija
+  ka modulima ispod); backward-compat import putanja za GUI i štampu.
+- `src/dentaland/services/appointments.py` — Appointment CRUD/status/DTO +
+  `appointments_for_range` (range reads) + service lookup za editor.
+- `src/dentaland/services/availability.py` — overlap invariant, TimeOff
+  (blokada/odsustvo), kalendarski blokovi (odsustva + split-shift pauze).
+- `src/dentaland/services/settings.py` — doktori/usluge/radno-vrijeme
+  administracija (aktivacija doktora, CRUD usluga, radno vrijeme).
+
+Relevant tests: `tests/test_services.py`, `tests/test_models.py`,
+`tests/test_ref00_service_api_contract.py`, `tests/test_ref03_booking_split.py`
 
 ## Public requests (online zahtjevi)
 
