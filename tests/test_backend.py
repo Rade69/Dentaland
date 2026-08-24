@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import threading
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -258,6 +260,135 @@ def test_scheduler_bira_samo_scheduled_termine_u_uskom_prozoru(
     assert send.call_count == 2
     sent_addresses = {call.args[0] for call in send.call_args_list}
     assert sent_addresses == {due_at_start.email, due_inside.email}
+
+
+def test_scheduler_ne_salje_dvaput_isti_termin(
+    session_factory: sessionmaker[Session], doctor_and_service: tuple[int, int]
+) -> None:
+    """DENT-022 — restart/dvostruko pokretanje scheduler-a ne smije duplirati slanje."""
+    now = datetime(2026, 8, 20, 8, 0, tzinfo=UTC)
+    doctor_id, service_id = doctor_and_service
+    # Namjerno unutar presjeka oba prozora (ne na granici) — Codex review
+    # (2026-08-23) je pokazao da termin tačno na `now + REMINDER_LEAD_TIME`
+    # ispada iz drugog, za 1min pomjerenog prozora, pa test u tom slučaju
+    # ne provjerava dedup filter, nego samo prirodni pomak prozora.
+    start = now + REMINDER_LEAD_TIME + timedelta(minutes=5)
+
+    appt = Appointment(
+        doctor_id=doctor_id,
+        service_id=service_id,
+        ime="Pacijent",
+        email="pacijent@example.com",
+        start_time=start,
+        end_time=start + timedelta(minutes=30),
+        status=AppointmentStatus.SCHEDULED,
+    )
+    with session_factory() as session:
+        session.add(appt)
+        session.commit()
+        appt_id = appt.id
+
+    with patch("dentaland.services.notifications.send_appointment_reminder") as send:
+        first = send_due_appointment_reminders(session_factory, now=now)
+        # Isti (ili blago pomjeren, i dalje preklapajući) prozor — simulira
+        # restart scheduler-a koji ponovo računa "now" od trenutnog vremena.
+        second = send_due_appointment_reminders(
+            session_factory, now=now + timedelta(minutes=1)
+        )
+
+    assert first == 1
+    assert second == 0
+    assert send.call_count == 1
+
+    with session_factory() as session:
+        stored = session.get(Appointment, appt_id)
+        assert stored is not None
+        assert stored.reminder_sent_at is not None
+
+
+def test_scheduler_paralelno_pokretanje_ne_salje_dvaput(tmp_path: Path) -> None:
+    """DENT-022 — dva paralelna scheduler procesa (dvije nezavisne
+    konekcije/thread-a na istoj file-backed SQLite bazi) smiju poslati
+    podsjetnik SAMO jednom.
+
+    Replicira Codex-ov adversarni scenario (review, 2026-08-23, REJECT
+    runda 1) koji je na prethodnoj implementaciji (SELECT pa slanje pa
+    update) dokazao ``CONCURRENT_SEND_COUNT 2`` — obje sesije su pročitale
+    ``reminder_sent_at IS NULL`` prije nego što je ijedna commitovala.
+    Ovaj test koristi pravu file-backed bazu (ne ``StaticPool``/jedna
+    dijeljena konekcija, koja bi trivijalno serijalizovala pristup i
+    sakrila bag) i barijeru koja oba threada pušta u isto vrijeme.
+    """
+    db_path = tmp_path / "dedup-race.db"
+    db_url = f"sqlite:///{db_path}"
+
+    setup_engine = create_engine(db_url)
+    Base.metadata.create_all(setup_engine)
+    setup_engine.dispose()
+
+    now = datetime(2026, 8, 20, 8, 0, tzinfo=UTC)
+    start = now + REMINDER_LEAD_TIME + timedelta(minutes=5)
+
+    seed_engine = create_engine(db_url)
+    with sessionmaker(bind=seed_engine)() as session:
+        doctor = Doctor(ime="Ljubo")
+        service = Service(naziv="Kontrola", trajanje_min=30, buffer_min=0)
+        session.add_all([doctor, service])
+        session.commit()
+        appt = Appointment(
+            doctor_id=doctor.id,
+            service_id=service.id,
+            ime="Pacijent",
+            email="pacijent@example.com",
+            start_time=start,
+            end_time=start + timedelta(minutes=30),
+            status=AppointmentStatus.SCHEDULED,
+        )
+        session.add(appt)
+        session.commit()
+    seed_engine.dispose()
+
+    # Dvije NEZAVISNE konekcije ka ISTOJ file-backed bazi — simulira dva
+    # odvojena scheduler procesa (restart preklopljen sa starim procesom,
+    # ili slučajno dvostruko pokretanje).
+    factory_a = sessionmaker(bind=create_engine(db_url))
+    factory_b = sessionmaker(bind=create_engine(db_url))
+
+    barrier = threading.Barrier(2)
+    lock = threading.Lock()
+    send_calls: list[str] = []
+
+    def fake_send(to_email: str, start_time: datetime) -> None:
+        with lock:
+            send_calls.append(to_email)
+
+    results: dict[str, int] = {}
+
+    def worker(name: str, factory: sessionmaker[Session]) -> None:
+        barrier.wait()  # oba threada pokušavaju u isto vrijeme
+        results[name] = send_due_appointment_reminders(factory, now=now)
+
+    with patch(
+        "dentaland.services.notifications.send_appointment_reminder",
+        side_effect=fake_send,
+    ):
+        t1 = threading.Thread(target=worker, args=("a", factory_a))
+        t2 = threading.Thread(target=worker, args=("b", factory_b))
+        t1.start()
+        t2.start()
+        t1.join(timeout=10)
+        t2.join(timeout=10)
+
+    assert not t1.is_alive()
+    assert not t2.is_alive()
+    assert len(send_calls) == 1, f"očekivano tačno jedno slanje, dobijeno: {send_calls}"
+    assert results["a"] + results["b"] == 1
+
+    verify_engine = create_engine(db_url)
+    with sessionmaker(bind=verify_engine)() as session:
+        stored = session.query(Appointment).filter_by(email="pacijent@example.com").one()
+        assert stored.reminder_sent_at is not None
+    verify_engine.dispose()
 
 
 def test_scheduler_odbija_naivno_trenutno_vrijeme(
