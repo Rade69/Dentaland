@@ -28,7 +28,7 @@ from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from dentaland.models import (
     Appointment,
@@ -276,6 +276,44 @@ class AppointmentService:
                 )
                 .order_by(Appointment.start_time)
             ).all()
+            return [self._to_dto(a, self._service_name(a)) for a in appts]
+
+    def appointments_for_range(
+        self,
+        range_start: datetime,
+        range_end: datetime,
+        doctor_id: int | None = None,
+    ) -> list[AppointmentDTO]:
+        """Termini koji se vremenski preklapaju sa ``[range_start, range_end)``.
+
+        Intervalska overlap semantika (isto kao ``validate_appointment_overlap``
+        iz ``availability.py``): ``start_time < range_end AND end_time >
+        range_start``. Doctor i Service se učitavaju ``selectinload``-om (bez
+        N+1). ``doctor_id=None`` vraća sve doktore.
+        """
+        with self._session_factory() as session:
+            stmt = (
+                select(Appointment)
+                .options(
+                    selectinload(Appointment.doctor),
+                    selectinload(Appointment.service),
+                )
+                .where(
+                    Appointment.start_time.is_not(None),
+                    Appointment.end_time.is_not(None),
+                    Appointment.doctor_id.is_not(None),
+                    Appointment.service_id.is_not(None),
+                    Appointment.status.not_in(
+                        [AppointmentStatus.PENDING, AppointmentStatus.REJECTED]
+                    ),
+                    Appointment.start_time < range_end,
+                    Appointment.end_time > range_start,
+                )
+                .order_by(Appointment.start_time)
+            )
+            if doctor_id is not None:
+                stmt = stmt.where(Appointment.doctor_id == doctor_id)
+            appts = session.scalars(stmt).all()
             return [self._to_dto(a, self._service_name(a)) for a in appts]
 
     def mark_arrived(self, appt_id: int) -> AppointmentDTO:

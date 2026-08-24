@@ -244,9 +244,14 @@ class WeekView(QTableWidget):
         return (row, col), min(span, self.rowCount() - row)
 
     def _fetch_appointments(self) -> list[AppointmentDTO]:
-        fetch = getattr(self.store, "all_combined", None)
+        fetch = getattr(self.store, "appointments_for_range", None)
         if callable(fetch):
-            return fetch()
+            range_start = datetime(
+                self.week_start.year, self.week_start.month, self.week_start.day,
+                tzinfo=SARAJEVO,
+            )
+            range_end = range_start + timedelta(days=self.DAY_COUNT)
+            return fetch(range_start, range_end)
         return self.store.all()
 
     def _visible_appointments(self) -> list[tuple[tuple[int, int], int, AppointmentDTO]]:
