@@ -17,39 +17,39 @@ uvodi se pravi Controller sloj. Implementeri Pi i Crush naizmjenično, oba
 reviewera (Codex I Claude) obavezna na svaki task (namjerno skuplje od
 standardnog MEDIUM procesa, dogovoreno sa Radovanom), pa human approval.
 
-- **`REF-00`** (LOW/MEDIUM, characterization testovi/sigurnosna mreža) —
-  MERGED (`ce8d65a`). Implementer Pi: 19 novih testova, uključujući
-  baseline za KRITIČAN nalaz otkriven u review-u plana — `booking.py` i
-  `requests.py` definišu DVIJE odvojene `OverlapError` klase istog imena
-  (desktop hvata jednu, `backend/main.py` drugu). Oba reviewera PASS
-  (`agent_reports/2026-08-24-REF-00-review-codex.md`,
-  `.../2026-08-24-REF-00-review-claude.md`) — oba nezavisno reprodukovala
-  dokaz (Codex: 3 adversarne mutacije; Claude: dodatna mutacija iz drugog
-  ugla — nova javna metoda ne kvari API contract test, potvrđuje da
-  granica toleriše rast, ne samo brani od brisanja).
+- **`REF-00`** (LOW/MEDIUM, characterization testovi) — MERGED (`ce8d65a`).
+  19 testova, uključujući baseline za KRITIČAN nalaz — `booking.py`/
+  `requests.py` su imali DVIJE odvojene `OverlapError` klase istog imena.
+  Oba reviewera PASS, oba nezavisno reprodukovala dokaz.
 - **`REF-01`** (MEDIUM, centralizacija availability/overlap invarijante) —
-  MERGED (`fa53340`). Implementer Crush: nov `src/dentaland/services/availability.py`
-  (jedini overlap query, acikličan — `requests.py`/`booking.py` zavise od
-  njega, ne obrnuto), `OverlapError` kanonizovana u JEDNU klasu (rješava
-  REF-00 nalaz), facade (`_check_overlap`) svedena na čistu delegaciju,
-  backward-compat import putanje očuvane za GUI. REF-00 testovi za
-  dvije-klase stanje svjesno ažurirani (5 asercija `is not` → `is`,
-  pregledano liniju po liniju). Detalji:
-  `agent_reports/2026-08-24-REF-01-review-claude.md`.
-  **Procesna napomena (presedan za buduće REF taskove):** prvi pokušaj
-  Crush-a je bio urađen na grani granatoj PRIJE REF-00 merge-a (grana nije
-  sadržavala REF-00 sigurnosnu mrežu) — otkriveno prije review-a, vraćeno
-  na sinhronizaciju (`git merge origin/main` + svjesno ažuriranje 5 REF-00
-  testova), tek onda review. **Uvijek provjeriti da je zavisni task
-  stvarno mergovan u `main` PRIJE početka rada, ne samo da postoji kao
-  grana.** Odvojeno: REF-01 je mergovan sa SAMO jednim reviewerom
-  (Claude) — Radovan je eksplicitno odobrio preskakanje Codexovog review-a
-  za ovaj task (odstupanje od dogovorenog "oba reviewera" pravila za
-  cijeli REF paket, njegova odluka, ne podrazumijevano ponašanje za
-  REF-02+).
-- Raspored ostatka: REF-02 Pi, REF-03 Crush, REF-04 Pi, REF-05 Crush,
-  REF-06 Pi, REF-07 Crush, REF-08 Pi (plan sekcija 17) — namjerno
-  sekvencijalno, hotspot fajlovi bi inače stvarali merge konflikte.
+  MERGED (`fa53340`). Nov `src/dentaland/services/availability.py`
+  (jedini overlap query), `OverlapError` kanonizovana u JEDNU klasu.
+  **Procesni presedan:** prvi pokušaj je bio na grani grančenoj PRIJE
+  REF-00 merge-a — uvijek provjeriti da je zavisni task STVARNO mergovan
+  u `main` prije početka rada, ne samo da postoji kao grana. Mergovan sa
+  SAMO jednim reviewerom (Claude) — Radovanova eksplicitna, jednokratna
+  odluka da preskoči Codexa za ovaj task, ne podrazumijevano ponašanje.
+- **`REF-02`** (MEDIUM, range-based reads + eager loading) — MERGED
+  (`d4b09e7`). `AppointmentService.appointments_for_range()` (nov, u
+  `booking.py`) — Day/Week više ne čitaju cijelu istoriju; `selectinload`
+  uklanja N+1. `all_combined()` netaknuta (koristi je `print_schedule.py`,
+  van scope-a). PRIJE/POSLIJE dokaz: 104 upita/5000 redova →
+  3 upita/48 redova za dnevni raspon — mjereno NEZAVISNO tri puta
+  (implementer, oba reviewera), identičan rezultat sva tri puta.
+  **Vrijedan presedan — Codex REJECT runda 1, pa PASS runda 2:** oba
+  nalaza (F1: eager-load test koristio samo 1 doktora/1 servisa, lazy
+  varijanta slučajno prolazila isti prag kao eager — lažan PASS; F2: nema
+  testa za tačan dodir half-open granice, mutacija `<`→`<=` prolazila
+  neopaženo) su bila o KVALITETU TESTOVA, ne o arhitekturi — implementer
+  je popravio test fixture (4 doktora/6 servisa) i dodao dva adjacency
+  testa, produkcijski kod nedirnut kroz obje runde. Reviewer 2 (Claude) je
+  svjesno NE ponovio Codexovu adversarnu verifikaciju u drugoj rundi (već
+  dokazano, isti nalaz bi bio trošenje tokena) — umjesto toga potvrdio
+  samo da popravka nije izašla iz scope-a.
+- Raspored ostatka: **REF-03 (Crush)** je sljedeći na redu, pa REF-04 Pi,
+  REF-05 Crush, REF-06 Pi, REF-07 Crush, REF-08 Pi (plan sekcija 17) —
+  namjerno sekvencijalno, hotspot fajlovi bi inače stvarali merge
+  konflikte.
 
 **Prioritet A i B backloga (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`) su
 kompletno MERGED prije ovog refaktora** (23–24.8.2026) — email-audit
@@ -62,16 +62,18 @@ build/test/repro), ne samo čita izvještaj — DENT-022 runda 1 je pokazala
 da čak i pažljiv implementer može zapisati netačnu tvrdnju, uhvaćeno tek
 nezavisnim review-om.
 
-Post-merge integration gate na `main` nakon REF-01: 322 pytest passed,
+Post-merge integration gate na `main` nakon REF-02: 330 pytest passed,
 ruff/mypy čisti (vidi "Current verification baseline" ispod).
 
 Stari worktree-ovi (`DENT-022-reminder-dedup`, `DENT-023-smtp-env-dokumentacija`,
 `DENT-IMPROVE-007-backup-cli`, `DENT-IMPROVE-009-windows-packaging`,
-`REF-00-characterization-tests`, `REF-01-availability-invariant`) su
-ostavljeni netaknuti — ukloniti po potrebi.
+`REF-00-characterization-tests`, `REF-01-availability-invariant`,
+`REF-02-range-reads`) su ostavljeni netaknuti — ukloniti po potrebi.
 
-**Nema trenutno aktivnog REF taska** — REF-01 je DONE. Sljedeći na redu je
-**REF-02 (Pi)** po planu (sekcija 17), zavisnost REF-01 (sad zadovoljena).
+**Nema trenutno aktivnog REF taska** — REF-02 je DONE. Sljedeći na redu je
+**REF-03 (Crush)** po planu (sekcija 10), zavisnosti REF-01+REF-02 (sad
+zadovoljene) — razbijanje `booking.py` po servisnim odgovornostima
+(`appointments.py`, `settings.py`, `requests.py` koristi `availability.py`).
 Prioritet C (`DENT-IMPROVE-010`..`015`, "prije javnog online bookinga")
 čeka da se cijeli refaktor završi (plan sekcija 23 — nema smisla prije
 finalnog architecture review-a poslije REF-08).
@@ -166,12 +168,12 @@ review runde). `CLAUDE.md` je sada thin router, ne sadrži tabelu uloga.
 
 ## Current verification baseline
 
-Izmjereno 2026-08-24 na `main`, post-merge gate nakon REF-01 (merge
-`fa53340`):
+Izmjereno 2026-08-24 na `main`, post-merge gate nakon REF-02 (merge
+`d4b09e7`):
 
-- `pytest tests/ -q` → **322 passed**, 11 warnings (deprecation
+- `pytest tests/ -q` → **330 passed**, 11 warnings (deprecation
   warnings iz `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog
-  koda), ~15-20s.
+  koda), ~11-15s.
 - `ruff check src/dentaland desktop backend tests` → **All checks passed**.
 - `mypy src/dentaland desktop backend` → **Success: no issues found in 38
   source files.**
@@ -194,13 +196,13 @@ napamet.
 ## Next known work
 
 Korektivni paket FIX-01..06, Codex-ov FIX-07/08/09, email-audit paket
-DENT-022/DENT-023, `DENT-IMPROVE-007`/`009`, REF-00 i REF-01 su svi
-zatvoreni (DONE). **Sljedeći na redu: REF-02 (Pi)** — range-based
-scheduling reads + eager loading, zavisnost REF-01 (zadovoljena), plan
-sekcija 9. Nakon toga: REF-03 Crush, REF-04 Pi, REF-05 Crush, REF-06 Pi,
-REF-07 Crush, REF-08 Pi, pa finalni arhitektonski acceptance review
-(Codex + Claude, plan sekcija 20) prije nego što ima smisla krenuti na
-Prioritet C (`DENT-IMPROVE-010`..`015`, Faza 1 priprema).
+DENT-022/DENT-023, `DENT-IMPROVE-007`/`009`, REF-00, REF-01 i REF-02 su
+svi zatvoreni (DONE). **Sljedeći na redu: REF-03 (Crush)** — razbijanje
+`booking.py` po servisnim odgovornostima, zavisnosti REF-01+REF-02
+(zadovoljene), plan sekcija 10. Nakon toga: REF-04 Pi, REF-05 Crush,
+REF-06 Pi, REF-07 Crush, REF-08 Pi, pa finalni arhitektonski acceptance
+review (Codex + Claude, plan sekcija 20) prije nego što ima smisla
+krenuti na Prioritet C (`DENT-IMPROVE-010`..`015`, Faza 1 priprema).
 
 Podsjetnik: fizičan clean-machine test za `DENT-IMPROVE-009` (na drugoj
 mašini) ostaje Radovanova provjera — implementacija/review su samo

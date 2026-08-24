@@ -3,8 +3,18 @@ task_id: REF-02
 risk: MEDIUM
 implementer: pi
 reviewers: [codex, claude]
-status: ASSIGNED — dodijeljeno Pi-ju (implementer)
+status: "DONE — MERGED u main (merge commit d4b09e7, 2026-08-24), post-merge integration gate PASS (330 pytest, ruff, mypy)."
+review_summary: >-
+  Codex Reviewer 1 runda 1: REJECT (F1: eager-load test koristio samo 1
+  doktora/1 servisa, lazy varijanta prolazila isti prag kao eager - lazan
+  PASS; F2: nema testa za tacan dodir half-open granice, mutacija < u <=
+  prolazila neopazeno). Pi popravio (4 doktora/6 servisa za F1, dva
+  adjacency testa za F2). Codex runda 2: PASS. Claude Reviewer 2: PASS
+  (arhitektura potvrdjena prije Codexovog review-a, ukljucujuci nezavisno
+  PRIJE/POSLIJE mjerenje - 104/3 SQL upita - identicno Pi-jevoj i
+  Codexovoj brojci).
 created_at: 2026-08-24
+merged_at: 2026-08-24
 ---
 
 # REF-02 — Range-based scheduling reads + eager loading
