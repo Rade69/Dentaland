@@ -95,6 +95,25 @@ Za Gmail je obavezan **App Password** (16 znakova, generisan na
 obična Gmail lozinka — obična lozinka vraća grešku
 `534 5.7.9 Application-specific password required`.
 
+## Operativni backup (CLI)
+
+Dnevni backup baze radi se kroz CLI, obično zakazan u Windows Task
+Scheduler:
+
+```bash
+python -m dentaland.backup_cli run          # kreiraj enkriptovan backup
+python -m dentaland.backup_cli restore-test # provjeri da je najnoviji backup čitljiv
+python -m dentaland.backup_cli status       # kad je zadnji uspješan backup
+```
+
+Backup ide u cloud/sync folder iz env varijable
+`DENTALAND_BACKUP_CLOUD_DIR`; ako nije postavljena, fallback je lokalni
+`data_dir()/backups` (radi odmah, ali bez off-site kopije). U development
+checkout-u prije komande postavi `$env:PYTHONPATH = "src"`. Sve varijable
+(`DENTALAND_BACKUP_CLOUD_DIR`, `DENTALAND_DATA_DIR`), ključ i tačni Windows
+Task Scheduler koraci su u
+[docs/dentaland-backup-operativni-vodic.md](docs/dentaland-backup-operativni-vodic.md).
+
 ## Testovi i provjera koda
 
 ```bash
