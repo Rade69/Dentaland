@@ -5,7 +5,7 @@ implementer: crush
 reviewers: [codex, claude]
 reviewer: codex
 verdict: REJECT
-commits: [e8d1ab7, 6e5680c]
+commits: [e8d1ab7, 6e5680c, 5a1acd0]
 created_at: 2026-08-24
 ---
 
@@ -18,14 +18,71 @@ acceptance: REJECT
 architecture: PASS
 security: PASS
 blocking_findings:
-  - "F1 tests/test_ref03_booking_split.py:37-96 — AST denylist hvata direktni text/execute oblik, ali propušta aliasirani `select as sel` i dinamički `getattr(session, 'execute')`; alternativni SQLAlchemy oblik daje svih 6 passed, a dinamički execute oba ključna testa zelena (2 passed)."
+  - "F1 tests/test_ref03_booking_split.py:80-137 — allowlist sada hvata raw SQL, aliasirani select i getattr execute, ali pregleda samo ast.Call čvorove; dodatna state mutacija `self.doctor_id = 999` prije legitimne delegacije ostaje nevidljiva i cijeli arhitektonski test fajl prolazi (6 passed)."
 ```
 
-## Finalni zaključak — re-review runda 2
+## Finalni zaključak — re-review runda 3
 
-Commit `6e5680c` popravlja prvobitni raw-SQL slučaj, ali F1 nije zatvoren:
-novi AST denylist i dalje daje lažni PASS za dva druga data-access oblika.
-Finalni Codex verdikt ostaje `REJECT`.
+Commit `5a1acd0` zatvara sva tri prethodna SQL zaobilaženja prelaskom na
+allowlist. F1 ipak nije zatvoren: test provjerava sve pozive, ali ne sve
+naredbe u tijelu, pa dodatna state mutacija prije legitimne delegacije daje
+lažni PASS. Finalni Codex verdikt ostaje `REJECT`.
+
+### Runda 3 — standardni gate
+
+```text
+pytest tests/ -q
+336 passed, 11 warnings in 11.28s (exit 0)
+
+ruff check src/dentaland desktop backend tests
+All checks passed! (exit 0)
+
+mypy src/dentaland desktop backend
+Success: no issues found in 40 source files (exit 0)
+```
+
+Fix diff `37ac85e..5a1acd0` mijenja samo
+`tests/test_ref03_booking_split.py` i dodaje `agent_reports/**` evidence;
+`booking.py` je nedirnut.
+
+### Prethodne tri mutacije — zatvorene
+
+Allowlist test sada genuinski pada za svaku odvojenu probu:
+
+- direktni `session.execute(text("SELECT * FROM appointments ..."))`;
+- višelinijski `from sqlalchemy import select as sel` + `sel(Doctor).where(...)`;
+- `getattr(session, "execute")` pozvan kroz lokalnu varijablu.
+
+Svaki slučaj je prijavljen kao nedozvoljen poziv u privatnoj facade metodi.
+
+### Nova mutacija — dodatna state promjena prije delegacije
+
+U postojećoj javnoj metodi privremeno je dodano:
+
+```python
+def mark_arrived(self, appt_id: int) -> AppointmentDTO:
+    self.doctor_id = 999
+    return appointments.mark_arrived(self._session_factory, appt_id)
+```
+
+Stvarni rezultat:
+
+```text
+pytest tests/test_ref03_booking_split.py -q
+6 passed in 0.46s
+```
+
+Ovo nije čista delegacija: facade tiho mijenja vlastiti state prije poziva.
+`test_booking_facade_pozivi_su_samo_iz_allowlista` pregleda samo `ast.Call`,
+pa `ast.Assign` ostaje nevidljiv. Test „tačno jedna delegacija“ potvrđuje
+broj delegacijskih poziva i posljednji izraz, ali ne zabranjuje dodatne
+naredbe prije njega.
+
+Fix treba strukturno ograničiti cijelo tijelo javne metode na dozvoljeni
+oblik: opcioni assignment rezultata `self._require_doctor()` tamo gdje je
+ugovoren, zatim tačno jedan `return`/poziv delegacije, bez drugih naredbi.
+Runtime monkeypatch test može dopuniti, ali sam ne vidi opštu state mutaciju
+ako ne provjerava stanje instance.
 
 ### Runda 2 — standardni gate
 
@@ -186,12 +243,12 @@ eksplicitno dozvoljena facade state provjera iz Task Contracta.
 CILJ: dokazati da REF-03 testovi stvarno štite tanku facade granicu i javnu
 kompatibilnost.
 
-URAĐENO: REJECT — direktni raw SQL je sada uhvaćen, ali aliasirani SQLAlchemy
-select i dinamički execute i dalje daju lažni PASS.
+URAĐENO: REJECT — tri SQL zaobilaženja su sada uhvaćena, ali dodatna state
+mutacija prije legitimne delegacije daje cijeli arhitektonski fajl zelen.
 
 NE DIRATI: produkcijsku implementaciju bez novog nalaza; F1 je ograničen na
 kvalitet `tests/test_ref03_booking_split.py`.
 
-SLJEDEĆE: Crush zatvara alias/getattr rupe ili zamjenjuje otvoreni denylist
-robustnijom granicom; Codex ponavlja sva tri mutaciona testa. Claude review
-ide tek poslije Codex PASS re-review-a, zatim Radovan human approval.
+SLJEDEĆE: Crush ograničava kompletan AST oblik tijela, ne samo pozive; Codex
+ponavlja state-side-effect probu i tri SQL mutacije. Claude review ide tek
+poslije Codex PASS re-review-a, zatim Radovan human approval.
