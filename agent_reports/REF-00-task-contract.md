@@ -3,8 +3,9 @@ task_id: REF-00
 risk: LOW/MEDIUM
 implementer: pi
 reviewers: [codex, claude]
-status: ASSIGNED — dodijeljeno Pi-ju (implementer)
+status: "DONE — MERGED u main (merge commit ce8d65a, 2026-08-24), post-merge integration gate PASS (317 pytest, ruff, mypy)."
 created_at: 2026-08-24
+merged_at: 2026-08-24
 ---
 
 # REF-00 — Arhitektonska sigurnosna mreža (characterization testovi)
