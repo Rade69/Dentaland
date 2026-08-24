@@ -157,15 +157,20 @@ def test_range_eager_load_konstantan_broj_upita(
     session_factory: sessionmaker[Session], engine: Engine
 ) -> None:
     sf = session_factory
-    d1, _d2, svc = _seed(sf)
-    base = _at(17, 8)
     with sf() as session:
-        for i in range(30):
+        docs = [Doctor(ime=f"D{i}") for i in range(4)]
+        svcs = [Service(naziv=f"S{i}", trajanje_min=30, buffer_min=0) for i in range(6)]
+        session.add_all(docs + svcs)
+        session.commit()
+        doc_ids = [d.id for d in docs]
+        svc_ids = [s.id for s in svcs]
+        base = _at(17, 8)
+        for i in range(12):
             start = base + timedelta(minutes=30 * i)
             session.add(
                 Appointment(
-                    doctor_id=d1,
-                    service_id=svc,
+                    doctor_id=doc_ids[i % len(doc_ids)],
+                    service_id=svc_ids[i % len(svc_ids)],
                     ime="Pacijent",
                     start_time=start,
                     end_time=start + timedelta(minutes=30),
@@ -187,6 +192,35 @@ def test_range_eager_load_konstantan_broj_upita(
     finally:
         event.remove(engine, "before_cursor_execute", _count)
 
-    assert len(result) == 30
-    # N+1 bi značio ~2*30 + 1 = 61 upita; eager load = 1 glavni + 2 selectinload.
+    assert len(result) == 12
+    # Lazy (bez selectinload) = 1 + 4 doktora + 6 servisa = 11 upita;
+    # eager load = 1 glavni + 2 selectinload = 3. Prag <=5 razlikuje ta dva.
     assert query_count <= 5, f"očekivano <=5 upita, dobijeno {query_count}"
+
+
+def test_range_start_na_granici_kraja_se_ne_ukljucuje(
+    session_factory: sessionmaker[Session],
+) -> None:
+    sf = session_factory
+    d1, _d2, svc = _seed(sf)
+    # start_time == range_end — dodiruje kraj half-open intervala, ne uključuje se.
+    _add_appt(sf, d1, svc, _at(18, 0), _at(18, 0, 30))
+
+    svc_obj = AppointmentService(sf)
+    result = svc_obj.appointments_for_range(_at(17, 0), _at(18, 0))
+
+    assert result == []
+
+
+def test_range_end_na_granici_pocetka_se_ne_ukljucuje(
+    session_factory: sessionmaker[Session],
+) -> None:
+    sf = session_factory
+    d1, _d2, svc = _seed(sf)
+    # end_time == range_start — dodiruje početak half-open intervala, ne uključuje se.
+    _add_appt(sf, d1, svc, _at(16, 16, 30), _at(17, 0))
+
+    svc_obj = AppointmentService(sf)
+    result = svc_obj.appointments_for_range(_at(17, 0), _at(18, 0))
+
+    assert result == []
