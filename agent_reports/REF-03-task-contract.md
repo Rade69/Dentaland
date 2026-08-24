@@ -1,12 +1,23 @@
 ---
 task_id: REF-03
 risk: MEDIUM
-implementer: crush
-reviewers: [codex, claude]
-status: "READY FOR REVIEW — worktree REF-03-booking-split, grana task/REF-03-booking-split (sa main-a f1b7acb). Implementacija + verifikacija gotovi (336 pytest, ruff, mypy čisti)."
-review_summary: ""
+implementer: crush (podjela) + codex (F1 test fix, treća runda — Radovanova eksplicitna odluka)
+reviewers: [pi (fresh reviewer 1), claude]
+status: "DONE — MERGED u main (merge commit a02f31f, 2026-08-24), post-merge integration gate PASS (336 pytest, ruff, mypy)."
+review_summary: >-
+  booking.py (820 linija monolit) razbijen na appointments.py (novo),
+  settings.py (novo), availability.py (prosireno REF-01), booking.py
+  postaje tanak facade. F1 arhitektonski test (dokazuje da facade ne
+  sadrzi poslovnu logiku) je prosao kroz tri runde Codex REJECT-a protiv
+  Crush-a (string-match -> denylist -> jos rupa), pa je Radovan eksplicitno
+  naredio da Codex sam zavrsi fix (allowlist + strog "tacno jedan poziv"
+  AST oblik). Time Codex vise nije nezavisan Reviewer 1 za taj fix - Pi je
+  preuzeo tu ulogu kao fresh reviewer, nezavisno ponovio sve mutacije + 5
+  novih proba, sve hvataju. Claude (Reviewer 2): P6 nalaz (test odbija
+  svaku privatnu metodu, ne samo data-access) ocijenjen kao namjerna,
+  ispravna strogost, ne defekt.
 created_at: 2026-08-24
-merged_at: ""
+merged_at: 2026-08-24
 ---
 
 # REF-03 — Razbiti `booking.py` po servisnim odgovornostima
