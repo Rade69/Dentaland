@@ -11,9 +11,14 @@ created_at: 2026-08-24
 
 ## Task Contract
 
-Izvor: `agent_reports/REF-04-task-contract.md` (napisan PRIJE koda). Zavisnost
-REF-03 potvrđena (main HEAD `3e3d11b`, granano sa njega). MEDIUM risk, dva
-reviewera.
+Izvor: `agent_reports/REF-04-task-contract.md`. **Ispravka (24.8.2026,
+uočeno u Codex i Claude review-u):** ovaj red je originalno netačno tvrdio
+"napisan PRIJE koda" — Task Contract je u stvarnosti napisan NAKNADNO
+(poslije implementacije), procesna greška eksplicitno priznata i
+označena u samom `REF-04-task-contract.md`. Netačnost nije uticala na
+scope/acceptance (contract sadržaj se poklapao sa stvarnim diff-om), ali
+ispravljena ovdje radi tačnog audit traga. Zavisnost REF-03 potvrđena
+(main HEAD `3e3d11b`, granano sa njega). MEDIUM risk, dva reviewera.
 
 ## Mapping (MainWindow → AppointmentController)
 

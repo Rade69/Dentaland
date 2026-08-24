@@ -3,8 +3,16 @@ task_id: REF-04
 risk: MEDIUM
 implementer: pi
 reviewers: [codex, claude]
-status: ASSIGNED — dodijeljeno Pi-ju (implementer)
+status: "DONE — MERGED u main (merge commit 3e0a0c2, 2026-08-24), post-merge integration gate PASS (341 pytest, ruff, mypy)."
+review_summary: >-
+  Codex PASS_WITH_NOTES, Claude PASS_WITH_NOTES. Lazy-import dijaloga iz
+  main_window modula (late binding) i getattr na privatne MainWindow
+  atribute (_doctors/_has_doctors/_current_doctor_id) su dokumentovan,
+  opravdan tehnicki dug — Controller "gleda nazad" u View da bi ostao
+  kompatibilan sa postojecom test infrastrukturom bez njene izmjene.
+  Zabiljezeno za buduci REF task da svjesno razmotri cistiji pristup.
 created_at: 2026-08-24
+merged_at: 2026-08-24
 ---
 
 # REF-04 — Uvesti pravi Controller sloj za appointment workflow

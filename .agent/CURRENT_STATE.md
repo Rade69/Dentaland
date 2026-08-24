@@ -30,30 +30,35 @@ standardnog MEDIUM procesa, dogovoreno sa Radovanom), pa human approval.
   Presedan: Codex REJECT→PASS ciklus o kvalitetu testova (lažan PASS na
   slabom fixture-u), ne arhitekturi.
 - **`REF-03`** (razbijanje `booking.py`) — MERGED (`a02f31f`). Najveći
-  task do sada: `booking.py` (820 linija) → `appointments.py` (novo),
-  `settings.py` (novo), `availability.py` (prošireno), `booking.py`
-  postaje tanak facade (~245 linija, svaka javna metoda = jednoredna
-  delegacija). **Najvredniji procesni presedan cijelog paketa:**
-  arhitektonski test koji dokazuje "facade nema poslovnu logiku" je
-  prošao TRI Codex REJECT runde protiv Crush-a (string-match → denylist
-  sa rupama → i dalje rupe) — svaki put Codex je pronašao NOVI način
-  zaobilaženja. Radovan je eksplicitno naredio da Codex sam završi fix
-  (finalni oblik: allowlist + strogo "tačno jedan delegacijski poziv" AST
-  test). Time Codex više NIJE bio nezavisan reviewer za taj specifičan
-  fix — **Pi je preuzet kao FRESH Reviewer 1** (ne čita prethodne
-  Codexove nalaze prije sopstvene provjere), nezavisno ponovio sve 4
-  Codexove mutacije + smislio 5 novih (dva poziva zaredom, tuple index u
-  argumentu, walrus, lambda, nova javna metoda) — sve genuinski hvataju.
-  Jedan non-blocking nalaz (P6: test odbija SVAKU privatnu metodu, ne
-  samo data-access) eksplicitno proslijeđen Claude-u (Reviewer 2) —
-  ocijenjeno kao namjerna, ispravna strogost (facade ne treba sopstvene
-  helpere; asimetrija rizika favorizuje stroži test), ne mijenjano.
-  **Pouka za buduće slučajeve:** kad implementer/reviewer postane
-  "kontaminiran" (isto lice radi i implementaciju i review istog dijela),
-  rješenje nije preskočiti review — nego uvesti FRESH nezavisnog
-  reviewera koji ne nasljeđuje prethodno rezonovanje.
-- Raspored ostatka: **REF-04 (Pi)** je sljedeći na redu, pa REF-05 Crush,
-  REF-06 Pi, REF-07 Crush, REF-08 Pi (plan sekcija 17).
+  servisni task: `booking.py` (820 linija) → `appointments.py`/`settings.py`
+  (novo) + `availability.py` (prošireno), `booking.py` postaje tanak
+  facade. **Najvredniji procesni presedan cijelog paketa:** arhitektonski
+  test je prošao TRI Codex REJECT runde protiv Crush-a (svaki put nov
+  način zaobilaženja) — Radovan je naredio da Codex sam završi fix, čime
+  Codex više nije bio nezavisan reviewer za taj dio; **Pi je preuzet kao
+  FRESH Reviewer 1**. Pouka: kad implementer/reviewer postane
+  "kontaminiran", rješenje je fresh nezavisan reviewer, ne preskakanje
+  review-a.
+- **`REF-04`** (Controller sloj za appointment workflow) — MERGED
+  (`3e0a0c2`). PRVI task koji dira `desktop/` — `AppointmentController`
+  (novo, `desktop/controllers/`) preuzima new/edit/details/move/cancel/
+  delete/status akcije iz `MainWindow`. Oba reviewera PASS_WITH_NOTES.
+  **Zabilježen tehnički dug (namjeran, dokumentovan, ne skriven):**
+  Controller "gleda nazad" u View na DVA načina — (1) lazy import Dialog
+  klasa iz `desktop.views.main_window` modula unutar metoda (ne
+  module-level), jer postojeći GUI testovi monkeypatch-uju dijaloge NA
+  main_window modulu POSLIJE konstrukcije `MainWindow`-a (dokazano
+  konkretnim testom, `test_delete_akcija_trajno_uklanja_termin_kroz_pravi_servis`);
+  (2) `getattr(self._parent_widget, "_doctors", [])` i slično čita
+  privatno `MainWindow` stanje. Oba su ista kategorija kompromisa (izbjeći
+  promjenu postojećih GUI testova bez potrebe za novom infrastrukturom
+  izvan cilja taska) — **budući REF task (vjerovatno REF-05 ili REF-08)
+  treba svjesno razmotriti čišći pristup**, ne tiho zaboraviti.
+  Manja procesna napomena: implementer izvještaj je originalno netačno
+  tvrdio da je Task Contract "napisan PRIJE koda" (u stvarnosti napisan
+  naknadno, priznata greška) — ispravljeno post-merge (24.8.2026).
+- Raspored ostatka: **REF-05 (Crush)** je sljedeći na redu, pa REF-06 Pi,
+  REF-07 Crush, REF-08 Pi (plan sekcija 17).
 
 **Prioritet A i B backloga (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`) su
 kompletno MERGED prije ovog refaktora** (23–24.8.2026) — email-audit
@@ -66,22 +71,24 @@ build/test/repro), ne samo čita izvještaj — DENT-022 runda 1 je pokazala
 da čak i pažljiv implementer može zapisati netačnu tvrdnju, uhvaćeno tek
 nezavisnim review-om.
 
-Post-merge integration gate na `main` nakon REF-03: 336 pytest passed,
+Post-merge integration gate na `main` nakon REF-04: 341 pytest passed,
 ruff/mypy čisti (vidi "Current verification baseline" ispod).
 
 Stari worktree-ovi (`DENT-022-reminder-dedup`, `DENT-023-smtp-env-dokumentacija`,
 `DENT-IMPROVE-007-backup-cli`, `DENT-IMPROVE-009-windows-packaging`,
 `REF-00-characterization-tests`, `REF-01-availability-invariant`,
-`REF-02-range-reads`, `REF-03-booking-split`) su ostavljeni netaknuti —
-ukloniti po potrebi.
+`REF-02-range-reads`, `REF-03-booking-split`, `REF-04-appointment-controller`)
+su ostavljeni netaknuti — ukloniti po potrebi.
 
-**Nema trenutno aktivnog REF taska** — REF-03 je DONE. Sljedeći na redu je
-**REF-04 (Pi)** po planu (sekcija 11), zavisnost REF-03 (sad zadovoljena) —
-uvesti pravi Controller sloj za appointment workflow (izvući iz
-`MainWindow` u `desktop/controllers/appointment_controller.py`). Ovo je
-PRVI task koji dira `desktop/` (svi dosadašnji REF taskovi su bili
-servisni sloj) — Reviewer fokus će se prirodno pomjeriti na View/Controller
-granice (plan sekcija 3.2/19), ne samo servisnu arhitekturu.
+**Nema trenutno aktivnog REF taska** — REF-04 je DONE. Sljedeći na redu je
+**REF-05 (Crush)** po planu (sekcija 12), zavisnosti REF-02+REF-04 (sad
+zadovoljene) — `ScheduleController` + refresh orchestration: izvući
+Day/Week state, doctor filter, schedule refresh iz `MainWindow`, i
+osigurati da jedan refresh učita JEDAN snapshot podataka (ne višestruke
+fetch-eve za render/counts/status summary). Ovo je task koji obično
+"nasljeđuje" REF-04-ov `_refresh_dashboard` (koji je namjerno OSTAO u
+`MainWindow` u REF-04, ne premješten — sad je red na REF-05 da ga
+premjesti/orkestrira).
 Prioritet C (`DENT-IMPROVE-010`..`015`, "prije javnog online bookinga")
 čeka da se cijeli refaktor završi (plan sekcija 23 — nema smisla prije
 finalnog architecture review-a poslije REF-08).
@@ -176,14 +183,14 @@ review runde). `CLAUDE.md` je sada thin router, ne sadrži tabelu uloga.
 
 ## Current verification baseline
 
-Izmjereno 2026-08-24 na `main`, post-merge gate nakon REF-03 (merge
-`a02f31f`):
+Izmjereno 2026-08-24 na `main`, post-merge gate nakon REF-04 (merge
+`3e0a0c2`):
 
-- `pytest tests/ -q` → **336 passed**, 11 warnings (deprecation
+- `pytest tests/ -q` → **341 passed**, 11 warnings (deprecation
   warnings iz `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog
   koda), ~11-20s.
 - `ruff check src/dentaland desktop backend tests` → **All checks passed**.
-- `mypy src/dentaland desktop backend` → **Success: no issues found in 40
+- `mypy src/dentaland desktop backend` → **Success: no issues found in 42
   source files.**
 
 Ne tretirati broj testova kao trajno pravilo — raste sa svakim novim
@@ -204,15 +211,13 @@ napamet.
 ## Next known work
 
 Korektivni paket FIX-01..06, Codex-ov FIX-07/08/09, email-audit paket
-DENT-022/DENT-023, `DENT-IMPROVE-007`/`009`, REF-00, REF-01, REF-02 i
-REF-03 su svi zatvoreni (DONE). **Sljedeći na redu: REF-04 (Pi)** —
-uvesti pravi Controller sloj za appointment workflow, zavisnost REF-03
-(zadovoljena), plan sekcija 11. PRVI task koji dira `desktop/` — svi
-dosadašnji REF taskovi su bili isključivo servisni sloj. Nakon toga:
-REF-05 Crush, REF-06 Pi, REF-07 Crush, REF-08 Pi, pa finalni
-arhitektonski acceptance review (Codex + Claude, plan sekcija 20) prije
-nego što ima smisla krenuti na Prioritet C (`DENT-IMPROVE-010`..`015`,
-Faza 1 priprema).
+DENT-022/DENT-023, `DENT-IMPROVE-007`/`009`, REF-00, REF-01, REF-02, REF-03
+i REF-04 su svi zatvoreni (DONE). **Sljedeći na redu: REF-05 (Crush)** —
+`ScheduleController` + refresh orchestration, zavisnosti REF-02+REF-04
+(zadovoljene), plan sekcija 12. Nakon toga: REF-06 Pi, REF-07 Crush,
+REF-08 Pi, pa finalni arhitektonski acceptance review (Codex + Claude,
+plan sekcija 20) prije nego što ima smisla krenuti na Prioritet C
+(`DENT-IMPROVE-010`..`015`, Faza 1 priprema).
 
 Podsjetnik: fizičan clean-machine test za `DENT-IMPROVE-009` (na drugoj
 mašini) ostaje Radovanova provjera — implementacija/review su samo
