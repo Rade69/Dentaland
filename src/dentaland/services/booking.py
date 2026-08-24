@@ -40,6 +40,7 @@ from dentaland.models import (
     WorkingHours,
     utcnow,
 )
+from dentaland.services.availability import OverlapError, validate_appointment_overlap
 from dentaland.services.requests import (
     RequestDTO,
     confirm_request,
@@ -130,10 +131,6 @@ class WorkingHoursDTO:
     dan_u_sedmici: int
     od_local: time
     do_local: time
-
-
-class OverlapError(Exception):
-    """Dva aktivna termina istog doktora se vremenski preklapaju."""
 
 
 class AppointmentService:
@@ -711,18 +708,7 @@ class AppointmentService:
         end: datetime,
         exclude_id: int | None = None,
     ) -> None:
-        stmt = select(Appointment).where(
-            Appointment.doctor_id == doctor_id,
-            Appointment.status == AppointmentStatus.SCHEDULED,
-            Appointment.start_time < end,
-            Appointment.end_time > start,
-        )
-        if exclude_id is not None:
-            stmt = stmt.where(Appointment.id != exclude_id)
-        if session.scalar(stmt) is not None:
-            raise OverlapError(
-                "termin se preklapa sa postojećim aktivnim terminom istog doktora"
-            )
+        validate_appointment_overlap(session, doctor_id, start, end, exclude_id=exclude_id)
 
     def _check_timeoff_overlap(
         self,
