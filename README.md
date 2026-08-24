@@ -114,6 +114,20 @@ checkout-u prije komande postavi `$env:PYTHONPATH = "src"`. Sve varijable
 Task Scheduler koraci su u
 [docs/dentaland-backup-operativni-vodic.md](docs/dentaland-backup-operativni-vodic.md).
 
+## Windows build (packaging)
+
+Samostalan Windows build desktop aplikacije (PyInstaller, `--onedir`) gradi
+se sa:
+
+```bash
+pyinstaller packaging/dentaland.spec
+```
+
+Rezultat je `dist/Dentaland/Dentaland.exe` (distribuira se cijeli
+`dist/Dentaland/` folder, ne samo exe). Tačni koraci, gdje se piše baza,
+clean-machine smoke test i poznata ograničenja su u
+[docs/dentaland-windows-packaging.md](docs/dentaland-windows-packaging.md).
+
 ## Testovi i provjera koda
 
 ```bash
