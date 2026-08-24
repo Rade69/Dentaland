@@ -2,9 +2,19 @@
 task_id: DENT-022
 risk: HIGH
 implementer: claude
-reviewers: [codex, crush-or-pi]
-status: "IMPLEMENTED — čeka nezavisan review (Codex obavezan Reviewer 1, Crush ili Pi Reviewer 2), zatim human approval."
+reviewers: [codex, pi]
+status: "DONE — MERGED u main (merge commit, 2026-08-24), post-merge integration gate PASS (289 pytest, ruff, mypy)."
+review_summary: >-
+  Runda 1 (commit 770452d): Codex Reviewer 1 REJECT — nedostajao atomski
+  claim, dokazan pravi paralelni race. Runda 2 (commit e479446): atomski
+  UPDATE...WHERE claim prije SMTP poziva. Pi Reviewer 2 PASS
+  (2026-08-23-DENT-022-review-pi.md). Codex Reviewer 1 runda 2 PASS_WITH_NOTES
+  (2026-08-24-DENT-022-review-codex-round2.md) — napomena: sistem sad
+  garantuje at-most-once, ne exactly-once (moguc propusten podsjetnik pri
+  crashu izmedju claim-commita i SMTP poziva); Radovan je ovaj kompromis
+  eksplicitno prihvatio prije merge-a.
 created_at: 2026-08-23
+merged_at: 2026-08-24
 ---
 
 # Task Contract — DENT-022: zaštita od dupliranog slanja email podsjetnika

@@ -11,56 +11,38 @@ sedmica, provjeriti da li je i dalje tačno prije oslanjanja na njega.
 
 **Email obavještenja su uživo testirane i potvrđene da rade** (23.8.2026,
 Radovan, pravi Gmail SMTP) — oba trenutna tipa (zahtjev primljen, termin
-potvrđen) stigla su u inbox tačnog sadržaja. Radovan je zatim tražio da
-se riješe dvije poznate praznine iz audita:
+potvrđen) stigla su u inbox tačnog sadržaja. Dvije poznate praznine iz tog
+audita su sad **obje MERGED u `main` i DONE** (24.8.2026):
 
 - **`DENT-022`** (HIGH, zaštita od dupliranog slanja podsjetnika —
-  aditivna kolona `Appointment.reminder_sent_at`) — **oba reviewera
-  PASS, čeka SAMO Radovanov human approval** (uz eksplicitno
-  prihvatanje at-most-once kompromisa, vidi niže). Tok:
-  - Plan: `agent_reports/2026-08-23-DENT-022-plan.md` (pušovan na `main`
-    prije koda, commit `d1a3330`).
-  - Runda 1 (implementacija, commit `770452d`): Codex kao Reviewer 1
-    **REJECT** — SELECT+slanje+upis marker nije bio atomski, dokazan
-    pravi race (`CONCURRENT_SEND_COUNT 2`, dvije sesije/threada na
-    file-backed SQLite). Dodatno: implementerov (Claude) vlastiti
-    adversarni claim u izvještaju runde 1 je bio **faktički netačan**
-    (tvrdio `send.call_count == 2`, stvaran rezultat je bio drugačiji
-    failure) — uhvaćeno Codexovim nezavisnim review-om, ne prije.
-  - Runda 2 (fix, commit `e479446`): promijenjen redoslijed u "zauzmi
-    pa pošalji" — atomski `UPDATE ... WHERE reminder_sent_at IS NULL` +
-    `rowcount` prije SMTP poziva. Ispravljen i vremenski bug u
-    postojećem testu (termin je bio na granici prozora, nije stvarno
-    testirao dedup) i dodat nov paralelni test (file-backed SQLite, dva
-    threada, barijera).
-  - **Pi review** (`agent_reports/2026-08-23-DENT-022-review-pi.md`,
-    commit `778ade8`) — PASS, temeljit i nezavisno adversarno potvrđen
-    (30/30 sopstvenih repro rundi). Izvorno sebe označio kao "Reviewer 1
-    (ponovni)" — ispravljeno na **Reviewer 2** (Codex je obavezan
-    Reviewer 1 na HIGH kad je dostupan); sadržaj review-a nije mijenjan,
-    samo frontmatter rola.
-  - **Codex Reviewer 1 review runde 2** (`agent_reports/2026-08-24-DENT-022-review-codex-round2.md`,
-    commit `ac003ef`) — **PASS_WITH_NOTES**. Oba blocking nalaza iz
-    runde 1 nezavisno potvrđena zatvorena (`ROUND2_CONCURRENCY_PASS 30
-    rounds; exactly 1 send each`; adversarno onesposobljen claim →
-    paralelni test genuinski pada na duplom slanju, vraćen → prolazi).
-  - **At-most-once kompromis (oba reviewera ga eksplicitno ističu, treba
-    Radovanovo svjesno prihvatanje prije merge-a)**: korekcija namjerno
-    mijenja redoslijed u claim → commit → SMTP. Ako proces crash-uje
-    NAKON uspješnog commit-a markera a PRIJE SMTP poziva, podsjetnik je
-    trajno propušten (marker ostaje postavljen, ne pokušava se ponovo).
-    Ovo je nužna cijena za sprečavanje duplog slanja bez outbox/idempotency
-    mehanizma — sistem sad garantuje **at-most-once**, ne exactly-once.
-    Originalni Task Contract je implicitno pretpostavljao "označi nakon
-    slanja", pa je ovo svjesno odstupanje, ne previd.
-  - **Sljedeći korak**: SAMO Radovanov human approval (uz svjesno
-    prihvatanje gornjeg kompromisa), zatim merge `task/DENT-022-reminder-dedup`
-    (`HEAD` = `ac003ef`) u `main` i post-merge integration gate
-    (pytest/ruff/mypy na `main`, pa update task contracta i ovog fajla).
+  aditivna kolona `Appointment.reminder_sent_at`) — MERGED, merge commit
+  `768706e`. Post-merge integration gate na `main`: 289 pytest passed,
+  ruff/mypy čisti. Tok koji vrijedi zapamtiti:
+  - Runda 1 (commit `770452d`): Codex Reviewer 1 **REJECT** — dokazan
+    pravi paralelni race (`CONCURRENT_SEND_COUNT 2`). Implementerov
+    (Claude) vlastiti adversarni claim u izvještaju runde 1 je bio
+    **faktički netačan** — uhvaćeno Codexovim review-om, ne prije.
+  - Runda 2 (fix, commit `e479446`): "zauzmi pa pošalji" — atomski
+    `UPDATE ... WHERE reminder_sent_at IS NULL` + `rowcount` prije SMTP
+    poziva. Pi review PASS kao Reviewer 2 (izvorno pogrešno označen kao
+    Reviewer 1 — Codex je obavezan Reviewer 1 na HIGH kad je dostupan;
+    ispravljeno, sadržaj nedirnut). Codex Reviewer 1 runde 2 **PASS_WITH_NOTES**
+    (`agent_reports/2026-08-24-DENT-022-review-codex-round2.md`) — oba
+    blocking nalaza iz runde 1 nezavisno potvrđena zatvorena (30/30
+    živih konkurentnih repro rundi).
+  - **Prihvaćen kompromis (Radovan eksplicitno odobrio prije merge-a)**:
+    sistem sad garantuje **at-most-once, ne exactly-once** — ako proces
+    crash-uje NAKON uspješnog commit-a markera a PRIJE SMTP poziva,
+    taj podsjetnik je trajno propušten (marker ostaje postavljen, ne
+    pokušava se ponovo). Nužna cijena za sprečavanje duplog slanja bez
+    outbox/idempotency mehanizma — svjesno odstupanje od originalnog
+    Task Contracta, ne previd.
 - **`DENT-023`** (LOW, `.env.example` + README SMTP dokumentacija) —
-  implementacija Pi (`795aa12`), review Claude PASS
-  (`agent_reports/2026-08-23-DENT-023-review-claude.md`). Čeka samo
-  Radovanovu odluku o merge-u (LOW risk, human approval opcion).
+  MERGED, merge commit `3eef6e4`. Implementacija Pi (`795aa12`), review
+  Claude PASS.
+
+Worktree-ovi `DENT-022-reminder-dedup` i `DENT-023-smtp-env-dokumentacija`
+su ostavljeni netaknuti (nisu obrisani) — ukloniti ih po potrebi.
 
 **Korektivni paket FIX-01 do FIX-06 je KOMPLETAN** — svih šest je
 MERGED → INTEGRATION_VERIFIED → DONE (merge `ae6e52f`, `9808475`,
@@ -147,12 +129,12 @@ review runde). `CLAUDE.md` je sada thin router, ne sadrži tabelu uloga.
 
 ## Current verification baseline
 
-Izmjereno 2026-08-22 na `main`, post-merge gate nakon `FIX-09` (merge
-`6b3196c`):
+Izmjereno 2026-08-24 na `main`, post-merge gate nakon `DENT-022`+`DENT-023`
+(merge `768706e`, `3eef6e4`):
 
-- `pytest tests/ -q` → **287 passed**, 11 warnings (deprecation
+- `pytest tests/ -q` → **289 passed**, 11 warnings (deprecation
   warnings iz `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog
-  koda), ~10-20s.
+  koda), ~15-20s.
 - `ruff check src/dentaland desktop backend tests` → **All checks passed**.
 - `mypy src/dentaland desktop backend` → **Success: no issues found in 36
   source files.**
@@ -174,11 +156,9 @@ napamet.
 
 ## Next known work
 
-Korektivni paket FIX-01..06 i Codex-ov FIX-07/08/09 su svi zatvoreni
-(mergovani, pušovani). Email live test je uspješno završen. Neposredno
-sljedeće: Codexov Reviewer 1 review DENT-022 runde 2 (commit `e479446`
-na `task/DENT-022-reminder-dedup`), zatim human approval i merge
-DENT-022 i DENT-023. Poslije toga, sljedeći prioritet po
+Korektivni paket FIX-01..06, Codex-ov FIX-07/08/09, i email-audit paket
+DENT-022/DENT-023 su svi zatvoreni (mergovani, pušovani, DONE). Nema
+trenutno aktivnog HIGH/MEDIUM taska. Sljedeći prioritet po
 `docs/DENTALAND_IMPROVEMENT_BACKLOG.md`: **Prioritet B** —
 `DENT-IMPROVE-007` (operativni automatski backup) ili
 `DENT-IMPROVE-009` (Windows packaging), Radovanova odluka koji prvo.

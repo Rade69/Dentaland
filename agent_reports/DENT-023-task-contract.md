@@ -3,8 +3,9 @@ task_id: DENT-023
 risk: LOW
 implementer: pi
 reviewers: [claude]
-status: ASSIGNED — dodijeljeno Pi-ju (implementer)
+status: "DONE — MERGED u main (merge commit, 2026-08-24), post-merge integration gate PASS."
 created_at: 2026-08-23
+merged_at: 2026-08-24
 ---
 
 # DENT-023 — SMTP env var dokumentacija (.env.example + README)
