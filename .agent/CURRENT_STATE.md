@@ -15,8 +15,9 @@ potvrđen) stigla su u inbox tačnog sadržaja. Radovan je zatim tražio da
 se riješe dvije poznate praznine iz audita:
 
 - **`DENT-022`** (HIGH, zaštita od dupliranog slanja podsjetnika —
-  aditivna kolona `Appointment.reminder_sent_at`) — runda 2, čeka
-  **Codexov Reviewer 1** (obavezan na HIGH, i dalje nedostaje). Tok:
+  aditivna kolona `Appointment.reminder_sent_at`) — **oba reviewera
+  PASS, čeka SAMO Radovanov human approval** (uz eksplicitno
+  prihvatanje at-most-once kompromisa, vidi niže). Tok:
   - Plan: `agent_reports/2026-08-23-DENT-022-plan.md` (pušovan na `main`
     prije koda, commit `d1a3330`).
   - Runda 1 (implementacija, commit `770452d`): Codex kao Reviewer 1
@@ -26,26 +27,36 @@ se riješe dvije poznate praznine iz audita:
     adversarni claim u izvještaju runde 1 je bio **faktički netačan**
     (tvrdio `send.call_count == 2`, stvaran rezultat je bio drugačiji
     failure) — uhvaćeno Codexovim nezavisnim review-om, ne prije.
-  - Runda 2 (fix, commit `e479446`, pa `778ade8` za metadata
-    ispravku): promijenjen redoslijed u "zauzmi pa pošalji" — atomski
-    `UPDATE ... WHERE reminder_sent_at IS NULL` + `rowcount` prije SMTP
-    poziva. Ispravljen i vremenski bug u postojećem testu (termin je bio
-    na granici prozora, nije stvarno testirao dedup) i dodat nov
-    paralelni test (file-backed SQLite, dva threada, barijera).
-    Implementer je ovaj put zapisao stvaran, provjeren tool output u
-    adversarnoj samo-provjeri (ne parafrazu).
+  - Runda 2 (fix, commit `e479446`): promijenjen redoslijed u "zauzmi
+    pa pošalji" — atomski `UPDATE ... WHERE reminder_sent_at IS NULL` +
+    `rowcount` prije SMTP poziva. Ispravljen i vremenski bug u
+    postojećem testu (termin je bio na granici prozora, nije stvarno
+    testirao dedup) i dodat nov paralelni test (file-backed SQLite, dva
+    threada, barijera).
   - **Pi review** (`agent_reports/2026-08-23-DENT-022-review-pi.md`,
-    PASS, temeljit i nezavisno adversarno potvrđen — 30/30 sopstvenih
-    repro rundi) je izvorno sebe označio kao "Reviewer 1 (ponovni)" —
-    **INVALID kao Reviewer 1** jer je Codex obavezan na HIGH kad je
-    dostupan (jeste). Ispravljeno naknadno (commit `778ade8`) na
-    **Reviewer 2** — sadržaj review-a nije mijenjan, samo frontmatter
-    rola i "SLJEDEĆE" blok.
-  - **Sljedeći korak**: Codex mora uraditi svoj Reviewer 1 review runde
-    2 nad commitom `e479446` na grani `task/DENT-022-reminder-dedup`
-    (pušovano). Tek nakon Codexovog PASS-a slijedi Radovanov human
-    approval i merge — Pi-jev PASS kao Reviewer 2 sam po sebi nije
-    dovoljan.
+    commit `778ade8`) — PASS, temeljit i nezavisno adversarno potvrđen
+    (30/30 sopstvenih repro rundi). Izvorno sebe označio kao "Reviewer 1
+    (ponovni)" — ispravljeno na **Reviewer 2** (Codex je obavezan
+    Reviewer 1 na HIGH kad je dostupan); sadržaj review-a nije mijenjan,
+    samo frontmatter rola.
+  - **Codex Reviewer 1 review runde 2** (`agent_reports/2026-08-24-DENT-022-review-codex-round2.md`,
+    commit `ac003ef`) — **PASS_WITH_NOTES**. Oba blocking nalaza iz
+    runde 1 nezavisno potvrđena zatvorena (`ROUND2_CONCURRENCY_PASS 30
+    rounds; exactly 1 send each`; adversarno onesposobljen claim →
+    paralelni test genuinski pada na duplom slanju, vraćen → prolazi).
+  - **At-most-once kompromis (oba reviewera ga eksplicitno ističu, treba
+    Radovanovo svjesno prihvatanje prije merge-a)**: korekcija namjerno
+    mijenja redoslijed u claim → commit → SMTP. Ako proces crash-uje
+    NAKON uspješnog commit-a markera a PRIJE SMTP poziva, podsjetnik je
+    trajno propušten (marker ostaje postavljen, ne pokušava se ponovo).
+    Ovo je nužna cijena za sprečavanje duplog slanja bez outbox/idempotency
+    mehanizma — sistem sad garantuje **at-most-once**, ne exactly-once.
+    Originalni Task Contract je implicitno pretpostavljao "označi nakon
+    slanja", pa je ovo svjesno odstupanje, ne previd.
+  - **Sljedeći korak**: SAMO Radovanov human approval (uz svjesno
+    prihvatanje gornjeg kompromisa), zatim merge `task/DENT-022-reminder-dedup`
+    (`HEAD` = `ac003ef`) u `main` i post-merge integration gate
+    (pytest/ruff/mypy na `main`, pa update task contracta i ovog fajla).
 - **`DENT-023`** (LOW, `.env.example` + README SMTP dokumentacija) —
   implementacija Pi (`795aa12`), review Claude PASS
   (`agent_reports/2026-08-23-DENT-023-review-claude.md`). Čeka samo
