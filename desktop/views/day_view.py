@@ -110,12 +110,16 @@ class DayView(QTableWidget):
         return list(doctors_fn()) if callable(doctors_fn) else []
 
     def _fetch_appointments(self) -> list[AppointmentDTO]:
-        fetch = getattr(self.store, "all_combined", None)
+        fetch = getattr(self.store, "appointments_for_range", None)
         if not callable(fetch):
             return []
+        day_start = datetime(self.day.year, self.day.month, self.day.day, tzinfo=SARAJEVO)
+        day_end = day_start + timedelta(days=1)
+        # Range query vraća termine koji se PREKLAPAJU sa danom; zadrži isti
+        # prikaz kao prije — termin se prikazuje samo u danu kada POČINJE.
         return [
             appt
-            for appt in fetch()
+            for appt in fetch(day_start, day_end)
             if appt.start.astimezone(SARAJEVO).date() == self.day
         ]
 
