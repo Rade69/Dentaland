@@ -1,13 +1,13 @@
 """Servisni sloj za javne zahtjeve sa web forme (DENT-007).
 
-Namjerno odvojen fajl od ``booking.py`` (koji taj fajl paralelno mijenja
-DENT-006) — provjera preklapanja je ovdje duplirana kao mala, samostalna
-funkcija umjesto deljene, da se izbjegne sudar putanja. Vidi plan u
-``agent_reports/2026-08-16-DENT-007-plan.md``.
-
 Zahtjev stiže bez doktora/usluge/tačnog vremena (bira ih pacijent na
 javnoj formi samo po datumu — vidi ``docs/dentaland-javna-forma-spec.md``).
 Osoblje ga potvrđuje (bira doktora/uslugu/vrijeme) ili odbija.
+
+Provjera preklapanja je (od REF-01) dijeljena kroz
+``availability.validate_appointment_overlap`` — nema više duplikata
+overlap SQL-a (raniji razlog za duplikaciju bio je paralelni rad DENT-006/007,
+koji više nije aktivan).
 """
 
 from __future__ import annotations
@@ -20,15 +20,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from dentaland.models import Appointment, AppointmentStatus, Service, utcnow
+from dentaland.services.availability import (
+    OverlapError,  # noqa: F401 — re-eksport kanonične klase (backward-compat)
+    validate_appointment_overlap,
+)
 from dentaland.services.notifications import send_appointment_confirmed
 
 
 class RequestNotFoundError(Exception):
     """Zahtjev ne postoji ili nije u PENDING statusu."""
-
-
-class OverlapError(Exception):
-    """Potvrda zahtjeva bi preklopila aktivan termin istog doktora."""
 
 
 @dataclass
@@ -97,7 +97,7 @@ def confirm_request(
             raise ValueError(f"nepoznata usluga: {service_id}")
         end_time = start_time + timedelta(minutes=service.trajanje_min)
 
-        _check_overlap(session, doctor_id, start_time, end_time)
+        validate_appointment_overlap(session, doctor_id, start_time, end_time)
 
         appt.doctor_id = doctor_id
         appt.service_id = service_id
@@ -126,21 +126,6 @@ def reject_request(session_factory: Callable[[], Session], request_id: int) -> N
             raise RequestNotFoundError(f"zahtjev {request_id} nije pronađen ili nije PENDING")
         appt.status = AppointmentStatus.REJECTED
         session.commit()
-
-
-def _check_overlap(session: Session, doctor_id: int, start: datetime, end: datetime) -> None:
-    """Ista logika kao AppointmentService._check_overlap u booking.py —
-    namjerno duplirana, ne dijeljena (vidi docstring modula)."""
-    stmt = select(Appointment).where(
-        Appointment.doctor_id == doctor_id,
-        Appointment.status == AppointmentStatus.SCHEDULED,
-        Appointment.start_time < end,
-        Appointment.end_time > start,
-    )
-    if session.scalar(stmt) is not None:
-        raise OverlapError(
-            "potvrda se preklapa sa postojećim aktivnim terminom istog doktora"
-        )
 
 
 def _to_dto(appt: Appointment) -> RequestDTO:

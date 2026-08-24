@@ -30,9 +30,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from backend.reminder_scheduler import run_reminder_scheduler
 from dentaland.models import Base
+from dentaland.services.availability import OverlapError
 from dentaland.services.notifications import send_booking_confirmation
 from dentaland.services.requests import (
-    OverlapError,
     RequestNotFoundError,
     confirm_request,
     create_request,

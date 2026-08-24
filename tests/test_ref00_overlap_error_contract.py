@@ -1,13 +1,12 @@
-"""REF-00 — characterization baseline za DVIJE odvojene ``OverlapError`` klase.
+"""REF-00/REF-01 — OverlapError contract: JEDNA kanonična klasa.
 
-Dokumentuje trenutno stanje (24.8.2026) koje REF-01 mora svjesno zadržati
-ili promijeniti, ne slučajno slomiti:
+REF-00 je dokumentovao (24.8.2026) da su postojale DVIJE istoimene
+``OverlapError`` klase (``booking`` vs ``requests``). REF-01 ih je SVJESNO
+kanonizovao u jednu klasu u ``availability.py``; ``booking.py`` i
+``requests.py`` je re-eksportuju (backward-compat import putanje).
 
-- ``booking.OverlapError`` (``src/dentaland/services/booking.py:135``) —
-  re-eksport kroz ``dentaland.services``; hvataju je desktop view-ovi
-  ``main_window``, ``day_view``, ``week_view``, ``blockout_panel``.
-- ``requests.OverlapError`` (``src/dentaland/services/requests.py:30``) —
-  hvataju je ``backend/main.py`` i ``desktop/views/requests_panel.py``.
+Ovaj test sada zaključava NOVO stanje (jedna klasa) — ako neko vrati dvije
+odvojene klase, ovi testovi padaju (genuinska regresija kanonizacije).
 """
 
 from __future__ import annotations
@@ -38,20 +37,20 @@ from dentaland.services.requests import (
 )
 
 
-def test_dve_klase_istog_imena_su_razlicite() -> None:
-    assert BookingOverlapError is not RequestsOverlapError
+def test_overlap_error_je_jedna_kanonicka_klasa() -> None:
+    assert BookingOverlapError is RequestsOverlapError
 
 
-def test_services_reexport_je_booking_klasa() -> None:
+def test_services_reexport_je_kanonicka_klasa() -> None:
     assert ServicesOverlapError is BookingOverlapError
-    assert ServicesOverlapError is not RequestsOverlapError
+    assert ServicesOverlapError is RequestsOverlapError
 
 
-def test_backend_main_hvata_requests_klasu() -> None:
+def test_backend_main_hvata_kanonicku_klasu() -> None:
     import backend.main as backend_main
 
     assert backend_main.OverlapError is RequestsOverlapError
-    assert backend_main.OverlapError is not BookingOverlapError
+    assert backend_main.OverlapError is BookingOverlapError
 
 
 def test_desktop_main_window_hvata_booking_klasu() -> None:
@@ -87,7 +86,7 @@ def test_desktop_requests_panel_hvata_requests_klasu() -> None:
 # --- Behavior: koja klasa se stvarno baca sa kojeg poziva ---
 
 
-def test_service_create_baca_booking_klasu(tmp_path) -> None:
+def test_service_create_baca_kanonicku_klasu(tmp_path) -> None:
     svc = AppointmentService.from_sqlite(str(tmp_path / "dentaland.db"))
     start = datetime(2026, 8, 20, 9, 0, tzinfo=UTC)
     end = start + timedelta(minutes=30)
@@ -98,10 +97,10 @@ def test_service_create_baca_booking_klasu(tmp_path) -> None:
         svc.create("Novi", "", "", service_name, "", start, end)
 
     assert type(excinfo.value) is BookingOverlapError
-    assert type(excinfo.value) is not RequestsOverlapError
+    assert type(excinfo.value) is RequestsOverlapError
 
 
-def test_confirm_request_baca_requests_klasu(tmp_path) -> None:
+def test_confirm_request_baca_kanonicku_klasu(tmp_path) -> None:
     eng = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -146,5 +145,5 @@ def test_confirm_request_baca_requests_klasu(tmp_path) -> None:
         )
 
     assert type(excinfo.value) is RequestsOverlapError
-    assert type(excinfo.value) is not BookingOverlapError
+    assert type(excinfo.value) is BookingOverlapError
     eng.dispose()
