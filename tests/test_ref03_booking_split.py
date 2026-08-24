@@ -4,10 +4,17 @@ Ovi testovi zaključavaju strukturu koju uvodi REF-03 (razbijanje
 ``booking.py`` po servisnim odgovornostima), nezavisno od behavioralnih
 testova iz ``test_services.py``. Ključna invarijanta: poslovna logika NE
 živi u facade-u, već u fokusiranim modulima.
+
+Provjera da facade ne sadrži SQL/data-access NIJE tekstualna (string-match)
+nego strukturna — ``ast.parse`` nad ``booking.py``. Time se hvataju i raw SQL
+(``text()``/``execute()``) i SQLAlchemy izrazi (``select()``/``scalar()``/
+``scalars()``) bez obzira na formatiranje, naziv varijable ili prelamanje
+linija.
 """
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 from dentaland import services
@@ -20,20 +27,100 @@ def _source(module_name: str) -> str:
     return (SERVICES_DIR / f"{module_name}.py").read_text(encoding="utf-8")
 
 
-def test_booking_facade_ne_sadrzi_appointment_crud_sql() -> None:
-    """Facade delegira — ne smije držati SQL za Appointment CRUD/status."""
-    src = _source("booking")
-    assert "select(Appointment)" not in src
-    assert "session.get(Appointment" not in src
-    assert "Appointment(" not in src
+def _appointment_service_class() -> ast.ClassDef:
+    tree = ast.parse(_source("booking"))
+    return next(
+        n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "AppointmentService"
+    )
 
 
-def test_booking_facade_ne_implementira_overlap() -> None:
-    """Overlap invariant živi u availability.py, ne u facade-u."""
-    src = _source("booking")
-    assert "validate_appointment_overlap" not in src
-    assert "Appointment.start_time < end" not in src
-    assert "Appointment.end_time > start" not in src
+def _appointment_service_methods() -> list[ast.FunctionDef]:
+    return [n for n in _appointment_service_class().body if isinstance(n, ast.FunctionDef)]
+
+
+# Data-access pozivi zabranjeni u facade metodama (osim dozvoljenog
+# ``from_sqlite`` bootstrap-a). Pokriva i raw SQL (``text``/``execute``) i
+# SQLAlchemy Core/ORM (``select``/``scalar``/``scalars``/``query``/``get``)
+# i write operacije (``add``/``delete``/``commit``/``flush``).
+_FORBIDDEN_CALL_NAMES = {"select", "text"}
+_FORBIDDEN_CALL_ATTRS = {
+    "execute", "scalar", "scalars", "query", "add", "delete", "commit", "flush"
+}
+
+
+def _is_data_access_func(func: ast.expr) -> bool:
+    if isinstance(func, ast.Name):
+        return func.id in _FORBIDDEN_CALL_NAMES
+    if isinstance(func, ast.Attribute):
+        if func.attr in _FORBIDDEN_CALL_ATTRS:
+            return True
+        return (
+            func.attr == "get"
+            and isinstance(func.value, ast.Name)
+            and func.value.id == "session"
+        )
+    return False
+
+
+def _data_access_calls(method: ast.FunctionDef) -> list[ast.Call]:
+    """Vrati sve SQL/SQLAlchemy data-access pozive unutar tijela metode."""
+    return [
+        node
+        for node in ast.walk(method)
+        if isinstance(node, ast.Call) and _is_data_access_func(node.func)
+    ]
+
+
+def test_booking_facade_ne_sadrzi_sql_data_access() -> None:
+    """Nijedna facade metoda (osim ``from_sqlite``) ne smije dirati bazu."""
+    for method in _appointment_service_methods():
+        if method.name == "from_sqlite":
+            continue
+        bad = _data_access_calls(method)
+        assert not bad, (
+            f"AppointmentService.{method.name} sadrži data-access poziv: "
+            f"{ast.unparse(bad[0])}"
+        )
+
+
+# Facade javne metode smiju SAMO delegirati ka fokusiranim modulima ili ka
+# requests funkcijama. ``from_sqlite`` (bootstrap) i ``set_doctor`` (state
+# setter) su eksplicitno izuzeti.
+_DELEGATION_MODULES = {"appointments", "availability", "settings"}
+_DELEGATION_FUNCTIONS = {"list_pending", "confirm_request", "reject_request"}
+
+
+def _is_delegation_call(call: ast.Call) -> bool:
+    func = call.func
+    if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+        return func.value.id in _DELEGATION_MODULES
+    if isinstance(func, ast.Name):
+        return func.id in _DELEGATION_FUNCTIONS
+    return False
+
+
+def test_booking_facade_javne_metode_su_delegacije() -> None:
+    """Svaka javna facade metoda završava delegacijskim pozivom."""
+    checked = 0
+    for method in _appointment_service_methods():
+        name = method.name
+        if name.startswith("_") or name in {"from_sqlite", "set_doctor"}:
+            continue
+        checked += 1
+        body = method.body
+        assert body, f"AppointmentService.{name} ima prazno tijelo"
+        last = body[-1]
+        if isinstance(last, (ast.Return, ast.Expr)):
+            call_node = last.value
+        else:
+            raise AssertionError(
+                f"AppointmentService.{name} ne završava delegacijom: {ast.unparse(last)}"
+            )
+        assert isinstance(call_node, ast.Call) and _is_delegation_call(call_node), (
+            f"AppointmentService.{name} ne delegira ka dozvoljenom modulu: "
+            f"{ast.unparse(last)}"
+        )
+    assert checked >= 30, f"očekivano >=30 javnih delegacijskih metoda, dobijeno {checked}"
 
 
 def test_appointment_crud_odvojen_od_settings() -> None:
