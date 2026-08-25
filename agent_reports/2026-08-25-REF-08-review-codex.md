@@ -1,13 +1,12 @@
 # REF-08 — Codex independent review (test kvalitet)
 
 ```yaml
-verdict: REJECT
+verdict: PASS
 scope: PASS
-acceptance: FAIL
+acceptance: PASS
 architecture: PASS
 security: PASS
-blocking_findings:
-  - "F1: .agent/PROJECT_MAP.md netačno tvrdi da je src/dentaland/timezone.py jedina SARAJEVO definicija i da produkcijski kod importuje odatle, iako 9 prijavljenih produkcijskih fajlova i dalje lokalno definiše SARAJEVO = ZoneInfo(...). Acceptance zahtijeva da mapa opisuje stvarno stanje."
+blocking_findings: []
 ```
 
 ## CILJ
@@ -27,7 +26,7 @@ mape.
 - `ruff check src/dentaland desktop backend tests`: čist.
 - `mypy src/dentaland desktop backend`: čist, **50 source fajlova**.
 
-### F1 — blocking: PROJECT_MAP ne opisuje stvarno timezone stanje
+### F1 — riješeno u `41937cf`
 
 `.agent/PROJECT_MAP.md` sada kaže:
 
@@ -45,9 +44,21 @@ i dalje nezavisno definiše `SARAJEVO = ZoneInfo("Europe/Sarajevo")`:
 Implementer ih je korektno prijavio kao OUT_OF_SCOPE_FINDING i nije ih dirao,
 ali mapa ne može istovremeno tvrditi da postoji samo jedna definicija.
 Acceptance eksplicitno zahtijeva da PROJECT_MAP opisuje stvarno stanje.
-Popravka je dokumentacijska: opisati `dentaland.timezone` kao kanonsku novu
-definiciju za migriranih šest mjesta i navesti da devet legacy redefinicija
-ostaje poznat out-of-scope dug. Ne konsolidovati tih devet u ovom fixu.
+Fix je dokumentacijski i mijenja samo `.agent/PROJECT_MAP.md`. Nova
+formulacija opisuje `dentaland.timezone` kao kanonsku definiciju za sedam
+migriranih fajlova (šest produkcijskih potrošača + `fake_data.py`) i
+eksplicitno navodi devet legacy redefinicija kao poznat out-of-scope dug.
+
+Nezavisni grep na `41937cf` potvrđuje:
+
+```text
+CANONICAL_IMPORT_FILES=7
+LEGACY_DEFINITION_FILES=9
+```
+
+Drugi broj isključuje samu kanonsku definiciju u `src/dentaland/timezone.py`;
+ukupno grep nalazi deset `SARAJEVO = ZoneInfo(...)` definicija. Scope fix
+commita je tačno jedan dokumentacijski fajl. F1 je zatvoren.
 
 ### QSS poređenje
 
@@ -98,6 +109,6 @@ whitespace-insensitive i sadržaj pravila je identičan.
 
 ## SLJEDEĆE
 
-Pi treba ispraviti samo netačnu formulaciju u `.agent/PROJECT_MAP.md`, zatim
-ponoviti dokumentacijski scope check. Codex nakon toga radi uski F1 re-review.
-Claude review i Radovan human approval čekaju Codex PASS.
+Codex test-quality review je PASS. Claude sada radi Reviewer 2 arhitektonski
+pregled; Radovan human approval dolazi nakon oba review-a. Finalni paketni
+acceptance review nije dio ovog zadatka.
