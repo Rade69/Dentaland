@@ -3,8 +3,18 @@ task_id: REF-08
 risk: LOW
 implementer: pi
 reviewers: [codex, claude]
-status: "IN_PROGRESS — Task Contract napisan prije koda (25.8.2026)."
+status: "DONE — MERGED u main (merge commit ce2d270, 2026-08-25), post-merge integration gate PASS (355 pytest, ruff, mypy). POSLJEDNJI pojedinačni task u REF-00..08 paketu."
+review_summary: >-
+  Codex runda 1: REJECT (F1 - PROJECT_MAP.md netacno tvrdio da je
+  timezone.py JEDINA SARAJEVO definicija, iako 9 poznatih legacy mjesta
+  i dalje postoji). Pi popravio formulaciju (iskljucivo dokumentacija).
+  Codex runda 2: PASS. Claude: PASS - theme.py/timezone.py potvrdjeni
+  cisti, F1 fix potvrdjen kao iskljucivo dokumentacijski. QSS
+  "byte-identican" tvrdnja korigovana (identican tek nakon dedent
+  normalizacije, ne blocking). 9 legacy timezone redefinicija ostaju
+  poznat, posteno opisan dug (REF-09 kandidat).
 created_at: 2026-08-25
+merged_at: 2026-08-25
 ---
 
 # REF-08 — Theme/QSS, timezone dependency i završni cleanup
