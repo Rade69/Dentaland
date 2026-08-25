@@ -15,6 +15,14 @@ implementacije. Detalje čitati tek kada konkretan task to zahtijeva — vidi
 - `src/dentaland/models.py` — SQLAlchemy modeli, glavna schema definicija.
 - `migrations/` — Alembic istorija.
 - `src/dentaland/backup.py` — backup logika.
+- `src/dentaland/timezone.py` — kanonska definicija `SARAJEVO` IANA zone
+  (`Europe/Sarajevo`) za migrirana mjesta (`main_window.py`, `day_view.py`,
+  `week_view.py`, `blockout_panel.py`, `blockout_delete_confirm.py`,
+  `schedule_controller.py`, `fake_data.py`). POZNAT out-of-scope dug:
+  još 9 legacy fajlova (`src/dentaland/services/notifications.py`,
+  `src/dentaland/services/print_schedule.py`, 6× `desktop/views/dialogs/`,
+  `desktop/views/requests_page.py`) i dalje nezavisno definiše
+  `SARAJEVO = ZoneInfo(...)` — konsolidacija NIJE potpuna (REF-09 kandidat).
 
 Relevant tests: `tests/test_models.py`, `tests/test_backup.py`
 
@@ -62,9 +70,19 @@ Relevant tests: `tests/test_print_schedule.py`,
 ## Desktop scheduler (GUI)
 
 Start here:
-- `desktop/views/main_window.py`
+- `desktop/views/main_window.py` — window construction, sidebar/page
+  registration, routing, controller wiring (tanak nakon REF-04..08)
 
 Read only when relevant:
+- `desktop/controllers/` — Controller sloj (REF-04..07):
+  `appointment_controller.py` (appointment workflow),
+  `schedule_controller.py` (Day/Week state + refresh),
+  `request_controller.py` (obrada online zahtjeva),
+  `print_controller.py` (štampa).
+- `desktop/presentation/` — shared presentation logika (REF-06/08):
+  `schedule_status.py` (status simbol/boja/naziv),
+  `schedule_palette.py` (boje kartica po doktoru),
+  `theme.py` (globalni QSS + paleta).
 - `desktop/views/week_view.py` — nedjeljni prikaz rasporeda
 - `desktop/views/day_view.py` — dnevni prikaz rasporeda
 - `desktop/views/appointment_dialog.py` — dijalog za kreiranje novog termina
@@ -76,10 +94,13 @@ Read only when relevant:
 - `desktop/fake_data.py` — test/demo podaci za lokalni razvoj GUI-ja bez baze
 
 GUI tests: `tests/test_gui/` (po fajlu: `test_app.py`, `test_main_window.py`,
+`test_appointment_controller.py`, `test_schedule_controller.py`,
+`test_request_controller.py`, `test_print_controller.py`,
 `test_week_view.py`, `test_week_view_combined.py`, `test_day_view.py`,
 `test_appointment_dialog.py`, `test_appointment_details_dialog.py`,
 `test_destructive_dialogs.py`, `test_requests_panel.py`,
-`test_process_request_dialog.py`, `test_print_document.py`)
+`test_requests_page.py`, `test_process_request_dialog.py`,
+`test_blockout_panel.py`, `test_settings_panel.py`, `test_print_document.py`)
 
 Design/history docs (učitati SAMO ako task zavisi od dizajn odluke):
 - `docs/istrazivanje-dentalni-scheduler-gui.md`

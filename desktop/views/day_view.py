@@ -30,7 +30,7 @@ from PySide6.QtWidgets import (
 )
 
 from dentaland.services import AppointmentDTO, OverlapError
-from desktop.fake_data import SARAJEVO
+from dentaland.timezone import SARAJEVO
 from desktop.presentation.schedule_palette import DOCTOR_CARD_PALETTE
 from desktop.presentation.schedule_status import STATUS_META, status_icon, status_key
 
