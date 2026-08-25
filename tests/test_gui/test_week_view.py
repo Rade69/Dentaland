@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -11,6 +11,27 @@ from PySide6.QtWidgets import QLabel, QMenu
 
 from desktop.fake_data import SARAJEVO, FakeStore
 from desktop.views.week_view import WeekView, status_icon
+
+
+def _snapshot(store, start: date, days: int) -> tuple[list, list]:
+    """Fetch appointments + blocks (helper — view više ne fetch-uje sam)."""
+    fetch = getattr(store, "appointments_for_range", None)
+    if callable(fetch):
+        range_start = datetime(start.year, start.month, start.day, tzinfo=SARAJEVO)
+        range_end = range_start + timedelta(days=days)
+        appointments = fetch(range_start, range_end)
+    else:
+        appointments = store.all() if callable(getattr(store, "all", None)) else []
+    blocks: list = []
+    for name in ("time_off_for_week", "breaks_for_week"):
+        method = getattr(store, name, None)
+        if callable(method):
+            blocks.extend(method(start))
+    return appointments, blocks
+
+
+def _render_week(view: WeekView, store) -> None:
+    view.render_schedule(*_snapshot(store, view.week_start, view.DAY_COUNT))
 
 
 @pytest.fixture()
@@ -68,10 +89,12 @@ def test_prevlacenje_termina_azurira_vrijeme(store: FakeStore, week_view: WeekVi
         datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
         datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
     )
-    week_view.refresh()
+    _render_week(week_view, store)
 
     assert week_view.move_appointment_to_slot(appt.id, 2, 1) is True  # utorak 10:00
     assert store.get(appt.id).start == datetime(2026, 8, 18, 10, 0, tzinfo=SARAJEVO)
+
+    _render_week(week_view, store)
 
     new_item = week_view.item(2, 1)
     assert new_item is not None and "Ana Anić" in new_item.text()
@@ -85,7 +108,7 @@ def test_zauzet_slot_prikazuje_ime_i_uslugu(store: FakeStore, week_view: WeekVie
         datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
         datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
     )
-    week_view.refresh()
+    _render_week(week_view, store)
 
     item = week_view.item(1, 0)  # ponedjeljak 09:00
     assert item is not None
@@ -101,7 +124,7 @@ def test_termin_od_60_min_zauzima_jednu_satnu_celiju(
         datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
         datetime(2026, 8, 17, 10, 0, tzinfo=SARAJEVO),
     )
-    week_view.refresh()
+    _render_week(week_view, store)
     week_view.resize(1100, 700)
     week_view.show()
     qtbot.wait(20)
@@ -124,7 +147,7 @@ def test_termin_od_90_min_je_spojen_preko_dva_satna_slota(
         datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
         datetime(2026, 8, 17, 10, 30, tzinfo=SARAJEVO),
     )
-    week_view.refresh()
+    _render_week(week_view, store)
 
     assert week_view.rowSpan(1, 0) == 2  # ponedjeljak 09:00–10:30
 
@@ -138,7 +161,7 @@ def test_termin_preko_donje_granice_koristi_kompaktnu_karticu(
         datetime(2026, 8, 17, 19, 0, tzinfo=SARAJEVO),
         datetime(2026, 8, 17, 20, 30, tzinfo=SARAJEVO),
     )
-    week_view.refresh()
+    _render_week(week_view, store)
 
     last_row = week_view.rowCount() - 1
     assert week_view.rowSpan(last_row, 0) == 1
@@ -158,7 +181,7 @@ def test_klik_na_pokrivenu_celiju_ne_otvara_dijalog(
         datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
         datetime(2026, 8, 17, 10, 30, tzinfo=SARAJEVO),
     )
-    week_view.refresh()
+    _render_week(week_view, store)
 
     emitted: list[datetime] = []
     week_view.slot_selected.connect(emitted.append)
@@ -174,7 +197,7 @@ def test_klik_na_termin_emituje_appointment_clicked(
         datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
         datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
     )
-    week_view.refresh()
+    _render_week(week_view, store)
 
     clicked: list[int] = []
     week_view.appointment_clicked.connect(clicked.append)
@@ -193,7 +216,7 @@ def test_drag_drop_odbija_pokrivenu_celiju(store: FakeStore, week_view: WeekView
         datetime(2026, 8, 17, 12, 0, tzinfo=SARAJEVO),
         datetime(2026, 8, 17, 12, 30, tzinfo=SARAJEVO),
     )
-    week_view.refresh()
+    _render_week(week_view, store)
 
     assert week_view.move_appointment_to_slot(other.id, 2, 0) is False  # 10:00 — pokriveni sat
 
@@ -208,7 +231,7 @@ def test_termin_od_30_min_nije_spojen(
         datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
         datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
     )
-    week_view.refresh()
+    _render_week(week_view, store)
     week_view.resize(1100, 700)
     week_view.show()
     qtbot.wait(20)
@@ -271,7 +294,9 @@ def test_blockout_je_spojen_i_ne_emituje_slobodan_slot(qtbot, week_start) -> Non
         def breaks_for_week(self, _week_start):
             return []
 
-    view = WeekView(BlockStore(), week_start)
+    store = BlockStore()
+    view = WeekView(store, week_start)
+    _render_week(view, store)
     qtbot.addWidget(view)
     emitted: list[datetime] = []
     view.slot_selected.connect(emitted.append)
@@ -290,7 +315,7 @@ def test_izbrisi_termin_emituje_delete_akciju(
         datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
         datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
     )
-    week_view.refresh()
+    _render_week(week_view, store)
 
     emitted: list[tuple[int, str]] = []
     week_view.appointment_action_requested.connect(lambda a, action: emitted.append((a, action)))
@@ -320,6 +345,7 @@ def test_visible_doctor_counts_nezavisno_od_filtera(
         datetime(2026, 8, 17, 10, 30, tzinfo=SARAJEVO),
     )
     view = WeekView(appointment_service, week_start)
+    _render_week(view, appointment_service)
     qtbot.addWidget(view)
 
     view.set_filter(doctor_ids["Ljubo"])  # filter NE utiče na count

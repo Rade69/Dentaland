@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from desktop.views.day_view import DayView
@@ -11,8 +11,19 @@ SARAJEVO = ZoneInfo("Europe/Sarajevo")
 DAY = date(2026, 8, 17)  # ponedjeljak
 
 
+def _render_day(view: DayView, service, day: date) -> None:
+    """Fetch appointments + blocks i render-uj — helper (view ne fetch-uje sam)."""
+    day_start = datetime(day.year, day.month, day.day, tzinfo=SARAJEVO)
+    day_end = day_start + timedelta(days=1)
+    appointments = service.appointments_for_range(day_start, day_end)
+    week_start = day - timedelta(days=day.weekday())
+    blocks = service.time_off_for_week(week_start) + service.breaks_for_week(week_start)
+    view.render_schedule(appointments, blocks)
+
+
 def test_day_view_ima_doktore_kao_kolone(qtbot, appointment_service) -> None:
     view = DayView(appointment_service, DAY)
+    _render_day(view, appointment_service, DAY)
     qtbot.addWidget(view)
 
     assert view.columnCount() == 3  # Ljubo, Zorka, Ana
@@ -32,6 +43,7 @@ def test_day_view_prikazuje_termin_u_koloni_doktora(
         datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
     )
     view = DayView(appointment_service, DAY)
+    _render_day(view, appointment_service, DAY)
     qtbot.addWidget(view)
 
     zorka_col = view._doctor_ids.index(doctor_ids["Zorka"])
@@ -47,6 +59,7 @@ def test_klik_na_termin_emituje_appointment_clicked(qtbot, appointment_service) 
         datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
     )
     view = DayView(appointment_service, DAY)
+    _render_day(view, appointment_service, DAY)
     qtbot.addWidget(view)
 
     clicked: list[int] = []
@@ -57,6 +70,7 @@ def test_klik_na_termin_emituje_appointment_clicked(qtbot, appointment_service) 
 
 def test_klik_na_prazan_slot_emituje_slot_selected(qtbot, appointment_service) -> None:
     view = DayView(appointment_service, DAY)
+    _render_day(view, appointment_service, DAY)
     qtbot.addWidget(view)
 
     emitted: list[datetime] = []
@@ -72,6 +86,7 @@ def test_visible_status_counts_za_dan(qtbot, appointment_service) -> None:
         datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
     )
     view = DayView(appointment_service, DAY)
+    _render_day(view, appointment_service, DAY)
     qtbot.addWidget(view)
 
     counts = view.visible_status_counts()
@@ -88,6 +103,7 @@ def test_izbrisi_termin_emituje_delete_akciju(qtbot, appointment_service) -> Non
         datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
     )
     view = DayView(appointment_service, DAY)
+    _render_day(view, appointment_service, DAY)
     qtbot.addWidget(view)
 
     emitted: list[tuple[int, str]] = []
@@ -111,6 +127,7 @@ def test_day_view_prikazuje_blockout(qtbot, appointment_service) -> None:
         reason="Godišnji",
     )
     view = DayView(appointment_service, DAY)
+    _render_day(view, appointment_service, DAY)
     qtbot.addWidget(view)
 
     zorka_col = view._doctor_ids.index(zorka_id)
@@ -129,6 +146,7 @@ def test_klik_na_blockout_slot_ne_emituje_slot_selected(
         datetime(2026, 8, 17, 12, 0, tzinfo=SARAJEVO),
     )
     view = DayView(appointment_service, DAY)
+    _render_day(view, appointment_service, DAY)
     qtbot.addWidget(view)
 
     emitted: list[datetime] = []
@@ -153,6 +171,7 @@ def test_visible_doctor_counts_za_dan(qtbot, appointment_service) -> None:
         datetime(2026, 8, 17, 11, 30, tzinfo=SARAJEVO),
     )
     view = DayView(appointment_service, DAY)
+    _render_day(view, appointment_service, DAY)
     qtbot.addWidget(view)
 
     assert view.visible_doctor_counts() == {
@@ -173,6 +192,7 @@ def test_prevlacenje_unutar_iste_doktor_kolone_azurira_vrijeme(
         datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
     )
     view = DayView(appointment_service, DAY)
+    _render_day(view, appointment_service, DAY)
     qtbot.addWidget(view)
 
     ljubo_col = view._doctor_ids.index(ljubo)
@@ -199,6 +219,7 @@ def test_prevlacenje_u_zauzetu_celiju_se_odbija(
         datetime(2026, 8, 17, 11, 30, tzinfo=SARAJEVO),
     )
     view = DayView(appointment_service, DAY)
+    _render_day(view, appointment_service, DAY)
     qtbot.addWidget(view)
 
     ljubo_col = view._doctor_ids.index(ljubo)
@@ -221,6 +242,7 @@ def test_prevlacenje_u_drugu_doktor_kolonu_se_odbija(
         datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
     )
     view = DayView(appointment_service, DAY)
+    _render_day(view, appointment_service, DAY)
     qtbot.addWidget(view)
 
     zorka_col = view._doctor_ids.index(zorka)
@@ -249,6 +271,7 @@ def test_preklapanje_sa_terminom_van_prikaza_se_odbija(
         datetime(2026, 8, 17, 8, 30, tzinfo=SARAJEVO),
     )
     view = DayView(appointment_service, DAY)
+    _render_day(view, appointment_service, DAY)
     qtbot.addWidget(view)
 
     ljubo_col = view._doctor_ids.index(ljubo)
