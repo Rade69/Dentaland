@@ -1,8 +1,9 @@
 """Dnevni prikaz kalendara — doktori kao kolone (Faza E redizajna).
 
 Zaseban widget (ne mega-WeekView): kolone = doktori, redovi = vremenski
-slotovi za izabrani datum. Dijeli male stabilne helpere iz ``week_view``
-(status/boje). Isti click/context model kao WeekView — lijevi klik na termin
+slotovi za izabrani datum. Dijeli prezentacione konstante iz
+``desktop.presentation`` (status/boje). Isti click/context model kao WeekView
+— lijevi klik na termin
 emituje ``appointment_clicked``, desni klik daje status-aware brze akcije,
 prazan slot emituje ``slot_selected``. Drag&drop mijenja vrijeme termina
 unutar iste doktor-kolone (cross-doctor drop se odbija — promjena doktora
@@ -30,7 +31,8 @@ from PySide6.QtWidgets import (
 
 from dentaland.services import AppointmentDTO, OverlapError
 from desktop.fake_data import SARAJEVO
-from desktop.views.week_view import STATUS_META, WeekView, _status_key, status_icon
+from desktop.presentation.schedule_palette import DOCTOR_CARD_PALETTE
+from desktop.presentation.schedule_status import STATUS_META, status_icon, status_key
 
 _APPT_ID_ROLE = Qt.ItemDataRole.UserRole
 _BLOCK_ROLE = Qt.ItemDataRole.UserRole + 1
@@ -193,7 +195,7 @@ class DayView(QTableWidget):
     def visible_status_counts(self) -> dict[str, int]:
         counts = dict.fromkeys(STATUS_META, 0)
         for appt in self._day_appointments():
-            counts[_status_key(appt)] += 1
+            counts[status_key(appt)] += 1
         return counts
 
     def visible_doctor_counts(self) -> dict[int, int]:
@@ -269,8 +271,8 @@ class DayView(QTableWidget):
                 if appt.doctor_id in self._doctor_names
                 else 0
             )
-            background, border, text_color = WeekView._DOCTOR_CARD_PALETTE[
-                doctor_index % len(WeekView._DOCTOR_CARD_PALETTE)
+            background, border, text_color = DOCTOR_CARD_PALETTE[
+                doctor_index % len(DOCTOR_CARD_PALETTE)
             ]
             symbol = status_icon(appt)
             cell_item.setText(
@@ -304,14 +306,14 @@ class DayView(QTableWidget):
         if appt_id is None:
             return
         appt = self._get_appointment(appt_id)
-        status_key = _status_key(appt) if appt is not None else "waiting"
-        terminal = status_key in {"completed", "cancelled"}
+        key = status_key(appt) if appt is not None else "waiting"
+        terminal = key in {"completed", "cancelled"}
 
         menu = QMenu(self)
         self._add_menu_action(menu, "Otvori detalje", appt_id, "open_details")
         if not terminal:
             menu.addSeparator()
-            if status_key != "confirmed":
+            if key != "confirmed":
                 self._add_menu_action(menu, "Potvrdi termin", appt_id, "confirm")
             already_arrived = getattr(appt, "arrived_at", None) is not None
             if already_arrived:
