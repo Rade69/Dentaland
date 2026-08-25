@@ -9,8 +9,13 @@ ISTOG render-ovanog dataseta bez dodatnog fetch-a.
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from types import SimpleNamespace
+
+from PySide6.QtWidgets import QStackedWidget
 
 from desktop.controllers.schedule_controller import ScheduleController
+from desktop.views.day_view import DayView
+from desktop.views.week_view import WeekView
 
 WEEK_START = date(2026, 8, 17)
 
@@ -27,16 +32,22 @@ class _CountingStore:
         self.appointments_for_range_calls += 1
         appt_start = start + timedelta(hours=1)
         return [
-            {
-                "id": 1,
-                "start": appt_start,
-                "end": appt_start + timedelta(minutes=30),
-                "doctor_id": 1,
-                "doctor_name": "Ljubo",
-                "patient_name": "Ana",
-                "service": "Kontrola",
-            }
+            SimpleNamespace(
+                id=1,
+                start=appt_start,
+                end=appt_start + timedelta(minutes=30),
+                doctor_id=1,
+                doctor_name="Ljubo",
+                patient_name="Ana",
+                service="Kontrola",
+                status=None,
+                confirmed_at=None,
+                arrived_at=None,
+            )
         ]
+
+    def doctors(self) -> list:
+        return [SimpleNamespace(id=1, ime="Ljubo")]
 
     def time_off_for_week(self, week_start: date) -> list:
         self.time_off_for_week_calls += 1
@@ -71,7 +82,7 @@ class _FakeView:
     def visible_doctor_counts(self) -> dict[int, int]:
         counts: dict[int, int] = {}
         for appt in self.appointments:
-            counts[appt["doctor_id"]] = counts.get(appt["doctor_id"], 0) + 1
+            counts[appt.doctor_id] = counts.get(appt.doctor_id, 0) + 1
         return counts
 
     def set_filter(self, doctor_id: int | None) -> None:
@@ -200,3 +211,69 @@ def test_fetch_radi_sa_store_bez_appointments_for_range() -> None:
     assert week_view.render_calls == 1
     assert week_view.appointments == []
     assert store.all_calls == 1
+
+
+def test_pravi_viewovi_ne_fetchuju_interno(qtbot) -> None:
+    """Integracijski query-counter: PRAVI WeekView/DayView + ScheduleController.
+
+    Ako bilo koji view interno ponovo pozove ``appointments_for_range`` (ili
+    ``time_off_for_week``/``breaks_for_week``) unutar ``render_schedule``,
+    broj fetch-a skače sa 1 na 2 i test pada.
+    """
+    store = _CountingStore()
+    week_view = WeekView(store, WEEK_START)
+    day_view = DayView(store, WEEK_START)
+    qtbot.addWidget(week_view)
+    qtbot.addWidget(day_view)
+    view_stack = QStackedWidget()
+    view_stack.addWidget(week_view)
+    view_stack.addWidget(day_view)
+
+    controller = ScheduleController(
+        store,
+        week_view,
+        day_view,
+        view_stack,
+        on_range_label=lambda: None,
+        on_status_counts=lambda _counts: None,
+        on_doctor_counts=lambda _counts: None,
+        week_start=WEEK_START,
+    )
+
+    controller.refresh()
+
+    # Tačno jedan fetch za appointments + po jedan za blokove.
+    assert store.appointments_for_range_calls == 1
+    assert store.time_off_for_week_calls == 1
+    assert store.breaks_for_week_calls == 1
+
+
+def test_pravi_day_view_ne_fetchuje_interno(qtbot) -> None:
+    """Isti integracijski test, ali sa aktivnim DayView-om."""
+    store = _CountingStore()
+    week_view = WeekView(store, WEEK_START)
+    day_view = DayView(store, WEEK_START)
+    qtbot.addWidget(week_view)
+    qtbot.addWidget(day_view)
+    view_stack = QStackedWidget()
+    view_stack.addWidget(week_view)
+    view_stack.addWidget(day_view)
+    view_stack.setCurrentWidget(day_view)
+
+    controller = ScheduleController(
+        store,
+        week_view,
+        day_view,
+        view_stack,
+        on_range_label=lambda: None,
+        on_status_counts=lambda _counts: None,
+        on_doctor_counts=lambda _counts: None,
+        week_start=WEEK_START,
+    )
+
+    controller.refresh()
+
+    assert store.appointments_for_range_calls == 1
+    assert store.time_off_for_week_calls == 1
+    assert store.breaks_for_week_calls == 1
+
