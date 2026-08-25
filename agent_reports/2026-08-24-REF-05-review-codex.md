@@ -1,13 +1,12 @@
 # REF-05 — Codex independent review (test kvalitet)
 
 ```yaml
-verdict: REJECT
+verdict: PASS
 scope: PASS
-acceptance: FAIL
+acceptance: PASS
 architecture: PASS
 security: PASS
-blocking_findings:
-  - "F1: Query-counter test koristi samo _FakeView i ne hvata regresiju u stvarnim WeekView/DayView klasama; privremeno vraćen interni appointments_for_range poziv u WeekView.render_schedule, a svih 6 novih testova je i dalje prošlo."
+blocking_findings: []
 ```
 
 ## CILJ
@@ -20,18 +19,21 @@ postojećih GUI testova nisu oslabile njihove invarijante.
 
 - Potvrđeni grana `task/REF-05-schedule-controller`, commit `7692f31` i base
   `daf3074` kao ancestor.
-- `pytest tests/ -q`: **347 passed**, 11 warnings.
+- Početni review na `7692f31`: `pytest tests/ -q` dao je **347 passed**.
+- F1 re-review na fix commitu `8693264`: `pytest tests/ -q` dao je
+  **349 passed**, 11 warnings.
 - `ruff check src/dentaland desktop backend tests`: čist.
 - `mypy src/dentaland desktop backend`: čist, 43 source fajla.
 - Scope odgovara Task Contractu. Promijenjeni su samo novi ScheduleController,
   MainWindow, Day/Week view, tri pripadajuća postojeća test fajla, novi
   controller test i agent reports. Forbidden paths nisu dirani.
 
-### F1 — blocking: glavni query test daje lažni PASS
+### F1 — riješeno u `8693264`
 
-`tests/test_gui/test_schedule_controller.py` instancira Controller isključivo
-sa `_FakeView`. Taj fake samo sprema proslijeđeni dataset i nikad ne izvršava
-stvarni `WeekView.render_schedule()` ili `DayView.render_schedule()`.
+Početna verzija `tests/test_gui/test_schedule_controller.py` na `7692f31`
+instancirala je Controller isključivo sa `_FakeView`. Taj fake samo je spremao
+proslijeđeni dataset i nije izvršavao stvarni `WeekView.render_schedule()` ili
+`DayView.render_schedule()`.
 
 Adversarna mutacija:
 
@@ -42,12 +44,20 @@ Adversarna mutacija:
 3. Stvarni rezultat: **6 passed in 0.07s**.
 4. Mutacija je potpuno vraćena.
 
-Zato test dokazuje samo da sam Controller jednom pozove fake store prije nego
-što preda podatke fake view-u. Ne dokazuje glavnu acceptance tvrdnju da
-stvarni integrisani refresh ostaje na jednom fetchu ako se view regresivno
-vrati internom čitanju. Potreban je integracijski query-counter test sa pravim
-`WeekView` i `DayView` (ili ekvivalentna provjera njihovog stvarnog
-`render_schedule` puta) koji pada na ovoj mutaciji.
+Fix je dodao dva integracijska query-counter testa koji koriste stvarne
+`WeekView`, `DayView`, `QStackedWidget` i `ScheduleController`. Codex je
+nezavisno ponovio obje mutacije:
+
+1. Dodat interni `appointments_for_range(...)` u stvarni
+   `WeekView.render_schedule()`: ciljani test je pao na **`assert 2 == 1`**.
+2. Dodat isti interni fetch u stvarni `DayView.render_schedule()` (uz potreban
+   `timedelta` import da mutacija bude validna): ciljani test je pao na
+   **`assert 2 == 1`**.
+3. Obje mutacije su vraćene; čisti
+   `pytest tests/test_gui/test_schedule_controller.py -q` dao je **8 passed**.
+
+Novi testovi sada genuinski hvataju regresiju u obje konkretne view klase, pa
+je originalni blocking finding zatvoren.
 
 ### Doctor state
 
@@ -103,8 +113,5 @@ klasa.
 
 ## SLJEDEĆE
 
-Crush treba dodati integracijski query-counter test sa stvarnim WeekView i
-DayView koji pada kada bilo koji view ponovo interno pozove
-`appointments_for_range`, zatim ponoviti puni verification paket. Nakon toga
-Codex ponavlja samo F1 mutacionu provjeru. Claude review i Radovan human
-approval čekaju Codex PASS.
+Codex test-quality review je PASS. Claude sada radi Reviewer 2 arhitektonski
+pregled; Radovan human approval dolazi tek nakon oba PASS review-a.
