@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 
 from dentaland.models import Appointment, AppointmentStatus, Base
 from dentaland.services import AppointmentService, ensure_seed_data
+from desktop.controllers import request_controller as request_controller_mod
 from desktop.fake_data import SARAJEVO
 from desktop.views import requests_panel as rp
 from desktop.views.requests_panel import DashboardPanels
@@ -188,7 +189,7 @@ def test_overlap_pri_potvrdi_prikazuje_inline_gresku_i_ne_rusi_zahtjev(
         def show_error(self, message):
             self.errors.append(message)
 
-    monkeypatch.setattr(rp, "ProcessRequestDialog", FakeDialog)
+    monkeypatch.setattr(request_controller_mod, "ProcessRequestDialog", FakeDialog)
 
     panels = DashboardPanels(service)
     qtbot.addWidget(panels)

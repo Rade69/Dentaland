@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from desktop.views.requests_panel import process_pending_request
+from desktop.controllers.request_controller import RequestController
 
 SARAJEVO = ZoneInfo("Europe/Sarajevo")
 
@@ -44,6 +44,7 @@ class RequestsPage(QWidget):
     def __init__(self, store: Any, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.store = store
+        self._request_controller = RequestController(store)
         self.setObjectName("requestsPage")
 
         root = QVBoxLayout(self)
@@ -227,7 +228,7 @@ class RequestsPage(QWidget):
         return row
 
     def _process(self, request: Any) -> None:
-        if process_pending_request(self.store, request, self):
+        if self._request_controller.process_pending_request(request, self):
             self.refresh()
             self.changed.emit()
 
