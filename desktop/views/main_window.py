@@ -5,11 +5,10 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from PySide6.QtCore import QDate, QSize, Qt, QTimer
+from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import (
     QAction,
     QColor,
-    QCursor,
     QIcon,
     QPainter,
     QPainterPath,
@@ -18,15 +17,10 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QApplication,
-    QCalendarWidget,
-    QDialog,
-    QDialogButtonBox,
-    QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
-    QMenu,
     QPushButton,
     QSizePolicy,
     QStackedWidget,
@@ -37,11 +31,10 @@ from PySide6.QtWidgets import (
 
 from dentaland import paths
 from dentaland.services import OverlapError  # noqa: F401  # re-eksport (REF-00 baseline)
-from dentaland.services.print_schedule import build_day_schedule, build_week_schedule
 from desktop.controllers.appointment_controller import AppointmentController
+from desktop.controllers.print_controller import PrintController
 from desktop.controllers.schedule_controller import ScheduleController
 from desktop.fake_data import SARAJEVO
-from desktop.print_document import build_day_document, build_week_document, preview_document
 from desktop.views.blockout_panel import BlockoutPanel
 from desktop.views.day_view import DayView
 
@@ -142,6 +135,9 @@ class MainWindow(QMainWindow):
         self.day_view.appointment_moved.connect(
             lambda _appt: self._schedule_controller.refresh()
         )
+        self._print_controller = PrintController(
+            store, self, lambda: self._schedule_controller.week_start
+        )
         self.doctor_tabs = self._build_doctor_tabs()
         self.sidebar = Sidebar(self)
         self.dashboard_panels = DashboardPanels(store, self)
@@ -182,7 +178,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         self.print_action = QAction("Štampaj raspored", self)
-        self.print_action.triggered.connect(self._on_print)
+        self.print_action.triggered.connect(self._print_controller.on_print)
         self.addAction(self.print_action)
 
         self.week_view.slot_selected.connect(self._controller.on_slot_selected)
@@ -265,7 +261,7 @@ class MainWindow(QMainWindow):
         print_button.setObjectName("printButton")
         print_button.setIcon(svg_icon("printer", "#10213d", 18))
         print_button.setIconSize(QSize(18, 18))
-        print_button.clicked.connect(self._on_print)
+        print_button.clicked.connect(self._print_controller.on_print)
         header.addWidget(new_button)
         header.addWidget(print_button)
         layout.addWidget(header_frame)
@@ -640,62 +636,3 @@ class MainWindow(QMainWindow):
         doctor_id = self._tab_doctor_ids[index]
         self._current_doctor_id = doctor_id
         self._schedule_controller.set_doctor_filter(doctor_id)
-
-    def _on_print(self) -> None:
-        menu = QMenu(self)
-        week_action = menu.addAction("Štampaj prikazanu sedmicu")
-        day_action = menu.addAction("Štampaj jedan dan…")
-        pdf_action = menu.addAction("Sačuvaj kao PDF")
-        chosen = menu.exec(QCursor.pos())
-        if chosen == week_action:
-            self._print_week()
-        elif chosen == day_action:
-            self._print_day()
-        elif chosen == pdf_action:
-            self._save_pdf()
-
-    def _print_week(self) -> None:
-        schedule = build_week_schedule(self.store, self._schedule_controller.week_start)
-        preview_document(self, build_week_document(schedule), landscape=True)
-
-    def _print_day(self) -> None:
-        day = self._pick_day()
-        if day is None:
-            return
-        schedule = build_day_schedule(self.store, day)
-        preview_document(self, build_day_document(schedule), landscape=False)
-
-    def _save_pdf(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Sačuvaj raspored kao PDF", "raspored.pdf", "PDF (*.pdf)"
-        )
-        if not path:
-            return
-        schedule = build_week_schedule(self.store, self._schedule_controller.week_start)
-        preview_document(
-            self, build_week_document(schedule), landscape=True, pdf_path=path
-        )
-
-    def _pick_day(self) -> date | None:
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Izaberite dan za štampu")
-        calendar = QCalendarWidget(dialog)
-        calendar.setSelectedDate(
-            QDate(
-                self._schedule_controller.week_start.year,
-                self._schedule_controller.week_start.month,
-                self._schedule_controller.week_start.day,
-            )
-        )
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        layout = QVBoxLayout(dialog)
-        layout.addWidget(calendar)
-        layout.addWidget(buttons)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return None
-        selected = calendar.selectedDate()
-        return date(selected.year(), selected.month(), selected.day())

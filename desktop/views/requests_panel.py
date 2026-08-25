@@ -16,41 +16,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-# confirm_pending baca requests.OverlapError (duplirani izuzetak u requests.py),
-# NE booking.OverlapError — zato import direktno iz requests.
-from dentaland.services.requests import OverlapError
-from desktop.views.dialogs.process_request import ProcessRequestDialog
-
-
-def process_pending_request(store: Any, request: Any, parent: QWidget) -> bool | None:
-    """Obradi pending zahtjev kroz jedini zajednički dialog/business tok.
-
-    Vraća ``True`` kad je zahtjev potvrđen ili odbijen, ``False`` kada je
-    dijalog zatvoren bez akcije, a ``None`` kada nema doktora/usluga.
-    """
-    doctors_method = getattr(store, "doctors", None)
-    services_method = getattr(store, "service_choices", None)
-    doctors = [(d.id, d.ime) for d in doctors_method()] if callable(doctors_method) else []
-    services = list(services_method()) if callable(services_method) else []
-    if not doctors or not services:
-        return None
-
-    dialog = ProcessRequestDialog(request, doctors, services, parent)
-    while True:
-        dialog.exec()
-        action = dialog.selected_action()
-        if action == "confirm":
-            doctor_id, service_id, start = dialog.values()
-            try:
-                store.confirm_pending(request.id, doctor_id, service_id, start)
-            except (OverlapError, ValueError) as exc:
-                dialog.show_error(str(exc))
-                continue
-            return True
-        if action == "reject":
-            store.reject_pending(request.id)
-            return True
-        return False
+from dentaland.services.requests import OverlapError  # noqa: F401  # re-eksport (REF-01 contract)
+from desktop.controllers.request_controller import RequestController
 
 
 class DashboardPanels(QScrollArea):
@@ -59,6 +26,7 @@ class DashboardPanels(QScrollArea):
     def __init__(self, store: Any, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.store = store
+        self._request_controller = RequestController(store)
         self.setObjectName("dashboardPanels")
         self.setWidgetResizable(True)
         self.setFrameShape(QScrollArea.Shape.NoFrame)
@@ -183,7 +151,7 @@ class DashboardPanels(QScrollArea):
         self.changed.emit()
 
     def _confirm(self, request: Any) -> None:
-        if process_pending_request(self.store, request, self) is None:
+        if self._request_controller.process_pending_request(request, self) is None:
             return
         self.refresh()
         self.changed.emit()

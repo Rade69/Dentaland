@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QLabel, QPushButton
 
+from desktop.controllers.request_controller import RequestController
 from desktop.views import requests_page as requests_page_mod
 from desktop.views.requests_page import RequestsPage
 
@@ -78,12 +79,12 @@ def test_obrada_koristi_zajednicki_tok_i_osvjezava_listu(qtbot, monkeypatch) -> 
     store = RequestsStore()
     processed = []
 
-    def fake_process(actual_store, request, parent):
-        processed.append((actual_store, request.id, parent))
-        actual_store.requests.clear()
+    def fake_process(self, request, parent):
+        processed.append((self._store, request.id, parent))
+        self._store.requests.clear()
         return True
 
-    monkeypatch.setattr(requests_page_mod, "process_pending_request", fake_process)
+    monkeypatch.setattr(RequestController, "process_pending_request", fake_process)
     page = RequestsPage(store)
     qtbot.addWidget(page)
 
