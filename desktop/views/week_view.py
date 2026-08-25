@@ -30,54 +30,29 @@ from PySide6.QtWidgets import (
 
 from dentaland.services import AppointmentDTO, OverlapError
 from desktop.fake_data import SARAJEVO
+from desktop.presentation.schedule_palette import DOCTOR_CARD_PALETTE
+from desktop.presentation.schedule_status import (
+    STATUS_META,
+    status_icon,
+    status_key,
+)
+from desktop.presentation.schedule_status import (
+    STATUS_ORDER as _STATUS_ORDER,
+)
+
+# Backward-compat re-export (REF-06): main_window.py uvozi STATUS_ORDER iz
+# week_view, a dialogs/appointment_details.py uvozi _status_key. Definicije
+# žive u desktop.presentation — ovdje se samo ponovo izlažu, ne dupliraju.
+STATUS_ORDER = _STATUS_ORDER
+_status_key = status_key
 
 _APPT_ID_ROLE = Qt.ItemDataRole.UserRole
 _BLOCK_ROLE = Qt.ItemDataRole.UserRole + 1
 
 
-# Jedan izvor istine za status simbol/boju/naziv — dijele ga legenda
-# (main_window.py), kartica jednog termina i tekstualna lista više termina
-# u istoj ćeliji, da simboli nikad ne izgube sinhronizaciju.
-#
-# Namjerno OBIČNI Unicode dingbat/geometrijski simboli (ne slikovni emoji
-# poput 🕐/👤/💜) — slikovni emoji zahtijevaju posebni font boje (Segoe UI
-# Emoji) koji se u malom QLabel HTML tekstu ne mora učitati, pa su znali
-# ispasti prazni/nečitljivi. Ovi simboli su i oblikom različiti (ne samo
-# bojom) — čitljivo i bez oslanjanja na boju.
-STATUS_META: dict[str, tuple[str, str, str]] = {
-    "confirmed": ("✓", "#149447", "Potvrđen"),
-    "waiting": ("◷", "#ff8a00", "Čeka potvrdu"),
-    "arrived": ("▲", "#1473e6", "Stigao"),
-    "completed": ("★", "#7c3aed", "Završen"),
-    "no_show": ("!", "#c2410c", "Nije došao"),
-    "cancelled": ("✗", "#ef334f", "Otkazan"),
-}
-STATUS_ORDER = ["confirmed", "waiting", "arrived", "completed", "no_show", "cancelled"]
-
-
-def _status_key(appt: AppointmentDTO) -> str:
-    status = getattr(getattr(appt, "status", None), "value", None)
-    if status == "NO_SHOW":
-        return "no_show"
-    if status == "CANCELLED":
-        return "cancelled"
-    if status == "COMPLETED":
-        return "completed"
-    if getattr(appt, "arrived_at", None) is not None:
-        return "arrived"
-    if getattr(appt, "confirmed_at", None) is not None:
-        return "confirmed"
-    return "waiting"
-
-
-def status_icon(appt: AppointmentDTO) -> str:
-    """Čisto prezentaciono mapiranje statusnih podataka na ikonicu."""
-    return STATUS_META[_status_key(appt)][0]
-
-
 def _status_visual(appt: AppointmentDTO) -> tuple[str, str]:
     """Simbol i boja za karticu termina — isti izvor kao ``status_icon``."""
-    symbol, color, _label = STATUS_META[_status_key(appt)]
+    symbol, color, _label = STATUS_META[status_key(appt)]
     return symbol, color
 
 
@@ -96,14 +71,6 @@ class WeekView(QTableWidget):
     SLOT_MINUTES = 60
 
     _DOCTOR_PALETTE = ["#16a34a", "#f43f5e", "#3b82f6", "#d4a017", "#8b5cf6", "#0891b2"]
-    _DOCTOR_CARD_PALETTE = [
-        ("#ebf8ed", "#9bd5a4", "#174d26"),
-        ("#fff0f2", "#ff9aaa", "#6b1e2c"),
-        ("#edf4ff", "#8ab7ff", "#153b73"),
-        ("#fff8df", "#e8cb67", "#634c00"),
-        ("#f5efff", "#b9a0ef", "#49307d"),
-        ("#e9fbff", "#88d9e8", "#15505d"),
-    ]
 
     # Vizuelni red je pun sat (SLOT_MINUTES), ali klik i dalje bira
     # pola sata — gornja/donja polovina ćelije određuje :00 ili :30.
@@ -379,8 +346,8 @@ class WeekView(QTableWidget):
                 doctor_id = getattr(appts[0], "doctor_id", None)
                 doctor_ids = list(self._doctor_colors)
                 color_index = doctor_ids.index(doctor_id) if doctor_id in doctor_ids else 0
-                background, border, text_color = self._DOCTOR_CARD_PALETTE[
-                    color_index % len(self._DOCTOR_CARD_PALETTE)
+                background, border, text_color = DOCTOR_CARD_PALETTE[
+                    color_index % len(DOCTOR_CARD_PALETTE)
                 ]
                 appt = appts[0]
                 local_start = appt.start.astimezone(SARAJEVO)
