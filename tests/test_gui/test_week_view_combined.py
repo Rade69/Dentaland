@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import pytest
 
@@ -10,6 +10,27 @@ from desktop.fake_data import SARAJEVO
 from desktop.views.week_view import WeekView
 
 WEEK_START = date(2026, 8, 17)
+
+
+def _snapshot(store, start: date, days: int) -> tuple[list, list]:
+    """Fetch appointments + blocks (helper — view više ne fetch-uje sam)."""
+    fetch = getattr(store, "appointments_for_range", None)
+    if callable(fetch):
+        range_start = datetime(start.year, start.month, start.day, tzinfo=SARAJEVO)
+        range_end = range_start + timedelta(days=days)
+        appointments = fetch(range_start, range_end)
+    else:
+        appointments = store.all() if callable(getattr(store, "all", None)) else []
+    blocks: list = []
+    for name in ("time_off_for_week", "breaks_for_week"):
+        method = getattr(store, name, None)
+        if callable(method):
+            blocks.extend(method(start))
+    return appointments, blocks
+
+
+def _render_week(view: WeekView, store) -> None:
+    view.render_schedule(*_snapshot(store, view.week_start, view.DAY_COUNT))
 
 
 def _at(day_offset: int, hour: int, minute: int = 0) -> datetime:
@@ -32,6 +53,7 @@ def week_view(qtbot, appointment_service, doctor_ids) -> WeekView:
         "Marko Marković", "062", "m@x", "Kontrola", "", _at(1, 10), _at(1, 10, 30)
     )
     view = WeekView(appointment_service, WEEK_START)
+    _render_week(view, appointment_service)
     qtbot.addWidget(view)
     return view
 
@@ -86,6 +108,8 @@ def test_termin_od_60_min_zauzima_jednu_satnu_celiju(
     appointment_service.create(
         "Petar Petrović", "063", "p@x", "Plomba", "", _at(2, 9), _at(2, 10)
     )
-    week_view.refresh()
+    week_view.render_schedule(
+        *_snapshot(appointment_service, week_view.week_start, week_view.DAY_COUNT)
+    )
 
     assert week_view.rowSpan(1, 2) == 1  # srijeda 09:00–10:00

@@ -117,6 +117,8 @@ class WeekView(QTableWidget):
         self._filter_doctor_id: int | None = None
         self._doctor_colors = self._build_doctor_colors()
         self._pending_click_minutes = 0
+        self._appointments: list[AppointmentDTO] = []
+        self._blocks: list[Any] = []
 
         rows = int((self.DAY_END_HOUR - self.DAY_START_HOUR) * 60 / self.SLOT_MINUTES)
         self.setRowCount(rows)
@@ -183,7 +185,6 @@ class WeekView(QTableWidget):
             f"{name}\n{(week_start + timedelta(days=i)).strftime('%d.%m.')}"
             for i, name in enumerate(self.DAY_NAMES)
         ])
-        self.refresh()
 
     # ---- mapiranje slot ↔ vrijeme ----
 
@@ -243,20 +244,15 @@ class WeekView(QTableWidget):
         span = max(span, 1)
         return (row, col), min(span, self.rowCount() - row)
 
-    def _fetch_appointments(self) -> list[AppointmentDTO]:
-        fetch = getattr(self.store, "appointments_for_range", None)
-        if callable(fetch):
-            range_start = datetime(
-                self.week_start.year, self.week_start.month, self.week_start.day,
-                tzinfo=SARAJEVO,
-            )
-            range_end = range_start + timedelta(days=self.DAY_COUNT)
-            return fetch(range_start, range_end)
-        return self.store.all()
+    def render_schedule(self, appointments: list[Any], blocks: list[Any]) -> None:
+        """Postavi dataset i re-draw-uj — jedini način da view dobije podatke."""
+        self._appointments = list(appointments)
+        self._blocks = list(blocks)
+        self.refresh()
 
     def _visible_appointments(self) -> list[tuple[tuple[int, int], int, AppointmentDTO]]:
         visible: list[tuple[tuple[int, int], int, AppointmentDTO]] = []
-        for appt in self._fetch_appointments():
+        for appt in self._appointments:
             appt_doctor = getattr(appt, "doctor_id", None)
             if self._filter_doctor_id is not None and appt_doctor != self._filter_doctor_id:
                 continue
@@ -278,7 +274,7 @@ class WeekView(QTableWidget):
         NAMJERNO ignoriše ``self._filter_doctor_id``, panel doktora mora
         prikazivati sve doktore bez obzira na aktivni tab."""
         counts: dict[int, int] = {}
-        for appt in self._fetch_appointments():
+        for appt in self._appointments:
             if self._cell_span(appt) is None:
                 continue
             doctor_id = getattr(appt, "doctor_id", None)
@@ -293,14 +289,6 @@ class WeekView(QTableWidget):
             for r in range(row, row + span):
                 result.setdefault((r, col), []).append(appt)
         return result
-
-    def _fetch_blocks(self) -> list:
-        blocks: list = []
-        for method_name in ("time_off_for_week", "breaks_for_week"):
-            method = getattr(self.store, method_name, None)
-            if callable(method):
-                blocks.extend(method(self.week_start))
-        return blocks
 
     def _block_cell_span(self, block: Any) -> tuple[tuple[int, int], int] | None:
         local_start = block.start.astimezone(SARAJEVO)
@@ -338,7 +326,7 @@ class WeekView(QTableWidget):
                 )
                 self.setItem(row, col, item)
 
-        for block in self._fetch_blocks():
+        for block in self._blocks:
             if self._filter_doctor_id is not None and block.doctor_id != self._filter_doctor_id:
                 continue
             span_info = self._block_cell_span(block)
@@ -519,7 +507,6 @@ class WeekView(QTableWidget):
             self.store.move(appt_id, new_start, new_end)
         except OverlapError:
             return False
-        self.refresh()
         self.appointment_moved.emit(appt)
         return True
 

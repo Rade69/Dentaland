@@ -39,6 +39,7 @@ from dentaland import paths
 from dentaland.services import OverlapError  # noqa: F401  # re-eksport (REF-00 baseline)
 from dentaland.services.print_schedule import build_day_schedule, build_week_schedule
 from desktop.controllers.appointment_controller import AppointmentController
+from desktop.controllers.schedule_controller import ScheduleController
 from desktop.fake_data import SARAJEVO
 from desktop.print_document import build_day_document, build_week_document, preview_document
 from desktop.views.blockout_panel import BlockoutPanel
@@ -119,14 +120,28 @@ class MainWindow(QMainWindow):
             today = date.today()
             week_start = today - timedelta(days=today.weekday())
 
-        self.current_day = date.today()
-        self.week_start = week_start
         self.week_view = WeekView(store, week_start, parent=self)
-        self.day_view = DayView(store, self.current_day, parent=self)
+        self.day_view = DayView(store, date.today(), parent=self)
         self._controller = AppointmentController(store, self, self._refresh_dashboard)
         self.view_stack = QStackedWidget()
         self.view_stack.addWidget(self.week_view)
         self.view_stack.addWidget(self.day_view)
+        self._schedule_controller = ScheduleController(
+            store,
+            self.week_view,
+            self.day_view,
+            self.view_stack,
+            on_range_label=self._update_range_label,
+            on_status_counts=self._set_status_counts,
+            on_doctor_counts=self._set_doctor_counts,
+            week_start=week_start,
+        )
+        self.week_view.appointment_moved.connect(
+            lambda _appt: self._schedule_controller.refresh()
+        )
+        self.day_view.appointment_moved.connect(
+            lambda _appt: self._schedule_controller.refresh()
+        )
         self.doctor_tabs = self._build_doctor_tabs()
         self.sidebar = Sidebar(self)
         self.dashboard_panels = DashboardPanels(store, self)
@@ -186,6 +201,11 @@ class MainWindow(QMainWindow):
         self._auto_refresh_timer.setInterval(AUTO_REFRESH_INTERVAL_MS)
         self._auto_refresh_timer.timeout.connect(self._refresh_dashboard)
         self._auto_refresh_timer.start()
+
+    @property
+    def week_start(self) -> date:
+        """Prikazani početak sedmice — izvor istine je ScheduleController."""
+        return self._schedule_controller.week_start
 
     def _build_schedule_page(self) -> QWidget:
         page = QWidget()
@@ -334,67 +354,47 @@ class MainWindow(QMainWindow):
             self.page_stack.setCurrentWidget(page)
 
     def _move_week(self, offset: int) -> None:
-        if self.view_stack.currentWidget() is self.day_view:
-            self.current_day += timedelta(days=offset)
-            self.day_view.set_day(self.current_day)
-        else:
-            self.week_start += timedelta(days=7 * offset)
-            self.week_view.set_week_start(self.week_start)
-            self.day_view.set_day(self.week_start)
-        self._update_range_label()
-        self._update_status_legend()
+        self._schedule_controller.move_week(offset)
 
     def _go_today(self) -> None:
-        today = date.today()
-        if self.view_stack.currentWidget() is self.day_view:
-            self.current_day = today
-            self.day_view.set_day(self.current_day)
-        else:
-            self.week_start = today - timedelta(days=today.weekday())
-            self.week_view.set_week_start(self.week_start)
-            self.day_view.set_day(self.week_start)
-        self._update_range_label()
-        self._update_status_legend()
+        self._schedule_controller.go_today()
 
     def _show_day_view(self) -> None:
-        self.day_view.set_day(self.current_day)
         self.view_stack.setCurrentWidget(self.day_view)
         self.day_button.setChecked(True)
         self.week_button.setChecked(False)
-        self._update_status_legend()
+        self._schedule_controller.show_day_view()
 
     def _show_week_view(self) -> None:
         self.view_stack.setCurrentWidget(self.week_view)
         self.week_button.setChecked(True)
         self.day_button.setChecked(False)
-        self._update_status_legend()
+        self._schedule_controller.show_week_view()
 
     def _update_range_label(self) -> None:
-        end = self.week_start + timedelta(days=5)
+        end = self._schedule_controller.week_start + timedelta(days=5)
         months = [
             "januar", "februar", "mart", "april", "maj", "juni",
             "juli", "avgust", "septembar", "oktobar", "novembar", "decembar",
         ]
-        if self.week_start.month == end.month:
-            text = f"{self.week_start.day} – {end.day}. {months[end.month - 1]} {end.year}"
+        if self._schedule_controller.week_start.month == end.month:
+            text = (
+                f"{self._schedule_controller.week_start.day} – {end.day}. "
+                f"{months[end.month - 1]} {end.year}"
+            )
         else:
-            text = f"{self.week_start:%d.%m.} – {end:%d.%m.%Y}"
+            text = f"{self._schedule_controller.week_start:%d.%m.} – {end:%d.%m.%Y}"
         self.range_label.setText(f"▣   {text}   ▣")
 
     def _refresh_dashboard(self) -> None:
         self.dashboard_panels.refresh()
         self.requests_page.refresh()
-        self.week_view.refresh()
-        self.day_view.refresh()
         pending = getattr(self.store, "pending_requests", None)
         count = len(pending()) if callable(pending) else 0
         self.sidebar.set_pending_count(count)
-        self._update_status_legend()
+        self._schedule_controller.refresh()
 
-    def _update_status_legend(self) -> None:
-        view = self.view_stack.currentWidget()
-        counts_fn = getattr(view, "visible_status_counts", None)
-        counts = counts_fn() if callable(counts_fn) else dict.fromkeys(STATUS_META, 0)
+    def _set_status_counts(self, counts: dict[str, int]) -> None:
         legend_html = "&nbsp;".join(
             f"<span style='color:{STATUS_META[key][1]}; font-size:10px; "
             f"font-weight:700'>{STATUS_META[key][0]}</span>&nbsp;"
@@ -402,12 +402,8 @@ class MainWindow(QMainWindow):
             for key in STATUS_ORDER
         )
         self.status_legend.setText(legend_html)
-        self._update_doctor_panel_counts()
 
-    def _update_doctor_panel_counts(self) -> None:
-        view = self.view_stack.currentWidget()
-        counts_fn = getattr(view, "visible_doctor_counts", None)
-        counts = counts_fn() if callable(counts_fn) else {}
+    def _set_doctor_counts(self, counts: dict[int, int]) -> None:
         for doctor_id, label in self._doctor_badge_labels.items():
             label.setText(str(counts.get(doctor_id, 0)))
 
@@ -643,8 +639,7 @@ class MainWindow(QMainWindow):
     def _on_tab_changed(self, index: int) -> None:
         doctor_id = self._tab_doctor_ids[index]
         self._current_doctor_id = doctor_id
-        self.week_view.set_filter(doctor_id)
-        self._update_status_legend()
+        self._schedule_controller.set_doctor_filter(doctor_id)
 
     def _on_print(self) -> None:
         menu = QMenu(self)
@@ -660,7 +655,7 @@ class MainWindow(QMainWindow):
             self._save_pdf()
 
     def _print_week(self) -> None:
-        schedule = build_week_schedule(self.store, self.week_start)
+        schedule = build_week_schedule(self.store, self._schedule_controller.week_start)
         preview_document(self, build_week_document(schedule), landscape=True)
 
     def _print_day(self) -> None:
@@ -676,7 +671,7 @@ class MainWindow(QMainWindow):
         )
         if not path:
             return
-        schedule = build_week_schedule(self.store, self.week_start)
+        schedule = build_week_schedule(self.store, self._schedule_controller.week_start)
         preview_document(
             self, build_week_document(schedule), landscape=True, pdf_path=path
         )
@@ -686,7 +681,11 @@ class MainWindow(QMainWindow):
         dialog.setWindowTitle("Izaberite dan za štampu")
         calendar = QCalendarWidget(dialog)
         calendar.setSelectedDate(
-            QDate(self.week_start.year, self.week_start.month, self.week_start.day)
+            QDate(
+                self._schedule_controller.week_start.year,
+                self._schedule_controller.week_start.month,
+                self._schedule_controller.week_start.day,
+            )
         )
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel

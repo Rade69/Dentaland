@@ -12,7 +12,7 @@ ide kroz "Uredi termin").
 from __future__ import annotations
 
 import math
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import Any
 
 from PySide6.QtCore import QPoint, Qt, Signal
@@ -61,6 +61,8 @@ class DayView(QTableWidget):
         doctors = self._fetch_doctors()
         self._doctor_ids = [doctor.id for doctor in doctors]
         self._doctor_names = {doctor.id: doctor.ime for doctor in doctors}
+        self._appointments: list[AppointmentDTO] = []
+        self._blocks: list[Any] = []
 
         rows = int((DAY_END_HOUR - DAY_START_HOUR) * 60 / SLOT_MINUTES)
         self.setRowCount(rows)
@@ -99,7 +101,6 @@ class DayView(QTableWidget):
 
     def set_day(self, day: date) -> None:
         self.day = day
-        self.refresh()
 
     @staticmethod
     def _format_minutes(minutes: int) -> str:
@@ -109,31 +110,27 @@ class DayView(QTableWidget):
         doctors_fn = getattr(self.store, "doctors", None)
         return list(doctors_fn()) if callable(doctors_fn) else []
 
-    def _fetch_appointments(self) -> list[AppointmentDTO]:
-        fetch = getattr(self.store, "appointments_for_range", None)
-        if not callable(fetch):
-            return []
-        day_start = datetime(self.day.year, self.day.month, self.day.day, tzinfo=SARAJEVO)
-        day_end = day_start + timedelta(days=1)
+    def render_schedule(self, appointments: list[Any], blocks: list[Any]) -> None:
+        """Postavi dataset i re-draw-uj — jedini način da view dobije podatke."""
+        self._appointments = list(appointments)
+        self._blocks = list(blocks)
+        self.refresh()
+
+    def _day_appointments(self) -> list[AppointmentDTO]:
         # Range query vraća termine koji se PREKLAPAJU sa danom; zadrži isti
         # prikaz kao prije — termin se prikazuje samo u danu kada POČINJE.
         return [
             appt
-            for appt in fetch(day_start, day_end)
+            for appt in self._appointments
             if appt.start.astimezone(SARAJEVO).date() == self.day
         ]
 
-    def _fetch_blocks(self) -> list:
-        week_start = self.day - timedelta(days=self.day.weekday())
-        blocks: list = []
-        for method_name in ("time_off_for_week", "breaks_for_week"):
-            method = getattr(self.store, method_name, None)
-            if not callable(method):
-                continue
-            for block in method(week_start):
-                if block.start.astimezone(SARAJEVO).date() == self.day:
-                    blocks.append(block)
-        return blocks
+    def _day_blocks(self) -> list[Any]:
+        return [
+            block
+            for block in self._blocks
+            if block.start.astimezone(SARAJEVO).date() == self.day
+        ]
 
     def _slot_datetime(self, row: int, extra_minutes: int = 0) -> datetime:
         minutes = DAY_START_HOUR * 60 + row * SLOT_MINUTES + extra_minutes
@@ -184,7 +181,7 @@ class DayView(QTableWidget):
 
     def _appointments_by_cell(self) -> dict[tuple[int, int], list[AppointmentDTO]]:
         result: dict[tuple[int, int], list[AppointmentDTO]] = {}
-        for appt in self._fetch_appointments():
+        for appt in self._day_appointments():
             span_info = self._cell_span(appt)
             if span_info is None:
                 continue
@@ -195,14 +192,14 @@ class DayView(QTableWidget):
 
     def visible_status_counts(self) -> dict[str, int]:
         counts = dict.fromkeys(STATUS_META, 0)
-        for appt in self._fetch_appointments():
+        for appt in self._day_appointments():
             counts[_status_key(appt)] += 1
         return counts
 
     def visible_doctor_counts(self) -> dict[int, int]:
         """Broj vidljivih termina po doktoru za prikazani dan."""
         counts: dict[int, int] = {}
-        for appt in self._fetch_appointments():
+        for appt in self._day_appointments():
             if self._cell_span(appt) is None:
                 continue
             doctor_id = getattr(appt, "doctor_id", None)
@@ -227,7 +224,7 @@ class DayView(QTableWidget):
                 )
                 self.setItem(row, col, item)
 
-        for block in self._fetch_blocks():
+        for block in self._day_blocks():
             block_span = self._block_row_span(block)
             if block_span is None:
                 continue
@@ -251,7 +248,7 @@ class DayView(QTableWidget):
             self.setCellWidget(row, col, block_card)
 
         grouped: dict[tuple[int, int], tuple[int, list[AppointmentDTO]]] = {}
-        for appt in self._fetch_appointments():
+        for appt in self._day_appointments():
             span_info = self._cell_span(appt)
             if span_info is None:
                 continue
@@ -364,7 +361,6 @@ class DayView(QTableWidget):
             self.store.move(appt_id, new_start, new_end)
         except OverlapError:
             return False
-        self.refresh()
         self.appointment_moved.emit(appt)
         return True
 
