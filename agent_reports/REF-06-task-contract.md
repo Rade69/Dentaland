@@ -3,8 +3,17 @@ task_id: REF-06
 risk: LOW
 implementer: pi
 reviewers: [codex, claude]
-status: "IN_PROGRESS — Task Contract napisan prije koda (25.8.2026)."
+status: "DONE — MERGED u main (merge commit 858b836, 2026-08-25), post-merge integration gate PASS (355 pytest, ruff, mypy)."
+review_summary: >-
+  Codex PASS, Claude PASS. desktop/presentation/ (schedule_status.py,
+  schedule_palette.py) izdvojen kao jedina istina za status/paletu;
+  day_view.py vise ne uvozi nista iz week_view.py. Backward-compat
+  re-export u week_view.py (za main_window.py/dialogs koji su forbidden
+  paths) dokazano ima stvarne potrosace, ne mrtav kod. Pronaden i
+  prijavljen treci privatni simbol (WeekView._DOCTOR_PALETTE, koriscen u
+  main_window.py) kao OUT_OF_SCOPE_FINDING, ne popravljen tiho.
 created_at: 2026-08-25
+merged_at: 2026-08-25
 ---
 
 # REF-06 — Izdvojiti shared presentation logiku iz WeekView/DayView

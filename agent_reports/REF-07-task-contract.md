@@ -3,10 +3,19 @@ task_id: REF-07
 risk: LOW/MEDIUM
 implementer: crush
 reviewers: [codex, claude]
-status: "READY FOR REVIEW — implementacija + verifikacija gotovi (355 pytest, ruff, mypy čisti)."
-review_summary: ""
+status: "DONE — MERGED u main (merge commit f541e0a, 2026-08-25), post-merge integration gate PASS (355 pytest, ruff, mypy)."
+review_summary: >-
+  Codex PASS_WITH_NOTES, Claude PASS_WITH_NOTES. RequestController i
+  PrintController (novo) preuzeli su process_pending_request iz
+  requests_panel.py i print workflow iz MainWindow-a, ponasanje
+  identicno preneseno (potvrdjeno oba reviewera nezavisno). OverlapError
+  re-export u requests_panel.py dokazano stvaran (REF-00 contract test).
+  PrintController week_start_provider callable DI istaknut kao bolji
+  obrazac od REF-04/05 kompromisa - preporuceno kao model za REF-08.
+  Non-blocking: print testovi ne pokrivaju on_print/print_day/_pick_day
+  (poznat gap, ne blokira).
 created_at: 2026-08-25
-merged_at: ""
+merged_at: 2026-08-25
 ---
 
 # REF-07 — Request i Print controller granice
