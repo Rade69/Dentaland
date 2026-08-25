@@ -42,6 +42,17 @@ jer bi to bila tiha promjena UX-a (novi dijalog gdje ga ranije nije bilo),
 
 ## Traženo rješenje (konkretan oblik, ne prepušteno implementeru da nagađa)
 
+**Obrazac: `DashboardPanels` konstruiše SVOJU privatnu `AppointmentController`
+instancu**, analogno već postojećem `self._request_controller =
+RequestController(store)` u istom fajlu (`requests_panel.py:29`) — koji je
+sam sebi dovoljan, ne dijeli instancu sa `main_window.py`.
+`RequestController` je već dokazano instanciran NEZAVISNO na dva mjesta
+(`requests_panel.py` i `requests_page.py`) — isti obrazac se ovdje ponavlja.
+Ovo NAMJERNO izbjegava dijeljenje `MainWindow`-ove `self._controller`
+instance, jer bi to zahtijevalo izmjenu `main_window.py` (dodatna
+`allowed_paths` stavka koja bi se preklapala sa REF-10/11/12/14 i blokirala
+paralelni rad — vidi `.agent/CURRENT_STATE.md` sekciju o REF-09..14 planu).
+
 1. **`AppointmentController.handle_appointment_action`**
    (`appointment_controller.py:180-186`, `method_map`): dodati novi ključ
    `"reject"` → `"cancel"`, analogno postojećem `"confirm"` →
@@ -50,15 +61,15 @@ jer bi to bila tiha promjena UX-a (novi dijalog gdje ga ranije nije bilo),
    `self._refresh_callback()`). Postojeći `"cancel"` ključ (linija 170-174,
    dijalog-bazirani flow) ostaje netaknut — `"reject"` je NOVI, odvojen
    ključ, ne zamjena.
-2. **`main_window.py`**: proslijediti postojeću `self._controller`
-   (`AppointmentController` instancu, već konstruisanu na liniji 116, PRIJE
-   `self.dashboard_panels = DashboardPanels(...)` na liniji 141) u
-   `DashboardPanels` konstruktor — ne praviti novu, drugu instancu
-   Controllera.
-3. **`requests_panel.py`**: `DashboardPanels.__init__` prima novi parametar
-   (npr. `appointment_controller: AppointmentController`), čuva ga kao
-   `self._appointment_controller`. `_confirm_scheduled`/`_cancel_scheduled`
-   postaju:
+2. **`requests_panel.py`**: `DashboardPanels.__init__` dodaje
+   ```python
+   self._appointment_controller = AppointmentController(store, self, self._on_appointment_changed)
+   ```
+   (novi import `from desktop.controllers.appointment_controller import
+   AppointmentController`). `_on_appointment_changed` je nova mala helper
+   metoda koja radi tačno ono što `_confirm_scheduled`/`_cancel_scheduled`
+   ranije radili nakon mutacije: `self.refresh(); self.changed.emit()`.
+   `_confirm_scheduled`/`_cancel_scheduled` postaju:
    ```python
    def _confirm_scheduled(self, appt_id: int) -> None:
        self._appointment_controller.handle_appointment_action(appt_id, "confirm")
@@ -66,14 +77,11 @@ jer bi to bila tiha promjena UX-a (novi dijalog gdje ga ranije nije bilo),
    def _cancel_scheduled(self, appt_id: int) -> None:
        self._appointment_controller.handle_appointment_action(appt_id, "reject")
    ```
-   Ručni `self.refresh()`/`self.changed.emit()` pozivi u ove dvije metode
-   se UKLANJAJU — `AppointmentController`-ov `refresh_callback` je već
-   `MainWindow._refresh_dashboard`, koji već zove
-   `self.dashboard_panels.refresh()` (linija 384). Provjeriti da
-   `_refresh_dashboard` pokriva sve što je `changed.emit()` ranije
-   trigerovalo (npr. `requests_page.refresh()`, badge brojevi) — ako ne
-   pokriva sve, zadržati `self.changed.emit()` i samo ukloniti
-   `self.refresh()` (izbjeći duplo osvježavanje, ne izgubiti postojeće).
+   `AppointmentController`-ov `_parent_widget` je ovdje `DashboardPanels`
+   instanca (ne `MainWindow`) — to je bezopasno za ova dva action-a, jer
+   `method_map` grana (`confirm`/`reject`) ne čita `_doctors`/
+   `_has_doctors`/`_current_doctor_id` (te getattr pozive koristi samo
+   `on_slot_selected`/`edit_appointment`, koji se odavde ne pozivaju).
 
 ## Acceptance
 
@@ -93,13 +101,15 @@ jer bi to bila tiha promjena UX-a (novi dijalog gdje ga ranije nije bilo),
 ```text
 desktop/controllers/appointment_controller.py
 desktop/views/requests_panel.py
-desktop/views/main_window.py
 agent_reports/**
 ```
+
+**`main_window.py` je NAMJERNO van scope-a** — vidi obrazloženje gore.
 
 ## Forbidden paths
 
 ```text
+desktop/views/main_window.py
 desktop/views/day_view.py
 desktop/views/week_view.py
 desktop/views/blockout_panel.py
@@ -107,6 +117,8 @@ desktop/views/settings_panel.py
 desktop/controllers/schedule_controller.py
 desktop/controllers/request_controller.py
 desktop/controllers/print_controller.py
+desktop/controllers/blockout_controller.py
+desktop/controllers/settings_controller.py
 src/dentaland/services/**
 models.py
 migrations/**
@@ -114,7 +126,8 @@ backend/**
 ```
 
 (F1/F2/F3 su odvojeni budući taskovi — REF-10/11/12 — ne dirati te
-fajlove ovdje, izbjeći preklapanje scope-a i coordination.py claim-ova.)
+fajlove ovdje. Nulto preklapanje sa REF-11/REF-12/REF-13 je namjerno —
+omogućava paralelan rad, vidi plan u razgovoru sa Radovanom 25.8.2026.)
 
 ## Review
 

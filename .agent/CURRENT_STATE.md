@@ -69,12 +69,37 @@ redefinicija** (servisni sloj: `notifications.py`, `print_schedule.py`;
 `fake_data`-uvezenih mjesta u `src/dentaland/timezone.py`, ovih 9 NIJE
 dirano (namjerno, van scope-a). Kandidat za REF-09 ili poseban cleanup.
 
-**Sljedeći korak: FINALNI arhitektonski acceptance review cijelog paketa**
-(plan sekcija 20) — Codex i Claude rade audit BEZ implementacije, mapiraju
-najmanje 12 tokova (create/edit/move/cancel/status/delete appointment, web
-request processing, Day/Week refresh, print, TimeOff/blockout, settings)
-kroz `View → Controller → Service → Database` slojeve. Tek nakon toga ima
-smisla razmatrati Prioritet C (`DENT-IMPROVE-010`..`015`, Faza 1 priprema).
+**Finalni acceptance review ZAVRŠEN** (25.8.2026) — Codex i Claude su
+nezavisno audit-ovali paket bez implementacije, oba potvrdila
+`NOT_FULLY_ACCEPTED`/`PARTIALLY_ACHIEVED` (`agent_reports/2026-08-25-REF-FINAL-acceptance-review-codex.md`,
+`-claude.md`): 4 nova nalaza (F1-F4) gdje View poziva store mutaciju
+direktno, mimoilazeći Controller. Radovanova odluka (25.8.2026): **nema
+prihvaćenog duga** — svaki nalaz (F1-F4, plus prethodno "dokumentovan" dug
+ispod) odmah postaje task, ne odlaže se.
+
+**REF-09..14 backlog (zatvaranje F1-F4 + starog duga):**
+
+| Task | Nalaz | Šta | Status |
+|---|---|---|---|
+| REF-09 | F4 | Dashboard confirm/reject → privatna `AppointmentController` instanca u `DashboardPanels` (REF-07 `RequestController` obrazac) | Task contract napisan, implementer TBD |
+| REF-10 | F1 | Scheduler drag&drop (`day_view`/`week_view`) → `AppointmentController` (dijeli `main_window.py`-ovu instancu, treba nov signal umjesto direktnog `store.move()`) | Nije napisan — SEKVENCIJALNO poslije REF-09 (oba diraju `appointment_controller.py`) |
+| REF-11 | F2 | Nov `BlockoutController` (facade, self-contained u `BlockoutPanel`) | Task contract napisan, implementer TBD |
+| REF-12 | F3 | Nov `SettingsController` (facade, self-contained u `SettingsPanel`) | Task contract napisan, implementer TBD |
+| REF-13 | — | Preostalih 9 `SARAJEVO` redefinicija → `dentaland.timezone` (REF-08 out-of-scope finding, sad zatvaramo) | Task contract napisan, implementer TBD |
+| REF-14 | — | 3-lokacijski Controller↔View state sync (REF-04/05 dug) → `week_start_provider`-stil DI (REF-07 obrazac) | Nije napisan — arhitektonska odluka, čeka da REF-09/10 slegnu prije dizajna |
+
+**Paralelizacija (provjereno preko `allowed_paths`, isti standard kao
+REF-06+REF-07 presedan): REF-09, REF-11, REF-12 i REF-13 imaju NULTO
+preklapanje fajlova međusobno** — svi izbjegavaju `main_window.py`
+(self-contained Controller-per-panel obrazac, REF-07 presedan) i
+međusobno različite View/Controller fajlove. Mogu ići u bilo kojoj
+kombinaciji paralelno (2 implementera odjednom = 2 kruga za sva 4).
+REF-10 dijeli `appointment_controller.py` sa REF-09 → mora čekati REF-09
+merge. REF-14 dijeli `appointment_controller.py`/`schedule_controller.py`/
+`main_window.py` sa više njih → posljednji, poslije svega.
+
+Sljedeći korak: Radovan dodjeljuje implementere (Pi/Crush) za prvi
+paralelan krug.
 
 ## Agent availability
 
@@ -117,7 +142,9 @@ napamet.
 
 ## Next known work
 
-**Finalni arhitektonski acceptance review REF-00..08 paketa** (plan sekcija
-20) — Codex + Claude zajedno, bez implementacije. Nakon toga: Prioritet C
-(`DENT-IMPROVE-010`..`015`) ili poseban cleanup task za preostalih 9
-`SARAJEVO` redefinicija, Radovanova odluka koji prvo.
+**REF-09/11/12/13 spremni za dodjelu implementerima (Pi/Crush), mogu ići
+paralelno** — vidi tabelu i paralelizacijsku analizu gore. REF-10 čeka
+REF-09 merge (dijeli `appointment_controller.py`), REF-14 čeka oba
+(arhitektonska odluka). Tek nakon zatvaranja F1-F4 i starog duga ima smisla
+razmatrati Prioritet C (`DENT-IMPROVE-010`..`015`, Faza 1 priprema) —
+Radovanova odluka.
