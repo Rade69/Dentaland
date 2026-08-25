@@ -9,10 +9,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from zoneinfo import ZoneInfo
 
-# IANA zona (ne fiksni UTC offset) — DST bi inače pomjerio prikaz.
-SARAJEVO = ZoneInfo("Europe/Sarajevo")
+from dentaland.timezone import SARAJEVO
+
 DEFAULT_DURATION_MINUTES = 30
 
 

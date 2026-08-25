@@ -12,7 +12,7 @@ from typing import Any
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
-from desktop.fake_data import SARAJEVO
+from dentaland.timezone import SARAJEVO
 from desktop.views.dialogs.base_dialog import BaseDialog
 
 

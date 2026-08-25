@@ -22,7 +22,7 @@ from typing import Any
 
 from PySide6.QtWidgets import QStackedWidget
 
-from desktop.fake_data import SARAJEVO
+from dentaland.timezone import SARAJEVO
 from desktop.views.day_view import DayView
 from desktop.views.week_view import WeekView
 

@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from dentaland.services import OverlapError
-from desktop.fake_data import SARAJEVO
+from dentaland.timezone import SARAJEVO
 from desktop.views.dialogs.blockout_delete_confirm import BlockoutDeleteConfirmDialog
 
 
