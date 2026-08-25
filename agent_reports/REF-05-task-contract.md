@@ -3,10 +3,21 @@ task_id: REF-05
 risk: MEDIUM
 implementer: crush
 reviewers: [codex, claude]
-status: "READY FOR REVIEW — implementacija + verifikacija gotovi (347 pytest, ruff, mypy čisti). O1 primijenjen: test_week_view_combined.py dodat u obim."
-review_summary: ""
+status: "DONE — MERGED u main (merge commit a422c40, 2026-08-24), post-merge integration gate PASS (349 pytest, ruff, mypy)."
+review_summary: >-
+  Codex runda 1: REJECT (F1 - query-counter test koristio samo _FakeView,
+  ne prave WeekView/DayView, pa nije hvatao regresiju internog fetch-a u
+  stvarnim view klasama). Crush dodao integracijske testove sa pravim
+  WeekView/DayView. Codex runda 2: PASS - obje mutacije (WeekView i
+  DayView) genuinski hvata. Claude: PASS_WITH_NOTES - arhitektura cista
+  (jedan snapshot po refresh-u, dokazano), ali doctor_id state je sada
+  TROSTRUKO duplikovan (MainWindow + AppointmentController getattr +
+  ScheduleController kopija) - funkcionalno ispravno sada (jedna
+  disciplinovana UI putanja azurira sve troje), ali svaki buduci REF
+  task koji dodaje novi nacin promjene doktora mora znati da azurira
+  sve tri lokacije.
 created_at: 2026-08-24
-merged_at: ""
+merged_at: 2026-08-24
 ---
 
 # REF-05 — Scheduler Controller + refresh orchestration

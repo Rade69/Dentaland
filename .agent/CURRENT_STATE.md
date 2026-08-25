@@ -18,47 +18,58 @@ reviewera (Codex I Claude) obavezna na svaki task (namjerno skuplje od
 standardnog MEDIUM procesa, dogovoreno sa Radovanom), pa human approval.
 
 - **`REF-00`** (characterization testovi) — MERGED (`ce8d65a`). Baseline
-  za KRITIČAN nalaz — `booking.py`/`requests.py` su imali DVIJE odvojene
-  `OverlapError` klase istog imena.
+  za KRITIČAN nalaz — dvije odvojene `OverlapError` klase istog imena.
 - **`REF-01`** (centralizacija availability/overlap invarijante) — MERGED
   (`fa53340`). `OverlapError` kanonizovana u JEDNU klasu. Procesni
   presedan: uvijek provjeriti da je zavisni task STVARNO mergovan u
   `main` prije početka rada, ne samo da postoji kao grana.
 - **`REF-02`** (range-based reads + eager loading) — MERGED (`d4b09e7`).
-  `appointments_for_range()` — Day/Week ne čitaju cijelu istoriju,
-  `selectinload` uklanja N+1 (104→3 upita, mjereno nezavisno 3 puta).
-  Presedan: Codex REJECT→PASS ciklus o kvalitetu testova (lažan PASS na
-  slabom fixture-u), ne arhitekturi.
+  `appointments_for_range()` (104→3 upita, mjereno nezavisno 3 puta).
+  Presedan: Codex REJECT→PASS o kvalitetu testova, ne arhitekturi.
 - **`REF-03`** (razbijanje `booking.py`) — MERGED (`a02f31f`). Najveći
-  servisni task: `booking.py` (820 linija) → `appointments.py`/`settings.py`
-  (novo) + `availability.py` (prošireno), `booking.py` postaje tanak
-  facade. **Najvredniji procesni presedan cijelog paketa:** arhitektonski
-  test je prošao TRI Codex REJECT runde protiv Crush-a (svaki put nov
+  servisni task. **Najvredniji procesni presedan cijelog paketa:**
+  arhitektonski test je prošao TRI Codex REJECT runde (svaki put nov
   način zaobilaženja) — Radovan je naredio da Codex sam završi fix, čime
   Codex više nije bio nezavisan reviewer za taj dio; **Pi je preuzet kao
   FRESH Reviewer 1**. Pouka: kad implementer/reviewer postane
-  "kontaminiran", rješenje je fresh nezavisan reviewer, ne preskakanje
-  review-a.
+  "kontaminiran", rješenje je fresh nezavisan reviewer, ne preskakanje.
 - **`REF-04`** (Controller sloj za appointment workflow) — MERGED
-  (`3e0a0c2`). PRVI task koji dira `desktop/` — `AppointmentController`
-  (novo, `desktop/controllers/`) preuzima new/edit/details/move/cancel/
-  delete/status akcije iz `MainWindow`. Oba reviewera PASS_WITH_NOTES.
-  **Zabilježen tehnički dug (namjeran, dokumentovan, ne skriven):**
-  Controller "gleda nazad" u View na DVA načina — (1) lazy import Dialog
-  klasa iz `desktop.views.main_window` modula unutar metoda (ne
-  module-level), jer postojeći GUI testovi monkeypatch-uju dijaloge NA
-  main_window modulu POSLIJE konstrukcije `MainWindow`-a (dokazano
-  konkretnim testom, `test_delete_akcija_trajno_uklanja_termin_kroz_pravi_servis`);
-  (2) `getattr(self._parent_widget, "_doctors", [])` i slično čita
-  privatno `MainWindow` stanje. Oba su ista kategorija kompromisa (izbjeći
-  promjenu postojećih GUI testova bez potrebe za novom infrastrukturom
-  izvan cilja taska) — **budući REF task (vjerovatno REF-05 ili REF-08)
-  treba svjesno razmotriti čišći pristup**, ne tiho zaboraviti.
+  (`3e0a0c2`). PRVI task koji dira `desktop/` — `AppointmentController`.
   Manja procesna napomena: implementer izvještaj je originalno netačno
-  tvrdio da je Task Contract "napisan PRIJE koda" (u stvarnosti napisan
-  naknadno, priznata greška) — ispravljeno post-merge (24.8.2026).
-- Raspored ostatka: **REF-05 (Crush)** je sljedeći na redu, pa REF-06 Pi,
-  REF-07 Crush, REF-08 Pi (plan sekcija 17).
+  tvrdio da je Task Contract "napisan PRIJE koda" — ispravljeno post-merge.
+- **`REF-05`** (`ScheduleController` + refresh orchestration) — MERGED
+  (`a422c40`). Day/Week state, doctor filter, refresh iz `MainWindow` u
+  `ScheduleController`; jedan refresh = 1× `appointments_for_range` + 1×
+  `time_off`/`breaks_for_week` (bilo 4×, dokazano `test_schedule_controller.py`).
+  Presedan sličan REF-02: Codex REJECT runda 1 (F1 — glavni query-counter
+  test koristio `_FakeView`, ne prave `WeekView`/`DayView`, pa nije hvatao
+  regresiju internog fetch-a u stvarnim view klasama) → Crush dodao
+  integracijske testove sa pravim view objektima → Codex PASS runda 2.
+
+  **Zbirni tehnički dug — Controller "gleda nazad" u View, sad na TRI
+  mjesta ukupno kroz REF-04+REF-05 (ne razdvojeno, jedan zbirni zapis):**
+  1. (REF-04) `AppointmentController` lazy-uvozi Dialog klase iz
+     `desktop.views.main_window` unutar metoda — jer GUI testovi
+     monkeypatch-uju dijaloge NA main_window modulu POSLIJE konstrukcije
+     `MainWindow`-a (dokazano konkretnim testom).
+  2. (REF-04) `AppointmentController` čita `MainWindow` privatno stanje
+     (`_doctors`, `_has_doctors`, `_current_doctor_id`) preko `getattr`.
+  3. (REF-05) `ScheduleController` drži SVOJU kopiju `_current_doctor_id`
+     — sad TRI mjesta (MainWindow, AppointmentController-preko-getattr,
+     ScheduleController-kopija) drže "isti" podatak. Trenutno sinhronizovana
+     kroz JEDNU disciplinovanu UI putanju (`_on_tab_changed`), potvrđeno
+     testom koji je Codex napravio i uklonio — nije bug SADA, ali svaki
+     BUDUĆI način promjene doktora mora znati da ažurira sve tri lokacije,
+     inače desinhronizacija postaje stvaran bug.
+  Svi kompromisi su namjerni, dokumentovani, ne skriveni — nastali iz
+  istog razloga (izbjeći mijenjanje postojećih GUI testova bez uvođenja
+  nove infrastrukture izvan cilja pojedinačnog taska). **Budući REF task
+  (vjerovatno REF-08 završni cleanup, ili poseban budući task) treba
+  svjesno razmotriti čišći state-passing/dialog-provider pristup**, ne
+  tiho zaboraviti — najbolja prilika je kad `MainWindow` postane dovoljno
+  tanak da "gledanje nazad" prirodno nestane.
+- Raspored ostatka: **REF-06 (Pi)** je sljedeći na redu, pa REF-07 Crush,
+  REF-08 Pi (plan sekcija 17).
 
 **Prioritet A i B backloga (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`) su
 kompletno MERGED prije ovog refaktora** (23–24.8.2026) — email-audit
@@ -71,24 +82,20 @@ build/test/repro), ne samo čita izvještaj — DENT-022 runda 1 je pokazala
 da čak i pažljiv implementer može zapisati netačnu tvrdnju, uhvaćeno tek
 nezavisnim review-om.
 
-Post-merge integration gate na `main` nakon REF-04: 341 pytest passed,
+Post-merge integration gate na `main` nakon REF-05: 349 pytest passed,
 ruff/mypy čisti (vidi "Current verification baseline" ispod).
 
 Stari worktree-ovi (`DENT-022-reminder-dedup`, `DENT-023-smtp-env-dokumentacija`,
 `DENT-IMPROVE-007-backup-cli`, `DENT-IMPROVE-009-windows-packaging`,
 `REF-00-characterization-tests`, `REF-01-availability-invariant`,
-`REF-02-range-reads`, `REF-03-booking-split`, `REF-04-appointment-controller`)
-su ostavljeni netaknuti — ukloniti po potrebi.
+`REF-02-range-reads`, `REF-03-booking-split`, `REF-04-appointment-controller`,
+`REF-05-schedule-controller`) su ostavljeni netaknuti — ukloniti po potrebi.
 
-**Nema trenutno aktivnog REF taska** — REF-04 je DONE. Sljedeći na redu je
-**REF-05 (Crush)** po planu (sekcija 12), zavisnosti REF-02+REF-04 (sad
-zadovoljene) — `ScheduleController` + refresh orchestration: izvući
-Day/Week state, doctor filter, schedule refresh iz `MainWindow`, i
-osigurati da jedan refresh učita JEDAN snapshot podataka (ne višestruke
-fetch-eve za render/counts/status summary). Ovo je task koji obično
-"nasljeđuje" REF-04-ov `_refresh_dashboard` (koji je namjerno OSTAO u
-`MainWindow` u REF-04, ne premješten — sad je red na REF-05 da ga
-premjesti/orkestrira).
+**Nema trenutno aktivnog REF taska** — REF-05 je DONE. Sljedeći na redu je
+**REF-06 (Pi)** po planu (sekcija 13), zavisnost REF-05 (sad zadovoljena) —
+izdvojiti shared presentation logiku iz WeekView/DayView (`day_view.py`
+trenutno uvozi `_status_key` privatni simbol iz `week_view.py` —
+poznat arhitektonski dug iz plan review-a, ovo ga rješava).
 Prioritet C (`DENT-IMPROVE-010`..`015`, "prije javnog online bookinga")
 čeka da se cijeli refaktor završi (plan sekcija 23 — nema smisla prije
 finalnog architecture review-a poslije REF-08).
@@ -183,14 +190,14 @@ review runde). `CLAUDE.md` je sada thin router, ne sadrži tabelu uloga.
 
 ## Current verification baseline
 
-Izmjereno 2026-08-24 na `main`, post-merge gate nakon REF-04 (merge
-`3e0a0c2`):
+Izmjereno 2026-08-24 na `main`, post-merge gate nakon REF-05 (merge
+`a422c40`):
 
-- `pytest tests/ -q` → **341 passed**, 11 warnings (deprecation
+- `pytest tests/ -q` → **349 passed**, 11 warnings (deprecation
   warnings iz `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog
   koda), ~11-20s.
 - `ruff check src/dentaland desktop backend tests` → **All checks passed**.
-- `mypy src/dentaland desktop backend` → **Success: no issues found in 42
+- `mypy src/dentaland desktop backend` → **Success: no issues found in 43
   source files.**
 
 Ne tretirati broj testova kao trajno pravilo — raste sa svakim novim
@@ -211,13 +218,13 @@ napamet.
 ## Next known work
 
 Korektivni paket FIX-01..06, Codex-ov FIX-07/08/09, email-audit paket
-DENT-022/DENT-023, `DENT-IMPROVE-007`/`009`, REF-00, REF-01, REF-02, REF-03
-i REF-04 su svi zatvoreni (DONE). **Sljedeći na redu: REF-05 (Crush)** —
-`ScheduleController` + refresh orchestration, zavisnosti REF-02+REF-04
-(zadovoljene), plan sekcija 12. Nakon toga: REF-06 Pi, REF-07 Crush,
-REF-08 Pi, pa finalni arhitektonski acceptance review (Codex + Claude,
-plan sekcija 20) prije nego što ima smisla krenuti na Prioritet C
-(`DENT-IMPROVE-010`..`015`, Faza 1 priprema).
+DENT-022/DENT-023, `DENT-IMPROVE-007`/`009`, REF-00 do REF-05 su svi
+zatvoreni (DONE). **Sljedeći na redu: REF-06 (Pi)** — izdvojiti shared
+presentation logiku iz WeekView/DayView, zavisnost REF-05 (zadovoljena),
+plan sekcija 13. Nakon toga: REF-07 Crush, REF-08 Pi, pa finalni
+arhitektonski acceptance review (Codex + Claude, plan sekcija 20) prije
+nego što ima smisla krenuti na Prioritet C (`DENT-IMPROVE-010`..`015`,
+Faza 1 priprema).
 
 Podsjetnik: fizičan clean-machine test za `DENT-IMPROVE-009` (na drugoj
 mašini) ostaje Radovanova provjera — implementacija/review su samo
