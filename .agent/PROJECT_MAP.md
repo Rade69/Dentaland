@@ -15,8 +15,14 @@ implementacije. Detalje čitati tek kada konkretan task to zahtijeva — vidi
 - `src/dentaland/models.py` — SQLAlchemy modeli, glavna schema definicija.
 - `migrations/` — Alembic istorija.
 - `src/dentaland/backup.py` — backup logika.
-- `src/dentaland/timezone.py` — jedina definicija `SARAJEVO` IANA zone
-  (`Europe/Sarajevo`); produkcijski kod importuje odavde, ne iz `fake_data`.
+- `src/dentaland/timezone.py` — kanonska definicija `SARAJEVO` IANA zone
+  (`Europe/Sarajevo`) za migrirana mjesta (`main_window.py`, `day_view.py`,
+  `week_view.py`, `blockout_panel.py`, `blockout_delete_confirm.py`,
+  `schedule_controller.py`, `fake_data.py`). POZNAT out-of-scope dug:
+  još 9 legacy fajlova (`src/dentaland/services/notifications.py`,
+  `src/dentaland/services/print_schedule.py`, 6× `desktop/views/dialogs/`,
+  `desktop/views/requests_page.py`) i dalje nezavisno definiše
+  `SARAJEVO = ZoneInfo(...)` — konsolidacija NIJE potpuna (REF-09 kandidat).
 
 Relevant tests: `tests/test_models.py`, `tests/test_backup.py`
 
