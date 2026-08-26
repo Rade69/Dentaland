@@ -20,7 +20,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -33,6 +32,7 @@ from dentaland.models import (
     WorkingHours,
     utcnow,
 )
+from dentaland.timezone import SARAJEVO
 
 
 class OverlapError(Exception):
@@ -93,7 +93,7 @@ def validate_appointment_overlap(
 def time_off_for_week(
     session_factory: Callable[[], Session], week_start: date
 ) -> list[CalendarBlockDTO]:
-    zone = ZoneInfo("Europe/Sarajevo")
+    zone = SARAJEVO
     start = datetime.combine(week_start, time.min, tzinfo=zone)
     end = start + timedelta(days=7)
     with session_factory() as session:
@@ -116,7 +116,7 @@ def time_off_for_week(
 def breaks_for_week(
     session_factory: Callable[[], Session], week_start: date
 ) -> list[CalendarBlockDTO]:
-    zone = ZoneInfo("Europe/Sarajevo")
+    zone = SARAJEVO
     blocks: list[CalendarBlockDTO] = []
     with session_factory() as session:
         active_doctor_ids = [

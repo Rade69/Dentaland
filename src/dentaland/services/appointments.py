@@ -15,13 +15,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from dentaland.models import Appointment, AppointmentStatus, Doctor, Service, utcnow
 from dentaland.services.availability import validate_appointment_overlap
+from dentaland.timezone import SARAJEVO
 
 
 @dataclass
@@ -333,7 +333,7 @@ def awaiting_confirmation(session_factory: Callable[[], Session]) -> list[Appoin
 def cancelled_today(
     session_factory: Callable[[], Session], day: date | None = None
 ) -> list[AppointmentDTO]:
-    zone = ZoneInfo("Europe/Sarajevo")
+    zone = SARAJEVO
     day = day or datetime.now(zone).date()
     start = datetime.combine(day, time.min, tzinfo=zone)
     end = start + timedelta(days=1)

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -17,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from dentaland.services.requests import OverlapError  # noqa: F401  # re-eksport (REF-01 contract)
+from dentaland.timezone import SARAJEVO
 from desktop.controllers.appointment_controller import AppointmentController
 from desktop.controllers.request_controller import RequestController
 
@@ -118,7 +118,7 @@ class DashboardPanels(QScrollArea):
             layout.addWidget(QLabel("Nema stavki"))
             return
         for appt in rows:
-            local = appt.start.astimezone(ZoneInfo("Europe/Sarajevo"))
+            local = appt.start.astimezone(SARAJEVO)
             row = QWidget()
             row.setObjectName("dashboardListItem")
             row_layout = QHBoxLayout(row)
