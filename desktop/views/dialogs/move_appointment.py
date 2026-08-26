@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from PySide6.QtCore import QDate, QTime
 from PySide6.QtWidgets import (
@@ -22,9 +21,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from dentaland.timezone import SARAJEVO
 from desktop.views.dialogs.base_dialog import BaseDialog
-
-SARAJEVO = ZoneInfo("Europe/Sarajevo")
 
 
 class MoveAppointmentDialog(BaseDialog):

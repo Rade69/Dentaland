@@ -26,18 +26,17 @@ from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 from email.message import EmailMessage
 from typing import Any, cast
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 from dentaland.models import Appointment, AppointmentStatus
+from dentaland.timezone import SARAJEVO
 
 logger = logging.getLogger(__name__)
 
 PRACTICE_NAME = "Dentaland"
-SARAJEVO = ZoneInfo("Europe/Sarajevo")
 
 _SMTP_TIMEOUT_SECONDS = 10
 REMINDER_LEAD_TIME = timedelta(hours=24)
