@@ -163,9 +163,58 @@ sitan nalaz (OUT_OF_SCOPE_FINDING, ne task još): generička "Failed to
 fetch" poruka na backend-nedostupan scenario u `web/app.js` — kandidat
 za budući mali DENT-IMPROVE.
 
-**Sljedeći korak: `DENT-IMPROVE-012` (PostgreSQL + DB-level overlap
-zaštita) je sad jedini neblokiran Prioritet C task** — `DENT-IMPROVE-013/014/015`
-i dalje čekaju njega. Task contract nije napisan.
+## `DENT-IMPROVE-012` (SQLite→PostgreSQL) — U TOKU, BLOKIRANO (26.8.2026)
+
+`DENT-IMPROVE-012` je sad jedini neblokiran Prioritet C task
+(`DENT-IMPROVE-013/014/015` čekaju njega). **Task contract još NIJE
+napisan** — obim i pristup su dogovoreni, implementacija čeka pristup
+bazi.
+
+**Dogovoren obim (Radovan potvrdio 26.8.2026):**
+
+1. **Podijeljen zbog pravnog blokera.** `CLAUDE.md` eksplicitno zabranjuje
+   HIGH-risk rad na EXCLUDE constraint-u dok se ne riješe otvorena pravna
+   pitanja (`docs/dentaland-razvojni-plan-v3.1.md`, "Šta i dalje ostaje
+   otvoreno" — pravni osnov obrade, rokovi čuvanja medicinske
+   dokumentacije, kontrolor/obrađivač ugovor, hosting lokacija —
+   **potvrđeno i dalje otvoreno**, ne pretpostaviti da su riješena bez
+   provjere). Zato ovaj task radi SAMO migraciju SQLite→PostgreSQL BEZ
+   EXCLUDE constraint-a, zadržava postojeću aplikacionu overlap zaštitu
+   (`validate_appointment_overlap`, REF-01/DENT-IMPROVE-010) nepromijenjenu.
+   EXCLUDE constraint ide u poseban, budući, eksplicitno blokiran task —
+   ne otvarati ga dok se pravna pitanja ne riješe.
+2. **Implementer je Claude, ne Pi/Crush** — `CLAUDE.md`: "šema/migracije i
+   dalje isključivo HIGH kroz Claude". Pi/Crush ostaju nezavisni revieweri
+   uz Codexa.
+3. **Tehnički nalazi već provjereni u kodu (grounding za task contract):**
+   - `src/dentaland/models.py`-ov `TZDateTime` tip je već portabilan
+     (generički `DateTime`, radi identično na SQLite/Postgres) — šema je
+     namjerno dizajnirana za ovu migraciju od početka.
+   - `backend/main.py:47` ima HARDKODIRANU `sqlite:///{db_path}` konekciju
+     — treba `DATABASE_URL` konfigurabilnost.
+   - 3 od 5 Alembic migracija (`migrations/versions/`) koriste
+     `batch_alter_table(recreate="always")` — SQLite-specifičan obrazac,
+     bezopasan na PRAZNOJ Postgres bazi (nema podataka za rekreiranje),
+     ali reviewer treba eksplicitno provjeriti da Alembic replay ispravno
+     gradi šemu na svježoj Postgres instanci.
+   - `src/dentaland/backup.py`/`backup_cli.py` ostaju SQLite-specifični za
+     desktop (Faza 0) — VAN scope-a ovog taska. Postgres backup ide kroz
+     `pg_dump` (CLAUDE.md), poseban budući task.
+   - `.env.example` potvrđeno prazan po pitanju baze — Dentaland nikad
+     nije imao ništa PostgreSQL-vezano postavljeno prije ovoga.
+
+**BLOKIRANO NA:** pristup PostgreSQL bazi za testiranje. Na mašini postoji
+lokalni `postgresql-16` Windows servis (running), ali pripada **drugom
+projektu** (`deklarant_pro`) — potvrđeno od Radovana. Dentaland treba svoju
+IZOLOVANU bazu na istom servisu (isti servis, potpuno odvojena baza —
+nema dodira sa deklarant_pro podacima), ali Claude nema kredencijale i ne
+smije ih pogađati.
+
+**Tačan sljedeći korak:** zatražiti od Radovana PostgreSQL kredencijale sa
+pravom kreiranja nove baze (superuser `postgres` ili uloga sa
+`CREATEDB`) za lokalni `postgresql-16` servis — host/port/korisnik/lozinka
+— da se kreira izolovana `dentaland_dev`/`dentaland_test` baza i posebna,
+ograničena Dentaland uloga, PRIJE pisanja i implementacije task contracta.
 
 ## Agent availability
 
