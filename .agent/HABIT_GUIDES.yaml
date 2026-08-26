@@ -1,0 +1,49 @@
+# Habit Guides — arhitektonski senzori (DENT-IMPROVE-010).
+#
+# Guide NE redefiniše arhitekturu — referencira postojeća pravila
+# (docs/DENTALAND_VIEW_CONTROLLER_SERVICES_REFACTOR_PLAN.md sekcija 3.2) i
+# opisuje SAMO kako reagovati na konkretan signal senzora.
+
+ARCH-VIEW-001:
+  signal: "View direktno poziva mutacijsku store/service metodu (self.store.<mutacija>(...))."
+  intent: >
+    View izražava korisničku namjeru. Controller koordinira mutaciju.
+    Service sadrži poslovnu/DB logiku.
+  rule_ref: "docs/DENTALAND_VIEW_CONTROLLER_SERVICES_REFACTOR_PLAN.md sekcija 3.2"
+  dont:
+    - "preimenovati atribut da ga senzor ne vidi"
+    - "sakriti isti poziv u View helper"
+    - "premjestiti prekršaj u drugi View"
+    - "dodati allowlist bez opravdanja"
+  do:
+    - "pronađi postojeći Controller za taj domen"
+    - "provjeri postoji li ista akcija već kroz Controller"
+    - "dodaj najmanju potrebnu Controller granicu"
+    - "sačuvaj postojeće UX ponašanje"
+    - "dodaj test koji pada ako se stari direktni put vrati"
+
+ARCH-CONTROLLER-001:
+  signal: "Controller koristi SQLAlchemy/session (import, select, Session, .execute/.commit)."
+  intent: >
+    Controller koordinira UI workflow, ali ne implementira persistence.
+    Sav pristup podacima ide kroz postojeći service/facade API.
+  rule_ref: "docs/DENTALAND_VIEW_CONTROLLER_SERVICES_REFACTOR_PLAN.md sekcija 3.2"
+  dont:
+    - "sakriti SQL u Controller helper"
+    - "dodavati SQLAlchemy import u Controller"
+  do:
+    - "koristi postojeći service/facade API"
+    - "ako servisni API nedostaje, prijavi potreban scope umjesto tihog širenja taska"
+
+ARCH-SERVICE-001:
+  signal: "Service uvozi PySide6 (import PySide6 ili from PySide6...)."
+  intent: >
+    Service mora biti UI-neutralan. QWidget, QMessageBox, signal ili dialog
+    ne pripadaju service sloju.
+  rule_ref: "docs/DENTALAND_VIEW_CONTROLLER_SERVICES_REFACTOR_PLAN.md sekcija 3.2"
+  dont:
+    - "dodavati PySide6 import u Service"
+    - "prenositi UI koncepte (widget, dialog, signal) u Service"
+  do:
+    - "UI podatke transformiši prije ulaska u service"
+    - "vrati plain DTO/dataclass iz service sloja"
