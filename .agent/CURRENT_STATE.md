@@ -133,6 +133,25 @@ Ne tretirati broj testova kao trajno pravilo — raste sa svakim novim
 taskom. Prilikom sljedeće provjere, izmjeriti ponovo, ne kopirati ovaj broj
 napamet.
 
+## Novi pilot: Agent Sensors (Habit Hooks)
+
+Radovan je 26.8.2026 odobrio `docs/DENTALAND_NOVI_RADNI_TOK_HABIT_HOOKS.md`
+(prijedlog: AST arhitektonski senzori + kontekstualni "Habit Guide" +
+adversarni test, kao sloj IZMEĐU implementacije i reviewa, ne zamjena za
+review). Motivacija: F1-F4 bypass-evi i REF-09/11 test-quality REJECT
+runde su pokazale da zeleni pytest/ruff/mypy ne garantuju poštovanje
+arhitekture.
+
+**`DENT-IMPROVE-010`** (task contract napisan, implementer TBD) pokriva
+SAMO P0+A2 fazu iz dokumenta (sekcija 23): tri AST guarda
+(`ARCH-VIEW-001`/`ARCH-CONTROLLER-001`/`ARCH-SERVICE-001`) plus replay
+validacija protiv poznate REF istorije (Test A na REF-00..08 stanju mora
+naći F1-F4, Test B poslije REF-09+11 mora pokazati F2/F4 nestale, Test C
+na trenutnom `main` mora dati 0 nalaza). **CI wiring (A3) je NAMJERNO
+van scope-a** — čeka da A2 dokaže da senzor radi bez false positive-a.
+Standardan MEDIUM proces (1 reviewer, ne REF-paketov dual-review — ovo
+nije dio REF-00..08 plana).
+
 ## Active known constraints
 
 - `.codex/hooks.json` postoji ali je njegovo automatsko ponašanje
