@@ -18,6 +18,7 @@ late bindinga i testova.
 
 from __future__ import annotations
 
+import weakref
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Any
@@ -39,8 +40,19 @@ class AppointmentController:
         refresh_callback: Callable[[], None],
     ) -> None:
         self._store = store
-        self._parent_widget = parent_widget
+        self._parent_widget_ref: Any
+        try:
+            self._parent_widget_ref = weakref.ref(parent_widget)
+        except TypeError:
+            # parent nije weakref-able (npr. SimpleNamespace u testovima) —
+            # čuvaj jaku referencu kroz closure (nema ciklusa za QWidget).
+            self._parent_widget_ref = lambda: parent_widget
         self._refresh_callback = refresh_callback
+
+    @property
+    def _parent_widget(self) -> QWidget | None:
+        """Parent widget kroz weak referencu — sprječava reference ciklus (REF-10)."""
+        return self._parent_widget_ref()
 
     # --- UI kontekst (MainWindow state, kroz generički parent) ---
 
@@ -211,6 +223,14 @@ class AppointmentController:
             except OverlapError as exc:
                 dialog.show_error(str(exc))
         self._refresh_callback()
+
+    def move_appointment_slot(self, appt_id: int, new_start: datetime, new_end: datetime) -> bool:
+        """Bezdijaloški move za drag&drop — na OverlapError tiho vraća False."""
+        try:
+            self._store.move(appt_id, new_start, new_end)
+        except OverlapError:
+            return False
+        return True
 
     def cancel_appointment(self, appt: Any) -> None:
         from desktop.views.main_window import CancelAppointmentDialog

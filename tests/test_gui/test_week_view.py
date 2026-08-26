@@ -102,6 +102,38 @@ def test_prevlacenje_termina_azurira_vrijeme(store: FakeStore, week_view: WeekVi
     assert old_item is not None and old_item.text() == ""
 
 
+def test_move_ide_kroz_appointment_controller(
+    store: FakeStore, week_view: WeekView, monkeypatch
+) -> None:
+    appt = store.create(
+        "Ana Anić", "061/111-222", "ana@example.com", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    _render_week(week_view, store)
+
+    calls: list[tuple[int, datetime, datetime]] = []
+
+    def _spy_move(appt_id: int, new_start: datetime, new_end: datetime) -> bool:
+        calls.append((appt_id, new_start, new_end))
+        return True
+
+    monkeypatch.setattr(
+        week_view._appointment_controller, "move_appointment_slot", _spy_move
+    )
+
+    assert week_view.move_appointment_to_slot(appt.id, 2, 1) is True  # utorak 10:00
+    assert calls == [
+        (
+            appt.id,
+            datetime(2026, 8, 18, 10, 0, tzinfo=SARAJEVO),
+            datetime(2026, 8, 18, 10, 30, tzinfo=SARAJEVO),
+        )
+    ]
+    # Spy vraća True bez poziva store.move — start mora ostati 09:00.
+    assert store.get(appt.id).start == datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO)
+
+
 def test_zauzet_slot_prikazuje_ime_i_uslugu(store: FakeStore, week_view: WeekView) -> None:
     store.create(
         "Ana Anić", "061/111-222", "ana@example.com", "Kontrola", "",

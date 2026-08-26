@@ -28,8 +28,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from dentaland.services import AppointmentDTO, OverlapError
+from dentaland.services import (  # noqa: F401  # re-eksport (REF-00 contract)
+    AppointmentDTO,
+    OverlapError,
+)
 from dentaland.timezone import SARAJEVO
+from desktop.controllers.appointment_controller import AppointmentController
 from desktop.presentation.schedule_palette import DOCTOR_CARD_PALETTE
 from desktop.presentation.schedule_status import (
     STATUS_META,
@@ -79,6 +83,7 @@ class WeekView(QTableWidget):
     def __init__(self, store: Any, week_start: date, parent: QWidget | None = None):
         super().__init__(parent)
         self.store = store
+        self._appointment_controller = AppointmentController(store, self, lambda: None)
         self.week_start = week_start
         self._drag_appt_id: int | None = None
         self._filter_doctor_id: int | None = None
@@ -470,9 +475,7 @@ class WeekView(QTableWidget):
             return False
         new_start = self._slot_datetime(row, col)
         new_end = new_start + (appt.end - appt.start)
-        try:
-            self.store.move(appt_id, new_start, new_end)
-        except OverlapError:
+        if not self._appointment_controller.move_appointment_slot(appt_id, new_start, new_end):
             return False
         self.appointment_moved.emit(appt)
         return True
