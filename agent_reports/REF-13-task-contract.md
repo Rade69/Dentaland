@@ -1,10 +1,18 @@
 ---
 task_id: REF-13
 risk: LOW
-implementer: TBD
+implementer: pi
 reviewers: [codex, claude]
-status: "OPEN — task contract napisan prije koda"
+status: "DONE — MERGED u main (merge commit 383745d, 2026-08-26), post-merge integration gate PASS (372 pytest, ruff, mypy)."
+review_summary: >-
+  Codex: PASS_WITH_NOTES (bez blocking nalaza; potvrdio test-kompatibilnost
+  temeljno, ispravio nijansu o monkeypatch riziku iz samog kontrakta -
+  `from X import Y` i dalje pravi patchable modul-level ime). Claude: PASS
+  - cist mehanicki import swap, bez skrivenog ponasanja. Oba potvrdila
+  OUT_OF_SCOPE_FINDING (4 inline ZoneInfo poziva) kao tacan, buduci
+  REF-XX kandidat.
 created_at: 2026-08-25
+merged_at: 2026-08-26
 ---
 
 # REF-13 — Konsolidacija preostalih 9 `SARAJEVO` redefinicija

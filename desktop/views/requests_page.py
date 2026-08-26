@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -18,9 +17,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from dentaland.timezone import SARAJEVO
 from desktop.controllers.request_controller import RequestController
-
-SARAJEVO = ZoneInfo("Europe/Sarajevo")
 
 
 def _initials(name: str) -> str:

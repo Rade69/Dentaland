@@ -82,21 +82,29 @@ ispod) odmah postaje task, ne odlaže se.
 | Task | Nalaz | Šta | Status |
 |---|---|---|---|
 | REF-09 | F4 | Dashboard confirm/reject → privatna `AppointmentController` instanca u `DashboardPanels` (REF-07 `RequestController` obrazac) | **DONE — merged `115e86f`, 26.8.2026.** Codex REJECT→PASS (test kvalitet, F1), Claude PASS_WITH_NOTES (N1: privatna Controller instanca implicitno scoped na confirm/reject, ne-blokirajuća napomena za budući comment) |
-| REF-10 | F1 | Scheduler drag&drop (`day_view`/`week_view`) → `AppointmentController` (dijeli `main_window.py`-ovu instancu, treba nov signal umjesto direktnog `store.move()`) | Nije napisan — SEKVENCIJALNO, REF-09 je sad merge-ovan pa je main slobodan za branch |
+| REF-10 | F1 | Scheduler drag&drop (`day_view`/`week_view`) → nova `AppointmentController.move_appointment_slot` (self-contained instanca po view-u, no-op refresh_callback) | Implementirano (Pi), pušovano `50bad91`, Codex review u toku. Implementer našao i ispravio 2 nalaza u samom kontraktu (nezavisno potvrđeno): OverlapError re-eksport mora ostati (REF-00 contract test), `_parent_widget` mora biti weakref (strong-ref pravio referentni ciklus, rušio GUI teardown test) |
 | REF-11 | F2 | Nov `BlockoutController` (facade, self-contained u `BlockoutPanel`) | **DONE — merged `a87d423`, 26.8.2026.** Codex REJECT→PASS (test kvalitet, F1), Claude PASS bez rezervi (čist facade, bez REF-09-ovog implicit-scope rizika) |
-| REF-12 | F3 | Nov `SettingsController` (facade, self-contained u `SettingsPanel`) | Task contract napisan, implementer TBD |
-| REF-13 | — | Preostalih 9 `SARAJEVO` redefinicija → `dentaland.timezone` (REF-08 out-of-scope finding, sad zatvaramo) | Task contract napisan, implementer TBD |
-| REF-14 | — | 3-lokacijski Controller↔View state sync (REF-04/05 dug) → `week_start_provider`-stil DI (REF-07 obrazac) | Nije napisan — arhitektonska odluka, čeka da REF-09/10 slegnu prije dizajna |
+| REF-12 | F3 | Nov `SettingsController` (facade, self-contained u `SettingsPanel`) | **DONE — merged `b5006c9`, 26.8.2026.** Codex PASS na prvi pokušaj (testovi dodati proaktivno), Claude PASS bez rezervi |
+| REF-13 | — | Preostalih 9 `SARAJEVO` redefinicija → `dentaland.timezone` (REF-08 out-of-scope finding, sad zatvaramo) | **DONE — merged `383745d`, 26.8.2026.** Codex PASS_WITH_NOTES (bez blocking, dvije dokumentacione napomene), Claude PASS. Novi dug nađen: 4 inline `ZoneInfo(...)` poziva bez `SARAJEVO` konstante (`appointments.py`, `availability.py`×2, `requests_panel.py`) — budući REF-XX kandidat |
+| REF-14 | — | 3-lokacijski Controller↔View state sync (REF-04/05 dug) → `week_start_provider`-stil DI (REF-07 obrazac) | Nije napisan — arhitektonska odluka, čeka da REF-10 slegne prije dizajna |
 
 **Paralelizacija (provjereno preko `allowed_paths`, isti standard kao
-REF-06+REF-07 presedan): REF-09, REF-11, REF-12 i REF-13 imaju NULTO
+REF-06+REF-07 presedan): REF-09, REF-11, REF-12 i REF-13 imale su NULTO
 preklapanje fajlova međusobno** — svi izbjegavaju `main_window.py`
 (self-contained Controller-per-panel obrazac, REF-07 presedan) i
-međusobno različite View/Controller fajlove. Mogu ići u bilo kojoj
-kombinaciji paralelno (2 implementera odjednom = 2 kruga za sva 4).
-REF-10 dijeli `appointment_controller.py` sa REF-09 → mora čekati REF-09
-merge. REF-14 dijeli `appointment_controller.py`/`schedule_controller.py`/
-`main_window.py` sa više njih → posljednji, poslije svega.
+međusobno različite View/Controller fajlove. Dokazano u praksi: REF-09+REF-11
+prvi paralelan krug, REF-10+REF-12 drugi. REF-14 dijeli
+`appointment_controller.py`/`schedule_controller.py`/`main_window.py` sa
+više njih → posljednji, poslije svega.
+
+**Napomena arhitekturi (Claude, REF-12 review, 26.8.2026):** sad kad
+postoje TRI instance istog self-contained facade Controller obrasca
+(`RequestController`/`BlockoutController`/`SettingsController`) — svaka
+konstruisana unutar sopstvenog panela, bez `parent_widget` stanja —
+vrijedi ga eksplicitno dokumentovati u planu/`PROJECT_MAP.md` kao imenovan
+DRUGI Controller-oblik (prvi je "MainWindow-owned sa parent-widget
+stanjem", npr. `AppointmentController`/`ScheduleController`). Follow-up,
+ne blokira ništa.
 
 Sljedeći korak: Radovan dodjeljuje implementere (Pi/Crush) za prvi
 paralelan krug.
@@ -111,19 +119,43 @@ uloga.
 
 ## Current verification baseline
 
-Izmjereno 26.8.2026 na `main`, post-merge gate nakon REF-11 (merge
-`a87d423`):
+Izmjereno 26.8.2026 na `main`, post-merge gate nakon REF-13 (merge
+`383745d`, poslije DENT-IMPROVE-010 merge-a `1ef2889`):
 
-- `pytest tests/ -q` → **362 passed**, 11 warnings (deprecation warnings
+- `pytest tests/ -q` → **372 passed**, 11 warnings (deprecation warnings
   iz `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda),
   ~10-20s.
-- `ruff check src/dentaland desktop backend tests` → **All checks passed**.
-- `mypy src/dentaland desktop backend` → **Success: no issues found in 51
+- `ruff check src/dentaland desktop backend tests scripts/agent_sensors.py` →
+  **All checks passed**.
+- `mypy src/dentaland desktop backend` → **Success: no issues found in 52
   source files.**
 
 Ne tretirati broj testova kao trajno pravilo — raste sa svakim novim
 taskom. Prilikom sljedeće provjere, izmjeriti ponovo, ne kopirati ovaj broj
 napamet.
+
+## Novi pilot: Agent Sensors (Habit Hooks)
+
+Radovan je 26.8.2026 odobrio `docs/DENTALAND_NOVI_RADNI_TOK_HABIT_HOOKS.md`
+(prijedlog: AST arhitektonski senzori + kontekstualni "Habit Guide" +
+adversarni test, kao sloj IZMEĐU implementacije i reviewa, ne zamjena za
+review). Motivacija: F1-F4 bypass-evi i REF-09/11 test-quality REJECT
+runde su pokazale da zeleni pytest/ruff/mypy ne garantuju poštovanje
+arhitekture.
+
+**`DENT-IMPROVE-010`** — **DONE, merged `1ef2889`, 26.8.2026.** Implementer
+Crush, Claude review PASS (jedini reviewer, standardan proces). Pokriva
+SAMO P0+A2 fazu iz dokumenta (sekcija 23): tri AST guarda
+(`ARCH-VIEW-001`/`ARCH-CONTROLLER-001`/`ARCH-SERVICE-001`, `scripts/agent_sensors.py`)
+plus genuinska replay validacija (`tests/test_architecture_contracts.py`,
+koristi `git show` na pinovanim commit-ima ce2d270/a87d423, ne mock) —
+Test A našao tačno F1-F4, Test B pokazao F2/F4 nestale, Test C pošteno
+pokazao 2 preostala nalaza (F1, jer REF-10 tada još nije bio mergovan)
+umjesto forsiranog "0 nalaza". Red Team dokumentovao poznate granice
+(alias/`getattr` se ne hvataju). **CI wiring (A3) je i dalje NAMJERNO
+van scope-a** — sljedeći korak je odvojena odluka, ne automatski nastavak.
+Kad REF-10 uđe u main, `test_c_trenutni_main_samo_f1_ostaje` treba
+ažurirati na prazan skup (sitan follow-up, ne nov task).
 
 ## Active known constraints
 

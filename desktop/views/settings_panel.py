@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from desktop.controllers.settings_controller import SettingsController
 from desktop.views.dialogs.base_dialog import BaseDialog
 
 DAN_NAMES = [
@@ -109,6 +110,7 @@ class SettingsPanel(QScrollArea):
     def __init__(self, store: Any, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.store = store
+        self._settings_controller = SettingsController(store)
         self.setObjectName("settingsPanel")
         self.setWidgetResizable(True)
         self.setFrameShape(QScrollArea.Shape.NoFrame)
@@ -158,7 +160,7 @@ class SettingsPanel(QScrollArea):
 
     def _on_doctor_toggle(self, doctor_id: int, active: bool) -> None:
         try:
-            self.store.set_doctor_active(doctor_id, active)
+            self._settings_controller.set_doctor_active(doctor_id, active)
         except ValueError as exc:
             QMessageBox.warning(self, "Postavke", str(exc))
             return
@@ -221,7 +223,7 @@ class SettingsPanel(QScrollArea):
             return
         naziv, trajanje, buffer = dialog.values()
         try:
-            self.store.add_service(naziv, trajanje, buffer)
+            self._settings_controller.add_service(naziv, trajanje, buffer)
         except ValueError as exc:
             QMessageBox.warning(self, "Postavke", str(exc))
             return
@@ -239,7 +241,9 @@ class SettingsPanel(QScrollArea):
             return
         new_naziv, new_trajanje, new_buffer = dialog.values()
         try:
-            self.store.update_service(service_id, new_naziv, new_trajanje, new_buffer)
+            self._settings_controller.update_service(
+                service_id, new_naziv, new_trajanje, new_buffer
+            )
         except ValueError as exc:
             QMessageBox.warning(self, "Postavke", str(exc))
             return
@@ -335,7 +339,7 @@ class SettingsPanel(QScrollArea):
         if doctor_id is None or dan is None:
             return
         try:
-            self.store.set_working_hours(doctor_id, dan, intervals)
+            self._settings_controller.set_working_hours(doctor_id, dan, intervals)
         except ValueError as exc:
             QMessageBox.warning(self, "Postavke", str(exc))
             return
