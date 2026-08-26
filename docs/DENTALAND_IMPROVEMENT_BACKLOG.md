@@ -53,7 +53,7 @@ Za svaki task važe postojeća Dentaland pravila:
 
 ## PRIORITET C — prije javnog online bookinga
 
-10. `DENT-IMPROVE-010` — objediniti overlap logiku
+10. ~~`DENT-IMPROVE-010` — objediniti overlap logiku~~ — DONE (nuspojava REF-01, 25.8.2026: `validate_appointment_overlap` u `availability.py` je jedini overlap izvor, `requests.py`/`booking.py` samo re-eksportuju; potvrđeno 26.8.2026, nikad prije eksplicitno zatvoreno pod ovim ID-jem)
 11. `DENT-IMPROVE-011` — browser E2E testovi javne forme
 12. `DENT-IMPROVE-012` — PostgreSQL + DB-level overlap zaštita
 13. `DENT-IMPROVE-013` — autentifikacija + RBAC
@@ -663,6 +663,23 @@ Preporučeno nakon `DENT-IMPROVE-003`.
 
 # 11. DENT-IMPROVE-010 — Objediniti overlap logiku
 
+**Status: DONE, 25.8.2026 (nuspojava REF-01, potvrđeno 26.8.2026).**
+`availability.validate_appointment_overlap` je jedina overlap funkcija;
+`booking.py`/`requests.py` samo re-eksportuju `OverlapError` klasu, nemaju
+sopstvenu logiku. Nikad eksplicitno zatvoren pod ovim ID-jem prije sada.
+
+**⚠️ Naming napomena (26.8.2026):** ID `DENT-IMPROVE-010` je NEZAVISNO
+dodijeljen i drugom, potpuno nepovezanom tasku —
+`agent_reports/DENT-IMPROVE-010-task-contract.md` (Agent Sensors P0
+pilot / Habit Hooks, `scripts/agent_sensors.py`, merge `1ef2889`,
+26.8.2026). Ta kolizija je greška u dodjeli broja, otkrivena tek nakon
+merge-a — file istorija tog taska NIJE preimenovana (već mergovano,
+referencirano u više commit poruka i `CURRENT_STATE.md`). Kad se čita
+"DENT-IMPROVE-010" bilo gdje u repou, provjeriti KOJI od dva se misli po
+kontekstu (ovaj backlog dokument = overlap logika; `agent_reports/`
+task contract = Agent Sensors). Ubuduće provjeriti ovaj dokument PRIJE
+dodjele novog DENT-IMPROVE broja da se izbjegne ponavljanje.
+
 **Risk:** MEDIUM  
 **Tip:** refactor / domain consistency  
 **Prioritet:** C1
@@ -958,8 +975,8 @@ DENT-IMPROVE-008  Reminder scheduler
 LOCAL OPERATIONAL MILESTONE
 --------------------------------
 
-DENT-IMPROVE-010  Shared overlap rule
-DENT-IMPROVE-011  Web E2E
+DENT-IMPROVE-010  Shared overlap rule — DONE (25.8.2026, REF-01 nuspojava)
+DENT-IMPROVE-011  Web E2E — JEDINI trenutno neblokiran Prioritet C task
         │
         └──> DENT-IMPROVE-012 PostgreSQL
                     │
@@ -967,6 +984,14 @@ DENT-IMPROVE-011  Web E2E
                     ├──> DENT-IMPROVE-014 Audit
                     └──> DENT-IMPROVE-015 Production gate
 ```
+
+**Napomena o paralelizaciji (26.8.2026):** pošto je 010 već gotov, 011 je
+JEDINI Prioritet C task bez otvorene zavisnosti — 012/013/014/015 svi
+eksplicitno čekaju 011. Unutar 011 samog nema čistog zero-overlap
+razdvajanja za dva nezavisna implementera (jedan dijeljen Playwright
+harness/scaffolding, acceptance eksplicitno traži "mogu se pokrenuti
+jednom komandom") — ne forsirati paralelizam gdje dependency graph i
+sam dijeljeni setup to ne dozvoljavaju.
 
 ---
 
