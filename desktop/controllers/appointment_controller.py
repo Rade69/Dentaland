@@ -179,6 +179,7 @@ class AppointmentController:
             return
         method_map = {
             "confirm": "mark_confirmed",
+            "reject": "cancel",
             "arrived": "mark_arrived",
             "unarrived": "unmark_arrived",
             "completed": "mark_completed",
