@@ -1,9 +1,9 @@
 ---
 task_id: REF-12
 risk: LOW
-implementer: TBD
+implementer: crush
 reviewers: [codex, claude]
-status: "OPEN — task contract napisan prije koda"
+status: "READY FOR REVIEW — implementacija gotova (SettingsController + delegacija), 368 pytest/ruff/mypy čisti."
 created_at: 2026-08-25
 ---
 
