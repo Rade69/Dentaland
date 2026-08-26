@@ -149,9 +149,23 @@ definiciji jer nema dokaza o stvarnom kvaru):**
 Nijedan od ova dva NIJE task-worthy — oba su "ako neko već dira taj
 fajl", ne aktivan rizik.
 
-Sljedeći korak: REF-00..15 paket je funkcionalno kompletan i bez
-poznatog duga. Vrijeme za Prioritet C (`DENT-IMPROVE-011`+, Faza 1
-priprema) — Radovanova odluka.
+REF-00..15 paket je funkcionalno kompletan i bez poznatog duga.
+
+**Prioritet C napredak (26.8.2026):** `DENT-IMPROVE-010` (overlap logika)
+i `DENT-IMPROVE-011` (Playwright E2E za javnu formu, merge `f9de00e`) su
+DONE. `DENT-IMPROVE-011` je prošao Codex REJECT→PASS ciklus — F1 nije bio
+test-kvalitet nego stvaran sigurnosni propust
+(`reuseExistingServer: !process.env.CI` bi tiho reuse-ovao bilo koji
+proces na portu 8000, rizikujući upis sintetskih E2E podataka u
+stvarnu dev/produkcijsku bazu; Claude je LIČNO reprodukovao adversarni
+scenario prije commit-a fixa, Codex nezavisno ponovio poslije). Novi
+sitan nalaz (OUT_OF_SCOPE_FINDING, ne task još): generička "Failed to
+fetch" poruka na backend-nedostupan scenario u `web/app.js` — kandidat
+za budući mali DENT-IMPROVE.
+
+**Sljedeći korak: `DENT-IMPROVE-012` (PostgreSQL + DB-level overlap
+zaštita) je sad jedini neblokiran Prioritet C task** — `DENT-IMPROVE-013/014/015`
+i dalje čekaju njega. Task contract nije napisan.
 
 ## Agent availability
 
@@ -163,18 +177,19 @@ uloga.
 
 ## Current verification baseline
 
-Izmjereno 26.8.2026 na `main`, post-merge gate nakon REF-15 (merge
-`32dafbd`, POSLJEDNJI task u REF-00..15 paketu):
+Izmjereno 26.8.2026 na `main`, post-merge gate nakon DENT-IMPROVE-011
+(merge `f9de00e`):
 
 - `pytest tests/ -q` → **374 passed**, 11 warnings (deprecation warnings
   iz `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda),
   ~10-20s.
 - `ruff check src/dentaland desktop backend tests scripts/agent_sensors.py` →
   **All checks passed**.
-- `python scripts/agent_sensors.py --all` → **0 blocking findings**.
 - `mypy src/dentaland desktop backend` → **Success: no issues found in 52
   source files.**
 - `python scripts/agent_sensors.py --all` → **0 blocking findings**.
+- `web/tests/e2e` (`npx playwright test`) → **6 passed** (novo od
+  DENT-IMPROVE-011 — zahtijeva `npm install` jednokratno, Node v24+).
 
 Ne tretirati broj testova kao trajno pravilo — raste sa svakim novim
 taskom. Prilikom sljedeće provjere, izmjeriti ponovo, ne kopirati ovaj broj

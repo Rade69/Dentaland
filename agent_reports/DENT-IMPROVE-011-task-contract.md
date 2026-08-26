@@ -1,10 +1,23 @@
 ---
 task_id: DENT-IMPROVE-011
 risk: MEDIUM
-implementer: TBD
+implementer: pi
 reviewers: [codex, claude]
-status: "OPEN — task contract napisan prije koda"
+status: "DONE — MERGED u main (merge commit f9de00e, 2026-08-26), post-merge integration gate PASS (374 pytest, ruff, mypy, agent_sensors 0 findings, 6 Playwright E2E testova). Otvara DENT-IMPROVE-012 (PostgreSQL)."
+review_summary: >-
+  Codex runda 1: REJECT (F1 blocking, ne test-kvalitet - reuseExistingServer:
+  !process.env.CI je tiho reuse-ovao nepoznat proces na portu 8000, dokazano
+  sentinel-bazom da bi sintetski E2E podaci mogli zavrsiti u stvarnoj dev
+  bazi). Implementer popravio na reuseExistingServer:false. Claude je
+  nezavisno LICNO reprodukovao adversarni scenario PRIJE commit-a fixa
+  (sentinel uvicorn na portu 8000, potvrdjen isti "already used" fail-fast).
+  Codex runda 2: PASS (sam takodje ponovio scenario). Claude review:
+  PASS_WITH_NOTES - administrativna napomena da se generic "Failed to fetch"
+  poruka (OUT_OF_SCOPE_FINDING) zapise kao buduci mali DENT-IMPROVE
+  kandidat. 409 scenario potvrdjen kao ne-postojeci u javnom flow-u (interni
+  admin tok), ispravno nije izmisljen.
 created_at: 2026-08-26
+merged_at: 2026-08-26
 ---
 
 # DENT-IMPROVE-011 — Browser E2E testovi javne forme (Playwright)
