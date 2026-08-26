@@ -10,15 +10,13 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
+from dentaland.timezone import SARAJEVO
 from desktop.views.dialogs.base_dialog import BaseDialog
 from desktop.views.week_view import STATUS_META, _status_key
-
-SARAJEVO = ZoneInfo("Europe/Sarajevo")
 
 _STATUS_BG = {
     "confirmed": "#e8f7ee",

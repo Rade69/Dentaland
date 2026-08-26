@@ -10,14 +10,12 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from PySide6.QtCore import QTime
 from PySide6.QtWidgets import QComboBox, QFormLayout, QGridLayout, QLabel, QTimeEdit, QWidget
 
+from dentaland.timezone import SARAJEVO
 from desktop.views.dialogs.base_dialog import BaseDialog
-
-SARAJEVO = ZoneInfo("Europe/Sarajevo")
 
 
 class ProcessRequestDialog(BaseDialog):

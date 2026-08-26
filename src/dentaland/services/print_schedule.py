@@ -19,12 +19,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
-from zoneinfo import ZoneInfo
 
 from dentaland.models import AppointmentStatus
 from dentaland.services.booking import AppointmentDTO, AppointmentService
-
-SARAJEVO = ZoneInfo("Europe/Sarajevo")
+from dentaland.timezone import SARAJEVO
 
 # Mora pratiti WeekView.DAY_COUNT (desktop/views/week_view.py) — Pon–Sub.
 # Ne pretpostavljati 5 ni 7 dana; ovo je trenutna odluka prikaza.

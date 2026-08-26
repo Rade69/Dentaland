@@ -7,14 +7,12 @@ u istoriji — ovo je cancel, ne hard delete (Faza F, zasebno).
 from __future__ import annotations
 
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
+from dentaland.timezone import SARAJEVO
 from desktop.views.dialogs.base_dialog import BaseDialog
-
-SARAJEVO = ZoneInfo("Europe/Sarajevo")
 
 
 class CancelAppointmentDialog(BaseDialog):
