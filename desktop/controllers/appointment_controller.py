@@ -38,6 +38,10 @@ class AppointmentController:
         store: Any,
         parent_widget: QWidget,
         refresh_callback: Callable[[], None],
+        *,
+        doctors_provider: Callable[[], list] = lambda: [],
+        has_doctors_provider: Callable[[], bool] = lambda: False,
+        current_doctor_id_provider: Callable[[], int | None] = lambda: None,
     ) -> None:
         self._store = store
         self._parent_widget_ref: Any
@@ -48,22 +52,25 @@ class AppointmentController:
             # čuvaj jaku referencu kroz closure (nema ciklusa za QWidget).
             self._parent_widget_ref = lambda: parent_widget
         self._refresh_callback = refresh_callback
+        self._doctors_provider = doctors_provider
+        self._has_doctors_provider = has_doctors_provider
+        self._current_doctor_id_provider = current_doctor_id_provider
 
     @property
     def _parent_widget(self) -> QWidget | None:
         """Parent widget kroz weak referencu — sprječava reference ciklus (REF-10)."""
         return self._parent_widget_ref()
 
-    # --- UI kontekst (MainWindow state, kroz generički parent) ---
+    # --- UI kontekst (doctor state kroz eksplicitne provider-e) ---
 
     def _doctors(self) -> list:
-        return getattr(self._parent_widget, "_doctors", [])
+        return self._doctors_provider()
 
     def _has_doctors(self) -> bool:
-        return getattr(self._parent_widget, "_has_doctors", False)
+        return self._has_doctors_provider()
 
     def _current_doctor_id(self) -> int | None:
-        return getattr(self._parent_widget, "_current_doctor_id", None)
+        return self._current_doctor_id_provider()
 
     def service_options(self) -> list[tuple[str, int]]:
         """Usluge kao ``(naziv, trajanje_min)`` — iz store-a, sa legacy fallback-om."""

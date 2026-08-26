@@ -53,7 +53,6 @@ class ScheduleController:
         today = date.today()
         self.week_start = week_start or (today - timedelta(days=today.weekday()))
         self.current_day = today
-        self._current_doctor_id: int | None = None
 
     # --- aktivan view ---
 
@@ -137,6 +136,5 @@ class ScheduleController:
         self.refresh()
 
     def set_doctor_filter(self, doctor_id: int | None) -> None:
-        self._current_doctor_id = doctor_id
         self._week_view.set_filter(doctor_id)
         self.refresh()
