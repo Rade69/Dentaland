@@ -1,10 +1,19 @@
 ---
 task_id: DENT-IMPROVE-010
 risk: MEDIUM
-implementer: TBD
+implementer: crush
 reviewers: [claude]
-status: "OPEN — task contract napisan prije koda"
+status: "DONE — MERGED u main (merge commit 1ef2889, 2026-08-26), post-merge integration gate PASS (372 pytest, ruff, mypy)."
+review_summary: >-
+  Claude (jedini reviewer, standardan proces): PASS. Replay validacija je
+  genuinska (git show na pinovanim commit-ima ce2d270/a87d423/HEAD, ne
+  mock). Test A nasao tacno F1-F4 lokacije, Test B pokazao F2/F4 nestale,
+  Test C posteno pokazao 2 nalaza (F1) umjesto pretpostavljenih 0, jer
+  REF-10 tada jos nije bio mergovan - implementer nije forsirao lazan
+  cist rezultat. Red Team dokumentovao poznate granice (alias/getattr
+  se ne hvataju). CI wiring (A3) namjerno van scope-a.
 created_at: 2026-08-26
+merged_at: 2026-08-26
 ---
 
 # DENT-IMPROVE-010 — Agent Sensors P0 pilot (arhitektonski guardovi + replay validacija)
