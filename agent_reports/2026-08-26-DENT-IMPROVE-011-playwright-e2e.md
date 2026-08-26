@@ -3,8 +3,8 @@ task_id: DENT-IMPROVE-011
 risk: MEDIUM
 implementer: pi
 reviewers: [codex, claude]
-status: "IMPLEMENTED — čeka review. Bez commit-a (eksplicitna instrukcija: čekati zahtjev)."
-verification: "Playwright 6 passed (stvarni browser + backend), pytest 374 passed, ruff clean, mypy no issues in 52 files."
+status: "IMPLEMENTED + F1 fix nakon Codex REJECT (reuseExistingServer:false) — čeka re-review. Bez commit-a."
+verification: "Playwright 6 passed, pytest 374 passed, ruff clean, mypy no issues in 52 files, agent_sensors 0 findings."
 created_at: 2026-08-26
 ---
 
@@ -122,6 +122,27 @@ npx playwright test                # ili: npm test  ← svaki put
 
 `npm test` sam podiže backend + web server (Playwright `webServer` config),
 pokreće 6 scenarija, i gasi servere na kraju.
+
+## Fix nakon Codex REJECT (F1 — reuseExistingServer)
+
+Codex je dokazao da je `reuseExistingServer: !process.env.CI` (na oba
+webServer unosa) opasno: lokalno bi Playwright tiho reuse-ovao nepoznat
+proces na portu 8000 (npr. stvaran dev backend u pozadini), pa bi sintetski
+E2E podaci mogli završiti u stvarnoj dev/produkcijskoj bazi.
+
+Fix: `reuseExistingServer: false` na oba unosa (backend + static server).
+Playwright sada UVIJEK pokreće svoje, izolovane instance.
+
+Adversarni dokaz (implementer ponovio Codexov scenario): ručno pokrenut
+uvicorn na `127.0.0.1:8000` sa sentinel bazom, pa `npx playwright test` →
+
+```text
+Error: http://127.0.0.1:8000/docs is already used, make sure that nothing is
+running on the port/url or set reuseExistingServer:true in config.webServer.
+```
+
+Exit code 1 — Playwright PUKNE umjesto da tiho koristi tuđi backend. Čist
+run bez zauzetog porta i dalje daje **6 passed**.
 
 ## Nije urađeno / namjerno izostavljeno
 

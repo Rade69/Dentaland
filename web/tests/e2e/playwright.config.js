@@ -38,7 +38,9 @@ module.exports = defineConfig({
       command: 'python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000',
       cwd: REPO_ROOT,
       url: 'http://127.0.0.1:8000/docs',
-      reuseExistingServer: !process.env.CI,
+      // UVIJEK pokreni svoj izolovani backend — nikad ne reuse-uj nepoznat
+      // proces na portu 8000 (rizik: sintetski E2E podaci u stvarnoj bazi).
+      reuseExistingServer: false,
       timeout: 60_000,
       env: {
         ...process.env,
@@ -50,7 +52,8 @@ module.exports = defineConfig({
       command: 'python -m http.server 8080 --bind 127.0.0.1',
       cwd: WEB_DIR,
       url: 'http://127.0.0.1:8080/index.html',
-      reuseExistingServer: !process.env.CI,
+      // UVIJEK pokreni svoj statički server — ne reuse-uj nepoznat proces.
+      reuseExistingServer: false,
       timeout: 60_000,
     },
   ],
