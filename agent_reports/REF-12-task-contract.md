@@ -3,8 +3,18 @@ task_id: REF-12
 risk: LOW
 implementer: crush
 reviewers: [codex, claude]
-status: "READY FOR REVIEW — implementacija gotova (SettingsController + delegacija), 368 pytest/ruff/mypy čisti."
+status: "DONE — MERGED u main (merge commit b5006c9, 2026-08-26), post-merge integration gate PASS (368 pytest, ruff, mypy)."
+review_summary: >-
+  Codex: PASS na prvi pokusaj (implementer proaktivno dodao 4 runtime
+  spy testa + 2 unit testa po REF-11 obrascu, adversarno dokazano da
+  nijedna od 4 F3 regresije ne daje lazan PASS). Claude: PASS bez
+  rezervi - cist facade, isti oblik kao BlockoutController. Preporuka:
+  sad kad postoje 3 instance istog self-contained-facade obrasca
+  (RequestController/BlockoutController/SettingsController), dokumentovati
+  ga eksplicitno u planu/PROJECT_MAP.md kao imenovan Controller-oblik
+  (follow-up, ne blokira).
 created_at: 2026-08-25
+merged_at: 2026-08-26
 ---
 
 # REF-12 — Nov `SettingsController` za postavke (F3)
