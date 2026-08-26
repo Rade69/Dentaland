@@ -1,10 +1,21 @@
 ---
 task_id: REF-14
 risk: MEDIUM
-implementer: TBD
+implementer: pi
 reviewers: [codex, claude]
-status: "OPEN — task contract napisan prije koda"
+status: "DONE — MERGED u main (merge commit 32dafbd, 2026-08-26), post-merge integration gate PASS (374 pytest, ruff, mypy, agent_sensors 0 findings)."
+review_summary: >-
+  Codex: PASS_WITH_NOTES (bez blocking; precizna napomena da su default
+  provideri identicni po FALLBACK VRIJEDNOSTI, ne po implicitnom
+  ugovoru - to je namjera taska, ne slabost). Claude: PASS_WITH_NOTES -
+  istrazio da li nove provider lambda-e (closure preko self u
+  main_window.py) reintrodukuju REF-10-ov referentni ciklus problem;
+  nalaz: obrazac je vec postojao preko refresh_callback bound metode za
+  2 od 4 potrosaca prije REF-14, 32 test_main_window.py testa
+  (construct+teardown) prolaze bez simptoma - preporucena preventivna
+  dokumentacija, ne fix.
 created_at: 2026-08-26
+merged_at: 2026-08-26
 ---
 
 # REF-14 — Doctor-state provideri umjesto getattr-fishing na parent widget-u

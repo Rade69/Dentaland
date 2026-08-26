@@ -1,10 +1,15 @@
 ---
 task_id: REF-15
 risk: LOW
-implementer: TBD
+implementer: crush
 reviewers: [codex, claude]
-status: "OPEN — task contract napisan prije koda"
+status: "DONE — MERGED u main (merge commit 32dafbd, 2026-08-26), post-merge integration gate PASS (374 pytest, ruff, mypy, agent_sensors 0 findings). Zadnji poznat dug iz REF-08/REF-13 lanca zatvoren."
+review_summary: >-
+  Codex: PASS bez nalaza (potvrdio i ZoneInfo cache identity -
+  SARAJEVO is ZoneInfo("Europe/Sarajevo") - dokaz da promjena ne mijenja
+  runtime ponasanje). Claude: PASS bez rezervi.
 created_at: 2026-08-26
+merged_at: 2026-08-26
 ---
 
 # REF-15 — Konsolidacija preostalih 4 inline `ZoneInfo("Europe/Sarajevo")` poziva

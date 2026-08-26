@@ -111,21 +111,47 @@ senzor iz DENT-IMPROVE-010 potvrđuje čisto stanje, ne samo ručni audit).
   Task Contract je pretpostavka, ne nepromjenjiv zakon — implementer smije
   odstupiti UZ `OUT_OF_SCOPE_FINDING` i nezavisnu potvrdu.
 
-**Preostao dug — Radovanova odluka (26.8.2026): nema prihvaćenog duga,
-oba nalaza sad imaju task contract, spremni za dodjelu:**
+**REF-00..15 PAKET POTPUNO ZATVOREN** (26.8.2026) — Radovanova odluka
+"nema prihvaćenog duga" je do kraja ispoštovana, uključujući nalaze
+otkrivene USPUT tokom samog zatvaranja duga:
 
-| Task | Šta | Risk | Status |
-|---|---|---|---|
-| REF-14 | Doctor-state provider callable-ovi umjesto `getattr`-fishing na parent widget-u (REF-04/05 dug). Istraživanje prije pisanja kontrakta otkrilo precizniji nalaz nego ranije zapisano: `ScheduleController._current_doctor_id` je **mrtav kod** (nikad se ne čita), ne stvaran sync problem — stvaran fix je 1 izvor istine (MainWindow) + eksplicitni provideri (REF-07 `week_start_provider` obrazac) umjesto stringly-typed getattr. | MEDIUM (dira konstruktor dijeljene klase na 4 mjesta) | Task contract napisan, implementer TBD |
-| REF-15 | Preostala 4 inline `ZoneInfo("Europe/Sarajevo")` poziva (bez `SARAJEVO` konstante) → `dentaland.timezone` (`appointments.py:336`, `availability.py:96,119`, `requests_panel.py:121`) — REF-13 out-of-scope finding | LOW, mehaničko | Task contract napisan, implementer TBD |
+| Task | Šta | Merge |
+|---|---|---|
+| REF-14 | Doctor-state provider callable-ovi umjesto `getattr`-fishing (REF-04/05 dug). `ScheduleController._current_doctor_id` bio je mrtav kod (nikad se nije čitao) — uklonjen. | `32dafbd` |
+| REF-15 | Preostala 4 inline `ZoneInfo("Europe/Sarajevo")` poziva → `dentaland.timezone` (REF-13 out-of-scope finding) | `32dafbd` |
 
-Nulto preklapanje REF-14/REF-15 — mogu ići paralelno. Kozmetički:
-`test_c_trenutni_main_samo_f1_ostaje` naziv zastario nakon REF-10 (Claude
-review napomena) — sitan follow-up, nije dobio zaseban task (premalo za
-to), popraviti usput ako neko dira taj test fajl.
+**Codex REF-14 review:** precizna napomena da su default provideri
+identični starom ponašanju samo po FALLBACK VRIJEDNOSTI, ne po
+implicitnom ugovoru — to je namjera taska (uklanjanje implicitnog
+Controller→View ugovora), ne slabost.
 
-Sljedeći korak nakon REF-14/15: REF-00..15 paket potpuno bez poznatog
-duga — vrijeme za Prioritet C (`DENT-IMPROVE-011`+, Faza 1 priprema).
+**Claude REF-14 review — konkretna arhitektonska istraga:** nove provider
+lambda-e u `main_window.py` strukturno zatvaraju `self`, isti obrazac kao
+referentni ciklus koji je REF-10 popravio weakref-om za `_parent_widget`.
+Provjereno da NIJE nov rizik — `refresh_callback` je već (od REF-04)
+prosljeđivan kao bound metoda koja isto zatvara `self`, za 2 od 4
+potrošača, prije REF-14. 32 `test_main_window.py` testa
+(construct+teardown) prolaze bez simptoma — REF-10-ov crash je
+vjerovatno bio specifičan za scenario dvostruke-konstrukcije
+(week_view+day_view zajedno u istom testu), ne generička prisutnost
+ciklusa. Preporučena preventivna dokumentacija u
+`AppointmentController` docstringu (nije još urađena — sitan follow-up
+ako neko dira taj fajl, ne zaslužuje task).
+
+**Preostalo, poznato, namjerno ne-dirano (nije "dug" po Radovanovoj
+definiciji jer nema dokaza o stvarnom kvaru):**
+- Kozmetički: `test_c_trenutni_main_samo_f1_ostaje` naziv zastario nakon
+  REF-10 (Claude review napomena).
+- Preventivna docstring napomena o refresh_callback/provider closure
+  obrascu (Claude REF-14 review N1) — dokumentovano ovdje, nije još u
+  kodu.
+
+Nijedan od ova dva NIJE task-worthy — oba su "ako neko već dira taj
+fajl", ne aktivan rizik.
+
+Sljedeći korak: REF-00..15 paket je funkcionalno kompletan i bez
+poznatog duga. Vrijeme za Prioritet C (`DENT-IMPROVE-011`+, Faza 1
+priprema) — Radovanova odluka.
 
 ## Agent availability
 
@@ -137,14 +163,15 @@ uloga.
 
 ## Current verification baseline
 
-Izmjereno 26.8.2026 na `main`, post-merge gate nakon REF-10 (merge
-`bdca30d`, POSLJEDNJI F1-F4 task):
+Izmjereno 26.8.2026 na `main`, post-merge gate nakon REF-15 (merge
+`32dafbd`, POSLJEDNJI task u REF-00..15 paketu):
 
 - `pytest tests/ -q` → **374 passed**, 11 warnings (deprecation warnings
   iz `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda),
   ~10-20s.
 - `ruff check src/dentaland desktop backend tests scripts/agent_sensors.py` →
   **All checks passed**.
+- `python scripts/agent_sensors.py --all` → **0 blocking findings**.
 - `mypy src/dentaland desktop backend` → **Success: no issues found in 52
   source files.**
 - `python scripts/agent_sensors.py --all` → **0 blocking findings**.
