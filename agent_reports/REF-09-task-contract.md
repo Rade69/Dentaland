@@ -1,10 +1,21 @@
 ---
 task_id: REF-09
 risk: LOW
-implementer: TBD
+implementer: pi
 reviewers: [codex, claude]
-status: "OPEN — task contract napisan prije koda"
+status: "DONE — MERGED u main (merge commit 115e86f, 2026-08-26), post-merge integration gate PASS (357 pytest, ruff, mypy)."
+review_summary: >-
+  Codex runda 1: REJECT (F1 - GUI testovi provjeravali samo krajnje
+  stanje, ne PUT kroz Controller; adversarno dokazano lazan PASS na
+  starom direktnom pozivu). Implementer dodao dva runtime testa koja
+  monkeypatch-uju Controller i postavljaju direktne store metode da
+  bacaju ako se pozovu mimo njega. Codex runda 2: PASS (sam ponovio
+  adversarnu mutaciju). Claude: PASS_WITH_NOTES - arhitektura cista,
+  dosljedna REF-07 self-contained Controller obrascu; jedna non-blocking
+  napomena o implicitnom scope-u privatne Controller instance (nema
+  MainWindow doctor state, bezopasno za trenutnu upotrebu).
 created_at: 2026-08-25
+merged_at: 2026-08-26
 ---
 
 # REF-09 — Dashboard "Čekaju potvrdu" akcije kroz AppointmentController (F4)
