@@ -113,7 +113,14 @@ class MainWindow(QMainWindow):
 
         self.week_view = WeekView(store, week_start, parent=self)
         self.day_view = DayView(store, date.today(), parent=self)
-        self._controller = AppointmentController(store, self, self._refresh_dashboard)
+        self._controller = AppointmentController(
+            store,
+            self,
+            self._refresh_dashboard,
+            doctors_provider=lambda: self._doctors,
+            has_doctors_provider=lambda: self._has_doctors,
+            current_doctor_id_provider=lambda: self._current_doctor_id,
+        )
         self.view_stack = QStackedWidget()
         self.view_stack.addWidget(self.week_view)
         self.view_stack.addWidget(self.day_view)
