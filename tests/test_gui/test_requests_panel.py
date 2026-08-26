@@ -116,6 +116,52 @@ def test_klik_na_odbaci_zove_cancel_i_uklanja_stavku(qtbot) -> None:
     assert "Marko Bošnjak" not in _labels(panels.awaiting_box)
 
 
+def test_potvrdi_ide_kroz_appointment_controller(qtbot, monkeypatch) -> None:
+    # "Potvrdi" mora ići kroz AppointmentController, ne direktan store poziv.
+    store = DashboardStore()
+    panels = DashboardPanels(store)
+    qtbot.addWidget(panels)
+
+    calls: list[tuple[int, str]] = []
+    monkeypatch.setattr(
+        panels._appointment_controller,
+        "handle_appointment_action",
+        lambda appt_id, action: calls.append((appt_id, action)),
+    )
+
+    def _boom(_appt_id: int) -> None:
+        raise AssertionError("direktan store.mark_confirmed poziv (mimo Controllera)")
+
+    monkeypatch.setattr(store, "mark_confirmed", _boom)
+
+    qtbot.mouseClick(_button(panels.awaiting_box, "Potvrdi"), Qt.MouseButton.LeftButton)
+
+    assert calls == [(7, "confirm")]
+
+
+def test_odbaci_ide_kroz_appointment_controller_bezdijaloski(qtbot, monkeypatch) -> None:
+    # "Odbaci" mora ići kroz Controller kao "reject" (bezdijaloški ključ).
+    store = DashboardStore()
+    panels = DashboardPanels(store)
+    qtbot.addWidget(panels)
+
+    calls: list[tuple[int, str]] = []
+    monkeypatch.setattr(
+        panels._appointment_controller,
+        "handle_appointment_action",
+        lambda appt_id, action: calls.append((appt_id, action)),
+    )
+
+    def _boom(_appt_id: int) -> None:
+        raise AssertionError("direktan store.cancel poziv (mimo Controllera)")
+
+    monkeypatch.setattr(store, "cancel", _boom)
+
+    qtbot.mouseClick(_button(panels.awaiting_box, "Odbaci"), Qt.MouseButton.LeftButton)
+
+    assert calls == [(7, "reject")]
+
+
 def test_pending_ima_obradi_ne_potvrdi_odbij(qtbot) -> None:
     panels = DashboardPanels(DashboardStore())
     qtbot.addWidget(panels)

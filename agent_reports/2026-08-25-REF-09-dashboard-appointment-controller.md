@@ -3,8 +3,8 @@ task_id: REF-09
 risk: LOW
 implementer: pi
 reviewers: [codex, claude]
-status: "IMPLEMENTED — čeka review. Bez commit-a (eksplicitna instrukcija: čekati Radovanov zahtjev)."
-verification: "pytest 355 passed, ruff All checks passed, mypy no issues in 50 files."
+status: "IMPLEMENTED + test fix nakon Codex REJECT (F1) — čeka re-review. Bez commit-a."
+verification: "pytest 357 passed (355 + 2 nova), ruff All checks passed, mypy no issues in 50 files."
 created_at: 2026-08-25
 ---
 
@@ -93,6 +93,29 @@ Nema. Kontraktova napomena (da li `_refresh_dashboard` pokriva sve što je
 `changed.emit()` ranije radio) je provjerena: `changed.emit()` je i dalje
 emitovan kroz `_on_appointment_changed`, pa nema promjene u signalnoj
 topologiji. Nema skrivenog slušača koji bi izgubio signal.
+
+## Fix nakon Codex REJECT (F1 — test kvalitet)
+
+Codex je adversarno dokazao da postojeća dva testa
+(`test_klik_na_potvrdi_zove_mark_confirmed_i_uklanja_stavku`,
+`test_klik_na_odbaci_zove_cancel_i_uklanja_stavku`) daju lažan PASS na starom
+direktnom `self.store.*` obrascu — provjeravaju samo krajnje stanje, ne PUT.
+
+Dodata dva nova testa u `tests/test_gui/test_requests_panel.py`:
+- `test_potvrdi_ide_kroz_appointment_controller` — monkeypatch
+  `panels._appointment_controller.handle_appointment_action`, klik "Potvrdi",
+  assert poziv `(7, "confirm")`; `store.mark_confirmed` postavljen da baca ako
+  se pozove direktno.
+- `test_odbaci_ide_kroz_appointment_controller_bezdijaloski` — isto za
+  "Odbaci", assert `(7, "reject")`; `store.cancel` postavljen da baca.
+
+Adversarna provjera (uradio je implementer, kao Codex): privremeno vraćen
+stari direktni poziv u `_confirm_scheduled`/`_cancel_scheduled`, pokrenuta oba
+nova testa → **2 failed, 2 errors** (`AssertionError: direktan store.* poziv
+(mimo Controllera)`). Controller verzija vraćena, oba testa → **2 passed**.
+
+Nova dva testa su time dokazano genuinske regresijske mreže za F4 invariant
+(View → Controller, bezdijaloški `reject`).
 
 ## Nije urađeno / namjerno izostavljeno
 
