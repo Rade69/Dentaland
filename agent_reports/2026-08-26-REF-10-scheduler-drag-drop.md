@@ -3,8 +3,8 @@ task_id: REF-10
 risk: MEDIUM
 implementer: pi
 reviewers: [codex, claude]
-status: "IMPLEMENTED — čeka review. Bez commit-a (eksplicitna instrukcija: čekati Radovanov zahtjev)."
-verification: "pytest 364 passed, ruff All checks passed, mypy no issues in 51 files."
+status: "IMPLEMENTED + F1 fix nakon Codex REJECT (test_architecture_contracts) — čeka re-review. Bez commit-a."
+verification: "pytest 374 passed, ruff All checks passed, mypy no issues in 52 files."
 created_at: 2026-08-26
 ---
 
@@ -129,6 +129,19 @@ Success: no issues found in 51 source files
 - [x] `main_window.py` NIJE diran (nije u `git diff --stat`);
 - [x] postojeći drag&drop testovi prolaze + 2 nova Controller-ruta testa;
 - [x] `pytest`, `ruff`, `mypy` čisti.
+
+## Fix nakon Codex REJECT (F1 — integracijski contract test)
+
+DENT-IMPROVE-010 je paralelno dodao `tests/test_architecture_contracts.py`
+(Agent Sensors Red Team), čiji `test_c_trenutni_main_samo_f1_ostaje` je
+namjerno očekivao da senzor još nalazi F1 (`day_view.py`/`week_view.py`) dok
+REF-10 nije u main-u. Pošto REF-10 upravo uklanja te nalaze, test je legitimno
+padao na integrisanom main-u (Codex: 373 passed, 1 failed).
+
+Fix: očekivanje promijenjeno na prazan skup (`assert files == set()`) i ažuriran
+komentar — jedina izmjena u tom fajlu. Nakon `git merge origin/main` (main na
+`4d91141`) puni suite daje **374 passed** (372 main + 2 REF-10 route testa,
+kako je Codex izračunao).
 
 ## Nije urađeno / namjerno izostavljeno
 
