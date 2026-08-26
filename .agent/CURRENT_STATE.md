@@ -111,19 +111,21 @@ senzor iz DENT-IMPROVE-010 potvrđuje čisto stanje, ne samo ručni audit).
   Task Contract je pretpostavka, ne nepromjenjiv zakon — implementer smije
   odstupiti UZ `OUT_OF_SCOPE_FINDING` i nezavisnu potvrdu.
 
-**Preostao dug (novi, otvoren):**
-- 4 inline `ZoneInfo("Europe/Sarajevo")` poziva bez `SARAJEVO` konstante
-  (`appointments.py:336`, `availability.py:96,119`, `requests_panel.py:121`)
-  — REF-13 finding, budući REF-XX kandidat.
-- 3-lokacijski Controller↔View state sync (REF-04/05 dug, `REF-14`) —
-  arhitektonska odluka, nije napisan task contract, sad kad se F1-F4 slegao
-  je pravo vrijeme za dizajn.
-- Kozmetički: `test_c_trenutni_main_samo_f1_ostaje` naziv zastario nakon
-  REF-10 (Claude review napomena), sitan follow-up.
+**Preostao dug — Radovanova odluka (26.8.2026): nema prihvaćenog duga,
+oba nalaza sad imaju task contract, spremni za dodjelu:**
 
-Sljedeći korak: Radovan odlučuje da li REF-14/dug-cleanup ide dalje, ili
-je vrijeme za Prioritet C (`DENT-IMPROVE-011`+, Faza 1 priprema) — REF-00..13
-paket je funkcionalno kompletan po plan-ovom binarnom kriterijumu.
+| Task | Šta | Risk | Status |
+|---|---|---|---|
+| REF-14 | Doctor-state provider callable-ovi umjesto `getattr`-fishing na parent widget-u (REF-04/05 dug). Istraživanje prije pisanja kontrakta otkrilo precizniji nalaz nego ranije zapisano: `ScheduleController._current_doctor_id` je **mrtav kod** (nikad se ne čita), ne stvaran sync problem — stvaran fix je 1 izvor istine (MainWindow) + eksplicitni provideri (REF-07 `week_start_provider` obrazac) umjesto stringly-typed getattr. | MEDIUM (dira konstruktor dijeljene klase na 4 mjesta) | Task contract napisan, implementer TBD |
+| REF-15 | Preostala 4 inline `ZoneInfo("Europe/Sarajevo")` poziva (bez `SARAJEVO` konstante) → `dentaland.timezone` (`appointments.py:336`, `availability.py:96,119`, `requests_panel.py:121`) — REF-13 out-of-scope finding | LOW, mehaničko | Task contract napisan, implementer TBD |
+
+Nulto preklapanje REF-14/REF-15 — mogu ići paralelno. Kozmetički:
+`test_c_trenutni_main_samo_f1_ostaje` naziv zastario nakon REF-10 (Claude
+review napomena) — sitan follow-up, nije dobio zaseban task (premalo za
+to), popraviti usput ako neko dira taj test fajl.
+
+Sljedeći korak nakon REF-14/15: REF-00..15 paket potpuno bez poznatog
+duga — vrijeme za Prioritet C (`DENT-IMPROVE-011`+, Faza 1 priprema).
 
 ## Agent availability
 
