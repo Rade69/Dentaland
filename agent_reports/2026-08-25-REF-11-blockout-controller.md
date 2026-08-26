@@ -75,3 +75,81 @@ Nema.
 ## Napomena
 
 NIJE commitovano/pušovano (po instrukciji — čeka Radovanov zahtjev).
+
+---
+
+## F1 popravka (po Codex REJECT-u, test kvalitet)
+
+### Problem
+
+Postojeći create/delete testovi su provjeravali samo krajnji fake-store zapis,
+ne PUT. Codex je adversarno vratio direktne `self.store.create_time_off(...)`/
+`self.store.delete_time_off(...)` pozive i oba testa su i dalje prolazila
+(2 passed) — nisu razlikovala Controller delegaciju od starog direktnog
+View→Service poziva.
+
+### Popravka
+
+Dodato 5 testova u `tests/test_gui/test_blockout_panel.py`:
+
+1. `test_save_delegira_controlleru_a_ne_direktno_store` — store
+   `create_time_off` zamijenjen da baca `AssertionError`; `panel._blockout_controller`
+   zamijenjen spy-em; stvarni klik "Sačuvaj" → dokaz da `create_time_off`
+   ide spy-u (Controlleru), plus `refresh()` + `changed.emit()`.
+2. `test_delete_delegira_controlleru_a_ne_direktno_store` — isto za
+   `delete_time_off`.
+3. `test_controller_izuzetak_daje_inline_error_i_ne_emituje_changed` —
+   `FailingController` baca `OverlapError` → inline `error_label` prikazan,
+   `changed` NE emitovan.
+4. `test_blockout_controller_je_cista_delegacija` (unit) — transparentna
+   delegacija ka store-u.
+5. `test_blockout_controller_propagira_izuzetak_bez_obrade` (unit) —
+   izuzetak se propagira bez hvatanja u Controlleru.
+
+### Adversarna provjera (stvaran output)
+
+Vraćena oba direktna poziva (`self.store.create_time_off(...)`/
+`self.store.delete_time_off(...)`), pokrenut ciljani test fajl:
+
+```text
+$ python -m pytest tests/test_gui/test_blockout_panel.py -q
+FAILED tests/test_gui/test_blockout_panel.py::test_save_delegira_controlleru_a_ne_direktno_store
+FAILED tests/test_gui/test_blockout_panel.py::test_delete_delegira_controlleru_a_ne_direktno_store
+FAILED tests/test_gui/test_blockout_panel.py::test_controller_izuzetak_daje_inline_error_i_ne_emituje_changed
+ERROR tests/test_gui/test_blockout_panel.py::test_save_delegira_controlleru_a_ne_direktno_store
+ERROR tests/test_gui/test_blockout_panel.py::test_delete_delegira_controlleru_a_ne_direktno_store
+3 failed, 8 passed, 2 errors in 0.21s
+```
+
+Novi testovi genuinski padaju na starom (direktnom) putu. Vraćena popravka
+(`git restore desktop/views/blockout_panel.py`) → čisto stanje.
+
+```text
+$ python -m pytest tests/test_gui/test_blockout_panel.py -q
+11 passed in 0.14s
+```
+
+### Verifikacija (finalno)
+
+```text
+$ python -m pytest tests/ -q
+360 passed, 11 warnings in 15.70s
+
+$ ruff check src/dentaland desktop backend tests
+All checks passed!
+
+$ mypy src/dentaland desktop backend
+Success: no issues found in 51 source files
+```
+
+Dirnuti fajlovi u ovoj popravci:
+
+```text
+M  tests/test_gui/test_blockout_panel.py   (+5 testova)
+```
+
+Produkcijski `blockout_panel.py` vraćen na čisto (`git restore`) — nije dio
+diff-a ove popravke (ostaje kao u commit-u `9bd105c`).
+
+NIJE commitovano/pušovano (po instrukciji).
+
