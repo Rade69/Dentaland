@@ -136,6 +136,25 @@ ruff check src/dentaland desktop backend tests
 mypy src/dentaland desktop backend
 ```
 
+## Browser E2E testovi (Playwright)
+
+Javna forma se testira protiv STVARNOG backend-a i statičkog web servera
+(browser + pravi HTTP, ne mock). Setup i pokretanje:
+
+```bash
+cd web/tests/e2e
+npm install
+npx playwright install chromium   # jednokratno
+npx playwright test               # ili: npm test
+```
+
+`npm test` pokreće 6 scenarija (validan submit → 201, validacija obaveznog
+polja, backend nedostupan, 429 rate limit, mobile viewport, privacy link) i
+automatski podiže backend (uvicorn, izolovana temp baza preko
+`DENTALAND_DB_PATH`) i web static server kroz Playwright `webServer` config.
+Ne koriste se stvarni podaci pacijenata; SMTP nije konfigurisan pa email ide
+no-op putem.
+
 ## CI (GitHub Actions)
 
 `pytest`, `ruff` i `mypy` se automatski pokreću na svaki `push` i

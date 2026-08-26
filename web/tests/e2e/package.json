@@ -1,0 +1,13 @@
+{
+  "name": "dentaland-playwright-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Playwright E2E testovi za Dentaland javnu formu — stvaran backend (uvicorn) + statičan web.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}

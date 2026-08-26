@@ -32,3 +32,8 @@ Thumbs.db
 # Build
 dist/
 build/
+
+# Node / Playwright (web/tests/e2e)
+node_modules/
+test-results/
+playwright-report/
