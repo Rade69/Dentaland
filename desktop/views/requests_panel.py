@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from dentaland.services.requests import OverlapError  # noqa: F401  # re-eksport (REF-01 contract)
+from desktop.controllers.appointment_controller import AppointmentController
 from desktop.controllers.request_controller import RequestController
 
 
@@ -27,6 +28,9 @@ class DashboardPanels(QScrollArea):
         super().__init__(parent)
         self.store = store
         self._request_controller = RequestController(store)
+        self._appointment_controller = AppointmentController(
+            store, self, self._on_appointment_changed
+        )
         self.setObjectName("dashboardPanels")
         self.setWidgetResizable(True)
         self.setFrameShape(QScrollArea.Shape.NoFrame)
@@ -141,12 +145,12 @@ class DashboardPanels(QScrollArea):
             layout.addWidget(row)
 
     def _confirm_scheduled(self, appt_id: int) -> None:
-        self.store.mark_confirmed(appt_id)
-        self.refresh()
-        self.changed.emit()
+        self._appointment_controller.handle_appointment_action(appt_id, "confirm")
 
     def _cancel_scheduled(self, appt_id: int) -> None:
-        self.store.cancel(appt_id)
+        self._appointment_controller.handle_appointment_action(appt_id, "reject")
+
+    def _on_appointment_changed(self) -> None:
         self.refresh()
         self.changed.emit()
 
