@@ -3,8 +3,19 @@ task_id: REF-11
 risk: LOW
 implementer: crush
 reviewers: [codex, claude]
-status: "READY FOR REVIEW — implementacija gotova (BlockoutController + blockout_panel delegacija), 355 pytest/ruff/mypy čisti."
+status: "DONE — MERGED u main (merge commit a87d423, 2026-08-26), post-merge integration gate PASS (362 pytest, ruff, mypy)."
+review_summary: >-
+  Codex runda 1: REJECT (F1 - GUI testovi provjeravali samo krajnje
+  stanje, ne PUT kroz Controller; adversarno dokazano lazan PASS na
+  starom direktnom pozivu). Implementer dodao 5 testova: spy/fake
+  Controller + store metode koje bacaju ako se pozovu direktno, provjera
+  refresh/changed.emit i inline error bez changed, plus 2 unit testa za
+  BlockoutController. Codex runda 2: PASS (sam ponovio adversarnu
+  mutaciju). Claude: PASS bez rezervi - cist facade, nema
+  implicitno-scoped Controller rizika kao kod REF-09 (bez parent_widget
+  zavisnosti).
 created_at: 2026-08-25
+merged_at: 2026-08-26
 ---
 
 # REF-11 — Nov `BlockoutController` za TimeOff/blockout (F2)

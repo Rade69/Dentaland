@@ -83,7 +83,7 @@ ispod) odmah postaje task, ne odlaže se.
 |---|---|---|---|
 | REF-09 | F4 | Dashboard confirm/reject → privatna `AppointmentController` instanca u `DashboardPanels` (REF-07 `RequestController` obrazac) | **DONE — merged `115e86f`, 26.8.2026.** Codex REJECT→PASS (test kvalitet, F1), Claude PASS_WITH_NOTES (N1: privatna Controller instanca implicitno scoped na confirm/reject, ne-blokirajuća napomena za budući comment) |
 | REF-10 | F1 | Scheduler drag&drop (`day_view`/`week_view`) → `AppointmentController` (dijeli `main_window.py`-ovu instancu, treba nov signal umjesto direktnog `store.move()`) | Nije napisan — SEKVENCIJALNO, REF-09 je sad merge-ovan pa je main slobodan za branch |
-| REF-11 | F2 | Nov `BlockoutController` (facade, self-contained u `BlockoutPanel`) | Implementiran (Crush), Codex review u toku |
+| REF-11 | F2 | Nov `BlockoutController` (facade, self-contained u `BlockoutPanel`) | **DONE — merged `a87d423`, 26.8.2026.** Codex REJECT→PASS (test kvalitet, F1), Claude PASS bez rezervi (čist facade, bez REF-09-ovog implicit-scope rizika) |
 | REF-12 | F3 | Nov `SettingsController` (facade, self-contained u `SettingsPanel`) | Task contract napisan, implementer TBD |
 | REF-13 | — | Preostalih 9 `SARAJEVO` redefinicija → `dentaland.timezone` (REF-08 out-of-scope finding, sad zatvaramo) | Task contract napisan, implementer TBD |
 | REF-14 | — | 3-lokacijski Controller↔View state sync (REF-04/05 dug) → `week_start_provider`-stil DI (REF-07 obrazac) | Nije napisan — arhitektonska odluka, čeka da REF-09/10 slegnu prije dizajna |
@@ -111,14 +111,14 @@ uloga.
 
 ## Current verification baseline
 
-Izmjereno 26.8.2026 na `main`, post-merge gate nakon REF-09 (merge
-`115e86f`):
+Izmjereno 26.8.2026 na `main`, post-merge gate nakon REF-11 (merge
+`a87d423`):
 
-- `pytest tests/ -q` → **357 passed**, 11 warnings (deprecation warnings
+- `pytest tests/ -q` → **362 passed**, 11 warnings (deprecation warnings
   iz `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda),
   ~10-20s.
 - `ruff check src/dentaland desktop backend tests` → **All checks passed**.
-- `mypy src/dentaland desktop backend` → **Success: no issues found in 50
+- `mypy src/dentaland desktop backend` → **Success: no issues found in 51
   source files.**
 
 Ne tretirati broj testova kao trajno pravilo — raste sa svakim novim
