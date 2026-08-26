@@ -1,10 +1,24 @@
 ---
 task_id: REF-10
 risk: MEDIUM
-implementer: TBD
+implementer: pi
 reviewers: [codex, claude]
-status: "OPEN — task contract napisan prije koda"
+status: "DONE — MERGED u main (merge commit bdca30d, 2026-08-26), post-merge integration gate PASS (374 pytest, ruff, mypy). POSLJEDNJI od F1-F4 taskova — scripts/agent_sensors.py --all sada potvrdjuje 0 blocking findings."
+review_summary: >-
+  Codex runda 1: REJECT (F1 integracijski, ne produkcijski - test_c iz
+  DENT-IMPROVE-010 je paralelno mergovan i ocekivao staru F1 istoriju).
+  Implementer merge-ovao svjez main, azurirao test ocekivanje na prazan
+  skup (kako je komentar u testu vec najavio). Codex runda 2: PASS.
+  Implementer je takodje odstupio od originalnog kontrakta na dva mjesta
+  (dokumentovano OUT_OF_SCOPE_FINDING, oba nezavisno potvrdjena PRIJE
+  commit-a): OverlapError re-eksport mora ostati (REF-00 contract test),
+  AppointmentController._parent_widget mora biti weakref (strong-ref je
+  pravio referentni ciklus koji je rusio GUI teardown test - Claude je
+  ovo licno reprodukovao revertom prije nego sto je ista promjena
+  commitovana). Claude review: PASS_WITH_NOTES (kozmeticka napomena o
+  nazivu testa, ne blokira).
 created_at: 2026-08-26
+merged_at: 2026-08-26
 ---
 
 # REF-10 — Scheduler drag&drop kroz AppointmentController (F1)

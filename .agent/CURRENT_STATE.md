@@ -69,45 +69,61 @@ redefinicija** (servisni sloj: `notifications.py`, `print_schedule.py`;
 `fake_data`-uvezenih mjesta u `src/dentaland/timezone.py`, ovih 9 NIJE
 dirano (namjerno, van scope-a). Kandidat za REF-09 ili poseban cleanup.
 
-**Finalni acceptance review ZAVRŠEN** (25.8.2026) — Codex i Claude su
-nezavisno audit-ovali paket bez implementacije, oba potvrdila
-`NOT_FULLY_ACCEPTED`/`PARTIALLY_ACHIEVED` (`agent_reports/2026-08-25-REF-FINAL-acceptance-review-codex.md`,
-`-claude.md`): 4 nova nalaza (F1-F4) gdje View poziva store mutaciju
-direktno, mimoilazeći Controller. Radovanova odluka (25.8.2026): **nema
-prihvaćenog duga** — svaki nalaz (F1-F4, plus prethodno "dokumentovan" dug
-ispod) odmah postaje task, ne odlaže se.
+**F1-F4 PAKET ZATVOREN** (26.8.2026) — finalni acceptance review REF-00..08
+(25.8.2026, Codex+Claude nezavisno) našao 4 nalaza (F1-F4) gdje View
+poziva store mutaciju direktno, mimoilazeći Controller. Radovanova odluka:
+nema prihvaćenog duga — svaki nalaz odmah postaje task. Svi zatvoreni:
 
-**REF-09..14 backlog (zatvaranje F1-F4 + starog duga):**
-
-| Task | Nalaz | Šta | Status |
+| Task | Nalaz | Šta | Merge |
 |---|---|---|---|
-| REF-09 | F4 | Dashboard confirm/reject → privatna `AppointmentController` instanca u `DashboardPanels` (REF-07 `RequestController` obrazac) | **DONE — merged `115e86f`, 26.8.2026.** Codex REJECT→PASS (test kvalitet, F1), Claude PASS_WITH_NOTES (N1: privatna Controller instanca implicitno scoped na confirm/reject, ne-blokirajuća napomena za budući comment) |
-| REF-10 | F1 | Scheduler drag&drop (`day_view`/`week_view`) → nova `AppointmentController.move_appointment_slot` (self-contained instanca po view-u, no-op refresh_callback) | Implementirano (Pi), pušovano `50bad91`, Codex review u toku. Implementer našao i ispravio 2 nalaza u samom kontraktu (nezavisno potvrđeno): OverlapError re-eksport mora ostati (REF-00 contract test), `_parent_widget` mora biti weakref (strong-ref pravio referentni ciklus, rušio GUI teardown test) |
-| REF-11 | F2 | Nov `BlockoutController` (facade, self-contained u `BlockoutPanel`) | **DONE — merged `a87d423`, 26.8.2026.** Codex REJECT→PASS (test kvalitet, F1), Claude PASS bez rezervi (čist facade, bez REF-09-ovog implicit-scope rizika) |
-| REF-12 | F3 | Nov `SettingsController` (facade, self-contained u `SettingsPanel`) | **DONE — merged `b5006c9`, 26.8.2026.** Codex PASS na prvi pokušaj (testovi dodati proaktivno), Claude PASS bez rezervi |
-| REF-13 | — | Preostalih 9 `SARAJEVO` redefinicija → `dentaland.timezone` (REF-08 out-of-scope finding, sad zatvaramo) | **DONE — merged `383745d`, 26.8.2026.** Codex PASS_WITH_NOTES (bez blocking, dvije dokumentacione napomene), Claude PASS. Novi dug nađen: 4 inline `ZoneInfo(...)` poziva bez `SARAJEVO` konstante (`appointments.py`, `availability.py`×2, `requests_panel.py`) — budući REF-XX kandidat |
-| REF-14 | — | 3-lokacijski Controller↔View state sync (REF-04/05 dug) → `week_start_provider`-stil DI (REF-07 obrazac) | Nije napisan — arhitektonska odluka, čeka da REF-10 slegne prije dizajna |
+| REF-09 | F4 | Dashboard confirm/reject → privatna `AppointmentController` instanca u `DashboardPanels` | `115e86f` |
+| REF-10 | F1 | Scheduler drag&drop → nova `AppointmentController.move_appointment_slot`, weakref fix za dijeljenu klasu | `bdca30d` |
+| REF-11 | F2 | Nov `BlockoutController` (facade, self-contained u `BlockoutPanel`) | `a87d423` |
+| REF-12 | F3 | Nov `SettingsController` (facade, self-contained u `SettingsPanel`) | `b5006c9` |
+| REF-13 | — | Preostalih 9 `SARAJEVO` redefinicija → `dentaland.timezone` (REF-08 dug) | `383745d` |
 
-**Paralelizacija (provjereno preko `allowed_paths`, isti standard kao
-REF-06+REF-07 presedan): REF-09, REF-11, REF-12 i REF-13 imale su NULTO
-preklapanje fajlova međusobno** — svi izbjegavaju `main_window.py`
-(self-contained Controller-per-panel obrazac, REF-07 presedan) i
-međusobno različite View/Controller fajlove. Dokazano u praksi: REF-09+REF-11
-prvi paralelan krug, REF-10+REF-12 drugi. REF-14 dijeli
-`appointment_controller.py`/`schedule_controller.py`/`main_window.py` sa
-više njih → posljednji, poslije svega.
+**Potvrđeno deterministički**: `python scripts/agent_sensors.py --all` →
+**0 blocking findings** na trenutnom `main` (prvi put da `ARCH-VIEW-001`
+senzor iz DENT-IMPROVE-010 potvrđuje čisto stanje, ne samo ručni audit).
 
-**Napomena arhitekturi (Claude, REF-12 review, 26.8.2026):** sad kad
-postoje TRI instance istog self-contained facade Controller obrasca
-(`RequestController`/`BlockoutController`/`SettingsController`) — svaka
-konstruisana unutar sopstvenog panela, bez `parent_widget` stanja —
-vrijedi ga eksplicitno dokumentovati u planu/`PROJECT_MAP.md` kao imenovan
-DRUGI Controller-oblik (prvi je "MainWindow-owned sa parent-widget
-stanjem", npr. `AppointmentController`/`ScheduleController`). Follow-up,
-ne blokira ništa.
+**Vrijedni procesni presedani iz ovog kruga:**
+- **Paralelizacija dokazana dva puta**: REF-09+REF-11 (prvi krug), REF-10+REF-12
+  (drugi krug) — nulto preklapanje `allowed_paths`, self-contained
+  Controller-per-panel obrazac (REF-07 presedan) namjerno izabran da se
+  izbjegne `main_window.py` kao usko grlo.
+- **REF-09/REF-11 REJECT ciklusi** (test kvalitet — testovi provjeravali
+  samo krajnje stanje, ne PUT kroz Controller) su naučili implementere da
+  REF-12/kasniji taskovi pišu adversarne testove proaktivno — REF-12 je
+  prošao Codex review na prvi pokušaj.
+- **REF-10 integracijski REJECT** (F1) — dva paralelna taska (REF-10 i
+  DENT-IMPROVE-010) su nezavisno razvijena i mergovana van redosleda, pa
+  je senzor test iz jednog očekivao staro stanje koje je drugi upravo
+  uklonio. Riješeno sekvencijalno (implementer merge-ovao svjež main,
+  ažurirao test očekivanje) — pouka: kad dva paralelna taska mijenjaju
+  ISTU test-datoteku iz različitih razloga (jedan je piše, drugi mijenja
+  stanje koje ta datoteka provjerava), integracijski red je bitan čak i
+  bez preklapanja `allowed_paths`.
+- **Weakref fix u REF-10**: implementer je otkrio da kontraktov predloženi
+  oblik (`AppointmentController` konstruisan sa `self` iz View-a) pravi
+  referentni ciklus koji ruši PySide6/shiboken teardown — Claude je ovo
+  lično nezavisno reprodukovao (privremeno vratio strong-ref, potvrdio
+  isti crash) PRIJE nego što je fix commitovan. Vrijedi kao podsjetnik:
+  Task Contract je pretpostavka, ne nepromjenjiv zakon — implementer smije
+  odstupiti UZ `OUT_OF_SCOPE_FINDING` i nezavisnu potvrdu.
 
-Sljedeći korak: Radovan dodjeljuje implementere (Pi/Crush) za prvi
-paralelan krug.
+**Preostao dug (novi, otvoren):**
+- 4 inline `ZoneInfo("Europe/Sarajevo")` poziva bez `SARAJEVO` konstante
+  (`appointments.py:336`, `availability.py:96,119`, `requests_panel.py:121`)
+  — REF-13 finding, budući REF-XX kandidat.
+- 3-lokacijski Controller↔View state sync (REF-04/05 dug, `REF-14`) —
+  arhitektonska odluka, nije napisan task contract, sad kad se F1-F4 slegao
+  je pravo vrijeme za dizajn.
+- Kozmetički: `test_c_trenutni_main_samo_f1_ostaje` naziv zastario nakon
+  REF-10 (Claude review napomena), sitan follow-up.
+
+Sljedeći korak: Radovan odlučuje da li REF-14/dug-cleanup ide dalje, ili
+je vrijeme za Prioritet C (`DENT-IMPROVE-011`+, Faza 1 priprema) — REF-00..13
+paket je funkcionalno kompletan po plan-ovom binarnom kriterijumu.
 
 ## Agent availability
 
@@ -119,16 +135,17 @@ uloga.
 
 ## Current verification baseline
 
-Izmjereno 26.8.2026 na `main`, post-merge gate nakon REF-13 (merge
-`383745d`, poslije DENT-IMPROVE-010 merge-a `1ef2889`):
+Izmjereno 26.8.2026 na `main`, post-merge gate nakon REF-10 (merge
+`bdca30d`, POSLJEDNJI F1-F4 task):
 
-- `pytest tests/ -q` → **372 passed**, 11 warnings (deprecation warnings
+- `pytest tests/ -q` → **374 passed**, 11 warnings (deprecation warnings
   iz `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda),
   ~10-20s.
 - `ruff check src/dentaland desktop backend tests scripts/agent_sensors.py` →
   **All checks passed**.
 - `mypy src/dentaland desktop backend` → **Success: no issues found in 52
   source files.**
+- `python scripts/agent_sensors.py --all` → **0 blocking findings**.
 
 Ne tretirati broj testova kao trajno pravilo — raste sa svakim novim
 taskom. Prilikom sljedeće provjere, izmjeriti ponovo, ne kopirati ovaj broj
