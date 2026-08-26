@@ -202,6 +202,46 @@ def test_prevlacenje_unutar_iste_doktor_kolone_azurira_vrijeme(
     )
 
 
+def test_move_ide_kroz_appointment_controller(
+    qtbot, appointment_service, monkeypatch
+) -> None:
+    doctor_ids = {d.ime: d.id for d in appointment_service.doctors()}
+    ljubo = doctor_ids["Ljubo"]
+    appointment_service.set_doctor(ljubo)
+    appt = appointment_service.create(
+        "Ana", "061", "a@x", "Kontrola", "",
+        datetime(2026, 8, 17, 9, 0, tzinfo=SARAJEVO),
+        datetime(2026, 8, 17, 9, 30, tzinfo=SARAJEVO),
+    )
+    view = DayView(appointment_service, DAY)
+    _render_day(view, appointment_service, DAY)
+    qtbot.addWidget(view)
+
+    ljubo_col = view._doctor_ids.index(ljubo)
+    calls: list[tuple[int, datetime, datetime]] = []
+
+    def _spy_move(appt_id: int, new_start: datetime, new_end: datetime) -> bool:
+        calls.append((appt_id, new_start, new_end))
+        return True
+
+    monkeypatch.setattr(
+        view._appointment_controller, "move_appointment_slot", _spy_move
+    )
+
+    assert view.move_appointment_to_slot(appt.id, 3, ljubo_col) is True  # 11:00
+    assert calls == [
+        (
+            appt.id,
+            datetime(2026, 8, 17, 11, 0, tzinfo=SARAJEVO),
+            datetime(2026, 8, 17, 11, 30, tzinfo=SARAJEVO),
+        )
+    ]
+    # Spy vraća True bez poziva store.move — start mora ostati 09:00.
+    assert appointment_service.get(appt.id).start == datetime(
+        2026, 8, 17, 9, 0, tzinfo=SARAJEVO
+    )
+
+
 def test_prevlacenje_u_zauzetu_celiju_se_odbija(
     qtbot, appointment_service
 ) -> None:

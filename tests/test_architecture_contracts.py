@@ -94,14 +94,9 @@ def test_b_poslije_ref09_ref11_f2_f4_nestali() -> None:
 def test_c_trenutni_main_samo_f1_ostaje() -> None:
     files = _view_finding_files_at("HEAD")
 
-    # REF-09/11/12 su primijenjeni, ali REF-10 (drag&drop F1) NIJE još mergovan
-    # u main — zato F1 (day_view/week_view) i dalje postoji. Ovo je TAČNO
-    # očekivanje na trenutnom stanju repoa; kad REF-10 uđe u main, ovaj test
-    # će se ažurirati na prazan skup.
-    assert files == {
-        "desktop/views/day_view.py",
-        "desktop/views/week_view.py",
-    }
+    # REF-10 je primijenjen — F1 (drag&drop store.move u day_view/week_view)
+    # više ne postoji, pa senzor vraća prazan skup.
+    assert files == set()
 
 
 # --- Red Team: poznate granice senzora (dokumentovane, ne "pobijediti") ---
