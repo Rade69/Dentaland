@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from dentaland.services import OverlapError
 from dentaland.timezone import SARAJEVO
+from desktop.controllers.blockout_controller import BlockoutController
 from desktop.views.dialogs.blockout_delete_confirm import BlockoutDeleteConfirmDialog
 
 
@@ -35,6 +36,7 @@ class BlockoutPanel(QScrollArea):
     def __init__(self, store: Any, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.store = store
+        self._blockout_controller = BlockoutController(store)
         self.setObjectName("blockoutPanel")
         self.setWidgetResizable(True)
         self.setFrameShape(QScrollArea.Shape.NoFrame)
@@ -178,7 +180,7 @@ class BlockoutPanel(QScrollArea):
         end = datetime.combine(day, end_time, tzinfo=SARAJEVO)
         reason = self.reason_edit.text().strip() or None
         try:
-            self.store.create_time_off(doctor_id, start, end, reason)
+            self._blockout_controller.create_time_off(doctor_id, start, end, reason)
         except (OverlapError, ValueError) as exc:
             self._show_error(str(exc))
             return
@@ -192,7 +194,7 @@ class BlockoutPanel(QScrollArea):
             return
         self._clear_error()
         try:
-            self.store.delete_time_off(block.id)
+            self._blockout_controller.delete_time_off(block.id)
         except ValueError as exc:
             self._show_error(str(exc))
             return

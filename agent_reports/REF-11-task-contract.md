@@ -1,9 +1,9 @@
 ---
 task_id: REF-11
 risk: LOW
-implementer: TBD
+implementer: crush
 reviewers: [codex, claude]
-status: "OPEN — task contract napisan prije koda"
+status: "READY FOR REVIEW — implementacija gotova (BlockoutController + blockout_panel delegacija), 355 pytest/ruff/mypy čisti."
 created_at: 2026-08-25
 ---
 
