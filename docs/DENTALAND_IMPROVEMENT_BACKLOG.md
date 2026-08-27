@@ -55,8 +55,8 @@ Za svaki task važe postojeća Dentaland pravila:
 
 10. ~~`DENT-IMPROVE-010` — objediniti overlap logiku~~ — DONE (nuspojava REF-01, 25.8.2026: `validate_appointment_overlap` u `availability.py` je jedini overlap izvor, `requests.py`/`booking.py` samo re-eksportuju; potvrđeno 26.8.2026, nikad prije eksplicitno zatvoreno pod ovim ID-jem)
 11. ~~`DENT-IMPROVE-011` — browser E2E testovi javne forme~~ — DONE, 26.8.2026 (merge `f9de00e`; Playwright, 6 scenarija, F1 REJECT→fix za sigurnost izolovane test baze — vidi task contract za detalje)
-12. `DENT-IMPROVE-012` — PostgreSQL + DB-level overlap zaštita — **sad jedini neblokiran Prioritet C task**
-13. `DENT-IMPROVE-013` — autentifikacija + RBAC
+12. ~~`DENT-IMPROVE-012` — PostgreSQL migracija~~ — DONE, 27.8.2026 (merge `824590f`; obim sužen — SAMO SQLite→PostgreSQL konekcija/podaci, BEZ EXCLUDE/`btree_gist` zbog nerešenog pravnog pitanja, odvojeno u budući task — vidi `agent_reports/2026-08-27-DENT-IMPROVE-012-postgres-migration.md` za detalje)
+13. `DENT-IMPROVE-013` — autentifikacija + RBAC — **sad jedini neblokiran Prioritet C task**
 14. `DENT-IMPROVE-014` — audit log
 15. `DENT-IMPROVE-015` — produkcijski security/privacy release gate
 
@@ -994,9 +994,9 @@ LOCAL OPERATIONAL MILESTONE
 DENT-IMPROVE-010  Shared overlap rule — DONE (25.8.2026, REF-01 nuspojava)
 DENT-IMPROVE-011  Web E2E — DONE (26.8.2026, merge f9de00e)
         │
-        └──> DENT-IMPROVE-012 PostgreSQL — sad jedini neblokiran Prioritet C task
+        └──> DENT-IMPROVE-012 PostgreSQL — DONE (27.8.2026, merge 824590f)
                     │
-                    ├──> DENT-IMPROVE-013 Auth/RBAC
+                    ├──> DENT-IMPROVE-013 Auth/RBAC — sad jedini neblokiran Prioritet C task
                     ├──> DENT-IMPROVE-014 Audit
                     └──> DENT-IMPROVE-015 Production gate
 ```

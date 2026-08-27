@@ -163,78 +163,68 @@ sitan nalaz (OUT_OF_SCOPE_FINDING, ne task još): generička "Failed to
 fetch" poruka na backend-nedostupan scenario u `web/app.js` — kandidat
 za budući mali DENT-IMPROVE.
 
-## `DENT-IMPROVE-012` (SQLite→PostgreSQL) — U TOKU, ODBLOKIRANO (26.8.2026)
+## `DENT-IMPROVE-012` (SQLite→PostgreSQL) — DONE, merged `824590f`, 27.8.2026
 
-`DENT-IMPROVE-012` je sad jedini neblokiran Prioritet C task
-(`DENT-IMPROVE-013/014/015` čekaju njega). **Task contract napisan
-26.8.2026** — `agent_reports/DENT-IMPROVE-012-task-contract.md`. Implementer
-Claude (HIGH schema/migracija), reviewers Codex (obavezan) + Pi/Crush.
-Implementacija čeka worktree i početak rada (nije još krenula).
+Implementer Claude (HIGH schema/migracija, kako `CLAUDE.md` nalaže).
+Obim namjerno sužen naspram originalnog backlog opisa (Radovanova odluka
+26.8.2026): SAMO `DATABASE_URL` konfigurabilnost (`backend/main.py`,
+`migrations/env.py`), Alembic migracija na Postgres, jednokratan
+migracioni skript (`scripts/migrate_sqlite_to_postgres.py`, FK-safe,
+integrity provjera), i potvrda da postojeća aplikaciona overlap zaštita
+(`validate_appointment_overlap`, REF-01/DENT-IMPROVE-010) radi
+nepromijenjeno nad Postgres dijalektom. **Bez EXCLUDE/`btree_gist`** —
+taj dio ostaje poseban, eksplicitno blokiran budući task dok se pravna
+pitanja iz `CLAUDE.md` "Otvorena pitanja" ne riješe.
 
-**Pristup bazi RIJEŠEN (26.8.2026):** kreirana potpuno izolovana lokalna
-PostgreSQL 16 instanca SAMO za Dentaland — NIJE isti servis kao Windows
-`postgresql-16` servis koji koristi `deklarant_pro` (port 5432, drugi
-data-dir). Nova instanca: zaseban proces (ne Windows servis, pokreće se
-ručno preko `pg_ctl`), port **5433**, data-dir
-`C:\Users\38765\AppData\Local\Dentaland\pgdata16`, `scram-sha-256` auth
-(isto kao postojeći servis). Kredencijali i tačne start/stop komande su u
-`.env` (gitignored, ne u repou) u root-u projekta — `DATABASE_URL` i
-`DATABASE_URL_TEST` pokazuju na `dentaland_dev`/`dentaland_test` baze,
-vlasnik `dentaland_app` (ograničena uloga sa CREATEDB, ne superuser).
-**Napomena:** instanca se NE pokreće automatski pri restartu računara —
-prije rada na `DENT-IMPROVE-012` provjeriti da li `pg_ctl status` pokazuje
-running, ako ne — pokrenuti komandom iz `.env` komentara.
+**Pristup bazi riješen 26.8.2026:** izolovana lokalna PostgreSQL 16
+instanca SAMO za Dentaland, port **5433**, data-dir
+`C:\Users\38765\AppData\Local\Dentaland\pgdata16` — NIJE isti servis kao
+Windows `postgresql-16` na portu 5432 (`deklarant_pro`, drugi projekat).
+Zaseban proces, ne pokreće se automatski pri restartu — provjeriti
+`pg_ctl status` prije rada. Kredencijali u `.env` (gitignored) u root-u
+projekta.
 
-Bitna razlika u odnosu na ranije: pravni blokeri (EXCLUDE constraint) i
-dalje važe nepromijenjeno — ovaj task i dalje radi SAMO migraciju bez
-EXCLUDE constraint-a (vidi obim ispod), pristup bazi je bio jedini riješeni
-blocker.
+**Dva fix kruga tokom review-a (oba stvarni defekti, ne test-kvalitet):**
+- **Fix runda 1 (Codex F1):** `migrations/env.py` je pucao na
+  percent-encoded karakteru u `DATABASE_URL` (npr. lozinka sa `%25`) zbog
+  Alembic `ConfigParser` interpolacije — popravljeno standardnim
+  `%` → `%%` escape-om, regresioni test dodat (ide kroz stvarni subprocess
+  `alembic current`, ne ručno konstruisan engine).
+- **Fix runda 2 (Pi nalaz, nezavisno potvrdio Crush):** `DATABASE_URL`
+  override je bio bezuslovan — pregazio je URL koji 4 POSTOJEĆA testa
+  (`test_models.py` ×3, `test_requests.py` ×1) eksplicitno postave na
+  svoju izolovanu `tmp_path` SQLite bazu prije `command.upgrade()`. Kad bi
+  proces imao `DATABASE_URL` I `DATABASE_URL_TEST` postavljene istovremeno
+  (prirodan scenario, oba su u `.env`), Alembic bi tiho migrirao/downgrade
+  Postgres umjesto SQLite tmp baze — ta 4 testa bi pukla sa
+  `NoSuchTableError`. Ovo NIJE bio scenario koji je ijedna ranija
+  verifikacija testirala (samo `DATABASE_URL_TEST` je izvožena, nikad
+  oba istovremeno). Popravljeno guard uslovom: override se primjenjuje
+  samo ako pozivalac još nije eksplicitno postavio drugačiji URL od
+  `alembic.ini` defaulta — bez diranja test fajlova.
 
-**Dogovoren obim (Radovan potvrdio 26.8.2026):**
+**Review:** Codex (Reviewer 1, obavezan, PASS_WITH_NOTES na oba fix
+kruga), Pi (Reviewer 2, PASS_WITH_NOTES, otkrio Fix rundu 2 koristeći
+novoinstalirane `review-code`/`verify-before-complete` skill-ove), Crush
+(PASS_WITH_NOTES, nezavisno potvrdio isti nalaz kao Pi — vrijedna
+triangulacija). Radovan human approval 27.8.2026.
 
-1. **Podijeljen zbog pravnog blokera.** `CLAUDE.md` eksplicitno zabranjuje
-   HIGH-risk rad na EXCLUDE constraint-u dok se ne riješe otvorena pravna
-   pitanja (`docs/dentaland-razvojni-plan-v3.1.md`, "Šta i dalje ostaje
-   otvoreno" — pravni osnov obrade, rokovi čuvanja medicinske
-   dokumentacije, kontrolor/obrađivač ugovor, hosting lokacija —
-   **potvrđeno i dalje otvoreno**, ne pretpostaviti da su riješena bez
-   provjere). Zato ovaj task radi SAMO migraciju SQLite→PostgreSQL BEZ
-   EXCLUDE constraint-a, zadržava postojeću aplikacionu overlap zaštitu
-   (`validate_appointment_overlap`, REF-01/DENT-IMPROVE-010) nepromijenjenu.
-   EXCLUDE constraint ide u poseban, budući, eksplicitno blokiran task —
-   ne otvarati ga dok se pravna pitanja ne riješe.
-2. **Implementer je Claude, ne Pi/Crush** — `CLAUDE.md`: "šema/migracije i
-   dalje isključivo HIGH kroz Claude". Pi/Crush ostaju nezavisni revieweri
-   uz Codexa.
-3. **Tehnički nalazi već provjereni u kodu (grounding za task contract):**
-   - `src/dentaland/models.py`-ov `TZDateTime` tip je već portabilan
-     (generički `DateTime`, radi identično na SQLite/Postgres) — šema je
-     namjerno dizajnirana za ovu migraciju od početka.
-   - `backend/main.py:47` ima HARDKODIRANU `sqlite:///{db_path}` konekciju
-     — treba `DATABASE_URL` konfigurabilnost.
-   - 3 od 5 Alembic migracija (`migrations/versions/`) koriste
-     `batch_alter_table(recreate="always")` — SQLite-specifičan obrazac,
-     bezopasan na PRAZNOJ Postgres bazi (nema podataka za rekreiranje),
-     ali reviewer treba eksplicitno provjeriti da Alembic replay ispravno
-     gradi šemu na svježoj Postgres instanci.
-   - `src/dentaland/backup.py`/`backup_cli.py` ostaju SQLite-specifični za
-     desktop (Faza 0) — VAN scope-a ovog taska. Postgres backup ide kroz
-     `pg_dump` (CLAUDE.md), poseban budući task.
-   - `.env.example` potvrđeno prazan po pitanju baze — Dentaland nikad
-     nije imao ništa PostgreSQL-vezano postavljeno prije ovoga.
+**Usputan nalaz (PII, riješen, ne kodni):** implementacija je otkrila da
+lokalni dev `dentaland.db` sadrži stvarne lične podatke (Radovanov
+identitet + porodični zapisi), ne samo sintetske test podatke — implementer
+je ispravno stao i koristio isključivo sintetske podatke za sve testove
+(critical constraint iz task contracta). Radovan je naknadno obrisao svih
+14 ne-sintetskih zapisa iz tog fajla i pokrenuo `VACUUM` — fajl sad sadrži
+samo očigledno sintetske podatke. Ovaj fajl nikad nije bio dio git
+trackinga niti ovog taska.
 
-**BLOKIRANO NA:** pristup PostgreSQL bazi za testiranje. Na mašini postoji
-lokalni `postgresql-16` Windows servis (running), ali pripada **drugom
-projektu** (`deklarant_pro`) — potvrđeno od Radovana. Dentaland treba svoju
-IZOLOVANU bazu na istom servisu (isti servis, potpuno odvojena baza —
-nema dodira sa deklarant_pro podacima), ali Claude nema kredencijale i ne
-smije ih pogađati.
+**Rezidualna napomena (Codex, ne blokira, nije task-worthy):** guard u
+`migrations/env.py` teorijski ne bi razlikovao "pozivalac eksplicitno
+postavio baš isti string kao ini default" od "nedirano" — trenutno nema
+takvog pozivaoca u kodu, čisto teorijska granica.
 
-**Tačan sljedeći korak:** zatražiti od Radovana PostgreSQL kredencijale sa
-pravom kreiranja nove baze (superuser `postgres` ili uloga sa
-`CREATEDB`) za lokalni `postgresql-16` servis — host/port/korisnik/lozinka
-— da se kreira izolovana `dentaland_dev`/`dentaland_test` baza i posebna,
-ograničena Dentaland uloga, PRIJE pisanja i implementacije task contracta.
+Otvara `DENT-IMPROVE-013` (Auth/RBAC) kao sljedeći neblokiran Prioritet C
+task.
 
 ## Agent availability
 
@@ -246,19 +236,23 @@ uloga.
 
 ## Current verification baseline
 
-Izmjereno 26.8.2026 na `main`, post-merge gate nakon DENT-IMPROVE-011
-(merge `f9de00e`):
+Izmjereno 27.8.2026 na `main`, post-merge gate nakon DENT-IMPROVE-012
+(merge `824590f`):
 
-- `pytest tests/ -q` → **374 passed**, 11 warnings (deprecation warnings
-  iz `httpx`/`slowapi`/`alembic` zavisnosti, ne iz projektnog koda),
-  ~10-20s.
+- `pytest tests/ -q` (bez `DATABASE_URL`/`DATABASE_URL_TEST`) → **374
+  passed, 2 skipped**, 11 warnings, ~15-20s. Skip su dva nova
+  `tests/test_postgres_migration.py` testa — preskaču se čisto kad
+  izolovana Postgres instanca (port 5433) nije pokrenuta/env varijable
+  nisu postavljene. Sa `DATABASE_URL`+`DATABASE_URL_TEST` postavljenim →
+  **376 passed, 0 skipped/failed** (vidi DENT-IMPROVE-012 sekciju).
 - `ruff check src/dentaland desktop backend tests scripts/agent_sensors.py` →
   **All checks passed**.
 - `mypy src/dentaland desktop backend` → **Success: no issues found in 52
   source files.**
 - `python scripts/agent_sensors.py --all` → **0 blocking findings**.
-- `web/tests/e2e` (`npx playwright test`) → **6 passed** (novo od
-  DENT-IMPROVE-011 — zahtijeva `npm install` jednokratno, Node v24+).
+- `web/tests/e2e` (`npx playwright test`) → **6 passed** (od
+  DENT-IMPROVE-011 — zahtijeva `npm install` jednokratno, Node v24+; nije
+  ponovo mjereno u ovom krugu, DENT-IMPROVE-012 ga nije dirao).
 
 Ne tretirati broj testova kao trajno pravilo — raste sa svakim novim
 taskom. Prilikom sljedeće provjere, izmjeriti ponovo, ne kopirati ovaj broj
