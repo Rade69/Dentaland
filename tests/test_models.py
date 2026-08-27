@@ -68,7 +68,16 @@ def _make_service(session: Session) -> Service:
 
 def test_sve_tabele_su_kreirane(engine: Engine) -> None:
     table_names = set(inspect(engine).get_table_names())
-    assert table_names == {"doctors", "services", "working_hours", "time_off", "appointments"}
+    # "users"/"sessions" dodani u DENT-IMPROVE-013 (autentifikacija + RBAC).
+    assert table_names == {
+        "doctors",
+        "services",
+        "working_hours",
+        "time_off",
+        "appointments",
+        "users",
+        "sessions",
+    }
 
 
 def test_alembic_migracija_ima_status_constraint_i_manual_override_default(tmp_path: Path) -> None:

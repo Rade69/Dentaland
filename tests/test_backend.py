@@ -14,8 +14,9 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from backend.main import app, get_session_factory
-from dentaland.models import Appointment, AppointmentStatus, Base, Doctor, Service
+from backend.main import app, get_session_factory, limiter
+from dentaland.models import Appointment, AppointmentStatus, Base, Doctor, Service, User, UserRole
+from dentaland.services.auth import hash_password
 from dentaland.services.notifications import (
     REMINDER_LEAD_TIME,
     REMINDER_WINDOW,
@@ -50,9 +51,38 @@ def session_factory(engine: Engine) -> sessionmaker[Session]:
 @pytest.fixture()
 def client(session_factory: sessionmaker[Session]):
     app.dependency_overrides[get_session_factory] = lambda: session_factory
-    with TestClient(app) as test_client:
+    # `limiter` je modul-nivo singleton dijeljen preko cijele pytest sesije —
+    # bez reset-a bi kvota potrošena u jednom testu (npr. namjerno-iscrpljujući
+    # rate-limit test) curila u naredne testove/fajlove.
+    limiter.reset()
+    # base_url="https://..." — DENT-IMPROVE-013 login cookie je `Secure`;
+    # httpx-ov cookie jar ne šalje `Secure` kolačiće nazad na plain `http://`
+    # vezu (standardan obrazac za testiranje secure cookieja kroz TestClient).
+    with TestClient(app, base_url="https://testserver") as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def reception_session(client: TestClient, session_factory: sessionmaker[Session]) -> None:
+    """DENT-IMPROVE-013 — `GET /api/booking-requests`, `.../confirm`,
+    `.../reject` sada zahtijevaju `RECEPTION` ulogu. Testovi koji ih pozivaju
+    prvo se moraju ulogovati; sesioni kolačić ostaje vezan za `client` (isti
+    `TestClient` dijeli cookie jar preko svih poziva u tom testu)."""
+    with session_factory() as session:
+        session.add(
+            User(
+                username="sestra-test",
+                password_hash=hash_password("test-lozinka-123"),
+                role=UserRole.RECEPTION,
+            )
+        )
+        session.commit()
+    response = client.post(
+        "/api/auth/login",
+        json={"username": "sestra-test", "password": "test-lozinka-123"},
+    )
+    assert response.status_code == 200
 
 
 @pytest.fixture()
@@ -108,7 +138,9 @@ def test_submit_bez_imena_vraca_422(client: TestClient) -> None:
     assert response.status_code == 422
 
 
-def test_get_pending_lista_podnesene_zahtjeve(client: TestClient) -> None:
+def test_get_pending_lista_podnesene_zahtjeve(
+    client: TestClient, reception_session: None
+) -> None:
     client.post(
         "/api/booking-requests",
         json={"ime": "Ana", "telefon": "061", "requested_date": "2026-08-20"},
@@ -121,7 +153,7 @@ def test_get_pending_lista_podnesene_zahtjeve(client: TestClient) -> None:
 
 
 def test_confirm_uspjesno_vraca_204(
-    client: TestClient, doctor_and_service: tuple[int, int]
+    client: TestClient, doctor_and_service: tuple[int, int], reception_session: None
 ) -> None:
     doctor_id, service_id = doctor_and_service
     submit = client.post(
@@ -145,7 +177,10 @@ def test_confirm_uspjesno_vraca_204(
 
 
 def test_confirm_preklapanje_vraca_409(
-    client: TestClient, session_factory: sessionmaker[Session], doctor_and_service: tuple[int, int]
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    doctor_and_service: tuple[int, int],
+    reception_session: None,
 ) -> None:
     from dentaland.models import Appointment, AppointmentStatus
 
@@ -181,7 +216,7 @@ def test_confirm_preklapanje_vraca_409(
 
 
 def test_confirm_nepostojeceg_vraca_404(
-    client: TestClient, doctor_and_service: tuple[int, int]
+    client: TestClient, doctor_and_service: tuple[int, int], reception_session: None
 ) -> None:
     doctor_id, service_id = doctor_and_service
     response = client.post(
@@ -195,7 +230,7 @@ def test_confirm_nepostojeceg_vraca_404(
     assert response.status_code == 404
 
 
-def test_reject_uspjesno_vraca_204(client: TestClient) -> None:
+def test_reject_uspjesno_vraca_204(client: TestClient, reception_session: None) -> None:
     submit = client.post(
         "/api/booking-requests",
         json={"ime": "Ana", "telefon": "061", "requested_date": "2026-08-20"},
@@ -207,7 +242,7 @@ def test_reject_uspjesno_vraca_204(client: TestClient) -> None:
     assert client.get("/api/booking-requests").json() == []
 
 
-def test_reject_nepostojeceg_vraca_404(client: TestClient) -> None:
+def test_reject_nepostojeceg_vraca_404(client: TestClient, reception_session: None) -> None:
     response = client.post("/api/booking-requests/999/reject")
     assert response.status_code == 404
 

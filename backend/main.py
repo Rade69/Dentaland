@@ -1,11 +1,19 @@
 """Lokalni FastAPI backend za javne zahtjeve sa web forme (DENT-007).
 
 Radi na ``localhost``, nad istom SQLite bazom koju koristi desktop
-aplikacija — nema javnog hostinga. NEMA autentifikacije (RBAC nije još
-izgrađen) — prihvatljivo dok je striktno lokalno, MORA se riješiti prije
-bilo kakvog javnog izlaganja (vidi ``CLAUDE.md`` "Otvorena pitanja"). NEMA
-tokena za cancel/reschedule link — eksplicitno van obima ovog zadatka,
-gated istim otvorenim pravnim pitanjima.
+aplikacija — nema javnog hostinga. NEMA tokena za cancel/reschedule link —
+eksplicitno van obima ovog zadatka, gated istim otvorenim pravnim
+pitanjima.
+
+Autentifikacija/RBAC (DENT-IMPROVE-013): tri staff-only endpointa
+(``GET /api/booking-requests``, ``.../confirm``, ``.../reject``) zahtijevaju
+``RECEPTION`` ulogu preko cookie-based sesije (vidi ``get_current_user``/
+``require_role`` ispod i ``src/dentaland/services/auth.py``). Javni
+``POST /api/booking-requests`` ostaje neautentifikovan (namjerno — to je
+javna forma). HTTPS je deployment preduslov (v3.1) — lokalni dev/test rad
+je i dalje HTTP, `Secure` cookie se u toj konfiguraciji ne šalje nazad na
+plain HTTP (osim u testovima koji forsiraju `https://` scheme kroz
+`TestClient(base_url=...)`, vidi `tests/test_auth.py`).
 
 Pokretanje lokalno: ``uvicorn backend.main:app --reload``
 """
@@ -14,12 +22,12 @@ from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager, suppress
 from datetime import date, datetime
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -30,6 +38,14 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from backend.reminder_scheduler import run_reminder_scheduler
 from dentaland.models import Base
+from dentaland.services.auth import (
+    AuthenticatedUser,
+    AuthenticationError,
+    authenticate_user,
+    create_session,
+    invalidate_session,
+    validate_session,
+)
 from dentaland.services.availability import OverlapError
 from dentaland.services.notifications import send_booking_confirmation
 from dentaland.services.requests import (
@@ -39,6 +55,8 @@ from dentaland.services.requests import (
     list_pending,
     reject_request,
 )
+
+SESSION_COOKIE_NAME = "dentaland_session"
 
 _session_factory_cache: sessionmaker[Session] | None = None
 
@@ -96,6 +114,44 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # ty
 
 SessionFactoryDep = Annotated[sessionmaker[Session], Depends(get_session_factory)]
 
+
+def get_current_user(request: Request, session_factory: SessionFactoryDep) -> AuthenticatedUser:
+    """FastAPI dependency — 401 ako nema sesionog kolačića ili je nevažeći/istekao."""
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if token is None:
+        raise HTTPException(status_code=401, detail="nije autentifikovano")
+    user = validate_session(session_factory, token)
+    if user is None:
+        raise HTTPException(status_code=401, detail="nevažeća ili istekla sesija")
+    return user
+
+
+CurrentUserDep = Annotated[AuthenticatedUser, Depends(get_current_user)]
+
+
+def require_role(allowed_roles: list[str]) -> Callable[[AuthenticatedUser], AuthenticatedUser]:
+    """Vrati FastAPI dependency koja propušta samo navedene uloge (403 inače).
+
+    UI skrivanje nije sigurnosna kontrola (v3.1) — ova provjera je jedini
+    stvarni gate, na nivou endpointa. NIJEDNA uloga ne prolazi "automatski"
+    (npr. ADMIN NE zaobilazi ovu listu) — provjera je uvijek eksplicitna
+    članstvo-u-listi provjera, namjerno bez posebnog slučaja za bilo koju
+    ulogu.
+    """
+
+    def _require_role(current_user: CurrentUserDep) -> AuthenticatedUser:
+        if current_user.role not in allowed_roles:
+            raise HTTPException(status_code=403, detail="nedovoljna ovlaštenja")
+        return current_user
+
+    return _require_role
+
+
+# RECEPTION-only gate za tri postojeća staff endpointa (DENT-IMPROVE-013) —
+# definisan JEDNOM, primijenjen na sva tri ispod (ista logika, jedan poziv
+# `require_role`, ne duplirana lista uloga na svakom endpointu).
+RequireReceptionDep = Annotated[AuthenticatedUser, Depends(require_role(["RECEPTION"]))]
+
 # Lokalno testiranje samo — web/ se otvara sa file:// ili drugog localhost
 # porta, pa treba CORS. MORA se suziti na stvaran origin prije javnog rada.
 app.add_middleware(
@@ -133,6 +189,58 @@ class ConfirmIn(BaseModel):
     start_time: datetime
 
 
+class LoginIn(BaseModel):
+    username: str = Field(min_length=1, max_length=100)
+    password: str = Field(min_length=1, max_length=200)
+
+
+class LoginOut(BaseModel):
+    username: str
+    role: str
+
+
+@app.post("/api/auth/login", response_model=LoginOut)
+@limiter.limit("5/minute")
+def login(
+    request: Request,
+    response: Response,
+    payload: LoginIn,
+    session_factory: SessionFactoryDep,
+) -> LoginOut:
+    """Sopstveni rate limit (5/minute), odvojen od `/api/booking-requests`
+    (10/minute) — v3.1 eksplicitno traži odvojene limite (slowapi prati
+    kvotu po ruti, ne globalno, pa isti `limiter` objekat ovdje daje
+    nezavisnu kvotu).
+
+    Generička greška (401, ista poruka) na pogrešno korisničko ime ILI
+    pogrešnu lozinku — `authenticate_user` ne otkriva koji je slučaj.
+    """
+    try:
+        user = authenticate_user(session_factory, payload.username, payload.password)
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+    session_dto = create_session(session_factory, user.id)
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=session_dto.token,
+        httponly=True,
+        secure=True,
+        samesite="strict",
+        expires=session_dto.expires_at,
+    )
+    return LoginOut(username=user.username, role=user.role)
+
+
+@app.post("/api/auth/logout", status_code=204)
+def logout(request: Request, response: Response, session_factory: SessionFactoryDep) -> None:
+    """Invalidira trenutnu sesiju (ako postoji) i briše kolačić."""
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if token is not None:
+        invalidate_session(session_factory, token)
+    response.delete_cookie(SESSION_COOKIE_NAME)
+
+
 @app.post("/api/booking-requests", response_model=BookingRequestOut, status_code=201)
 @limiter.limit("10/minute")
 def submit_booking_request(
@@ -149,7 +257,9 @@ def submit_booking_request(
 
 
 @app.get("/api/booking-requests", response_model=list[PendingRequestOut])
-def get_pending_requests(session_factory: SessionFactoryDep) -> list[PendingRequestOut]:
+def get_pending_requests(
+    session_factory: SessionFactoryDep, _current_user: RequireReceptionDep
+) -> list[PendingRequestOut]:
     return [
         PendingRequestOut(
             id=r.id,
@@ -168,6 +278,7 @@ def confirm(
     request_id: int,
     payload: ConfirmIn,
     session_factory: SessionFactoryDep,
+    _current_user: RequireReceptionDep,
 ) -> None:
     try:
         confirm_request(
@@ -184,7 +295,9 @@ def confirm(
 
 
 @app.post("/api/booking-requests/{request_id}/reject", status_code=204)
-def reject(request_id: int, session_factory: SessionFactoryDep) -> None:
+def reject(
+    request_id: int, session_factory: SessionFactoryDep, _current_user: RequireReceptionDep
+) -> None:
     try:
         reject_request(session_factory, request_id)
     except RequestNotFoundError as exc:

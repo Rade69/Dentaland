@@ -21,6 +21,7 @@ from sqlalchemy import (
     Time,
     TypeDecorator,
     false,
+    true,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -182,3 +183,71 @@ class Appointment(Base):
 
     doctor: Mapped[Doctor | None] = relationship(back_populates="appointments")
     service: Mapped[Service | None] = relationship(back_populates="appointments")
+
+
+class UserRole(enum.StrEnum):
+    """Uloge osoblja (DENT-IMPROVE-013) — vidi ``docs/dentaland-razvojni-plan-v3.1.md``
+    sekcija "RBAC" za punu semantiku. ``ADMIN`` NAMJERNO ne dobija
+    automatski pravo na operativne radnje (confirm/reject) samo zato što
+    administrira sistem — permission check je uvijek eksplicitan po
+    endpointu/servisu, nikad implicitan preko "viša uloga uvijek prolazi".
+    """
+
+    RECEPTION = "RECEPTION"
+    DENTIST = "DENTIST"
+    ADMIN = "ADMIN"
+
+
+class User(Base):
+    """Individualni nalog zaposlenog (DENT-IMPROVE-013).
+
+    Namjerno NEMA zajedničkog "admin" naloga za više zaposlenih — svaki
+    zaposleni ima svoj red (v3.1: "audit ima smisla samo tako"). Nalozi se
+    kreiraju isključivo preko ``scripts/create_user.py`` (CLI), ne kroz
+    UI/API u ovoj fazi.
+    """
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    # Argon2id hash (preko argon2-cffi) — NIKAD plaintext, NIKAD bcrypt/MD5/SHA-only.
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[UserRole] = mapped_column(
+        Enum(
+            UserRole,
+            name="user_role",
+            native_enum=False,
+            create_constraint=True,
+            validate_strings=True,
+        ),
+        nullable=False,
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
+    created_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False, default=utcnow)
+
+    sessions: Mapped[list[Session]] = relationship(back_populates="user")
+
+
+class Session(Base):
+    """Server-side sesija (DENT-IMPROVE-013).
+
+    Isti sigurni token obrazac kao planirani cancel-link token
+    (``CLAUDE.md``): sirov token je ``secrets.token_urlsafe(32)``, NIKAD
+    upisan u bazu — čuva se samo SHA-256 heks hash (``token_hash``).
+    ``revoked_at`` je eksplicitna invalidacija (logout, promjena lozinke)
+    — red se NE briše, radi mogućeg budućeg audit uvida (DENT-IMPROVE-014).
+    """
+
+    __tablename__ = "sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False, default=utcnow)
+    revoked_at: Mapped[datetime | None] = mapped_column(TZDateTime(), nullable=True)
+
+    user: Mapped[User] = relationship(back_populates="sessions")
