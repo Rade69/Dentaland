@@ -43,18 +43,28 @@ from dentaland.services.requests import (
 _session_factory_cache: sessionmaker[Session] | None = None
 
 
-def _build_session_factory(db_path: str) -> sessionmaker[Session]:
-    engine = create_engine(f"sqlite:///{db_path}")
+def _build_session_factory(db_url: str) -> sessionmaker[Session]:
+    engine = create_engine(db_url)
     Base.metadata.create_all(engine)
     return sessionmaker(engine, expire_on_commit=False)
 
 
 def get_session_factory() -> sessionmaker[Session]:
-    """FastAPI dependency — testovi je zamjenjuju preko `app.dependency_overrides`."""
+    """FastAPI dependency — testovi je zamjenjuju preko `app.dependency_overrides`.
+
+    ``DATABASE_URL`` (DENT-IMPROVE-012) ima prednost kad je postavljen —
+    omogućava rad nad PostgreSQL. Bez nje, ponašanje je nepromijenjeno:
+    SQLite fajl iz ``DENTALAND_DB_PATH`` (Faza 0 desktop default).
+    """
     global _session_factory_cache
     if _session_factory_cache is None:
-        db_path = os.environ.get("DENTALAND_DB_PATH", "dentaland.db")
-        _session_factory_cache = _build_session_factory(db_path)
+        database_url = os.environ.get("DATABASE_URL")
+        if database_url:
+            db_url = database_url
+        else:
+            db_path = os.environ.get("DENTALAND_DB_PATH", "dentaland.db")
+            db_url = f"sqlite:///{db_path}"
+        _session_factory_cache = _build_session_factory(db_url)
     return _session_factory_cache
 
 
