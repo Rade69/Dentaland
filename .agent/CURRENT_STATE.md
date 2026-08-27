@@ -281,6 +281,34 @@ PASS_WITH_NOTES, nezavisno potvrdio Codex-ov fix). Radovan human approval
 Otvara `DENT-IMPROVE-014` (append-only audit log) kao sljedeći neblokiran
 Prioritet C task.
 
+## `DENT-IMPROVE-014` (append-only audit log) — podijeljen u 3 dijela
+
+**Jezgro DONE, merged `41cb94e`, 27.8.2026.** Implementer Claude (HIGH
+schema). `AuditEvent`/`AuditAction` tačno po v3.1 šemi (9 polja, 7 akcija
+iz backlog "Minimum events" liste — `CHANGE_ROLE` namjerno dormant,
+šira v3.1 lista `VIEW_PATIENT`/`EXPORT_PERSONAL_DATA`/itd. van obima jer
+nema odgovarajuće funkcionalnosti). `write_audit_event` prima opcioni
+već-otvoren `session=` parametar (isti obrazac kao `_revoke_active_sessions`
+iz DENT-IMPROVE-013) za buduću atomsku upotrebu. **Nula instrumentacije**
+stvarnih poziva — namjerno, to rade dva paralelna dependent taska.
+Review: Codex + Pi, oba PASS_WITH_NOTES, Pi nezavisno reprodukovao
+atomski `session=` scenario sopstvenom probom (3 scenarija: rollback/
+commit/vidljivost-prije-commit-a). Radovan human approval 27.8.2026.
+
+**Arhitektonsko ograničenje (Radovanova odluka, prihvaćeno):** desktop
+app nema koncept ulogovanog korisnika → appointment CRUD audit zapisi
+(`DENT-IMPROVE-014C`) će uvijek imati `actor_user_id=NULL`. Samo LOGIN
+događaji (`DENT-IMPROVE-014B`, iz backend auth-a) imaju pravi actor. Ne
+graditi desktop login da se ovo "riješi" — van obima.
+
+**`DENT-IMPROVE-014B`** (implementer Pi) i **`DENT-IMPROVE-014C`**
+(implementer Crush) — LOGIN_SUCCESS/FAILURE i CREATE/UPDATE/CANCEL/
+DELETE_APPOINTMENT instrumentacija. Nula preklapanja fajlova
+(`auth.py`+`backend/main.py` vs `appointments.py`), potvrđeno prije
+starta oba taska — pravi paralelizam. U TOKU/pokrenuti nakon merge-a
+jezgra — vidi `agent_reports/DENT-IMPROVE-014B-task-contract.md` i
+`DENT-IMPROVE-014C-task-contract.md` za pun obim.
+
 ## Agent availability
 
 **Codex dostupan (od 19.8.2026).** Standardna raspodjela: Codex opciono na
