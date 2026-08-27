@@ -163,12 +163,32 @@ sitan nalaz (OUT_OF_SCOPE_FINDING, ne task još): generička "Failed to
 fetch" poruka na backend-nedostupan scenario u `web/app.js` — kandidat
 za budući mali DENT-IMPROVE.
 
-## `DENT-IMPROVE-012` (SQLite→PostgreSQL) — U TOKU, BLOKIRANO (26.8.2026)
+## `DENT-IMPROVE-012` (SQLite→PostgreSQL) — U TOKU, ODBLOKIRANO (26.8.2026)
 
 `DENT-IMPROVE-012` je sad jedini neblokiran Prioritet C task
-(`DENT-IMPROVE-013/014/015` čekaju njega). **Task contract još NIJE
-napisan** — obim i pristup su dogovoreni, implementacija čeka pristup
-bazi.
+(`DENT-IMPROVE-013/014/015` čekaju njega). **Task contract napisan
+26.8.2026** — `agent_reports/DENT-IMPROVE-012-task-contract.md`. Implementer
+Claude (HIGH schema/migracija), reviewers Codex (obavezan) + Pi/Crush.
+Implementacija čeka worktree i početak rada (nije još krenula).
+
+**Pristup bazi RIJEŠEN (26.8.2026):** kreirana potpuno izolovana lokalna
+PostgreSQL 16 instanca SAMO za Dentaland — NIJE isti servis kao Windows
+`postgresql-16` servis koji koristi `deklarant_pro` (port 5432, drugi
+data-dir). Nova instanca: zaseban proces (ne Windows servis, pokreće se
+ručno preko `pg_ctl`), port **5433**, data-dir
+`C:\Users\38765\AppData\Local\Dentaland\pgdata16`, `scram-sha-256` auth
+(isto kao postojeći servis). Kredencijali i tačne start/stop komande su u
+`.env` (gitignored, ne u repou) u root-u projekta — `DATABASE_URL` i
+`DATABASE_URL_TEST` pokazuju na `dentaland_dev`/`dentaland_test` baze,
+vlasnik `dentaland_app` (ograničena uloga sa CREATEDB, ne superuser).
+**Napomena:** instanca se NE pokreće automatski pri restartu računara —
+prije rada na `DENT-IMPROVE-012` provjeriti da li `pg_ctl status` pokazuje
+running, ako ne — pokrenuti komandom iz `.env` komentara.
+
+Bitna razlika u odnosu na ranije: pravni blokeri (EXCLUDE constraint) i
+dalje važe nepromijenjeno — ovaj task i dalje radi SAMO migraciju bez
+EXCLUDE constraint-a (vidi obim ispod), pristup bazi je bio jedini riješeni
+blocker.
 
 **Dogovoren obim (Radovan potvrdio 26.8.2026):**
 
