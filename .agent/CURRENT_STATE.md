@@ -223,8 +223,63 @@ trackinga niti ovog taska.
 postavio baš isti string kao ini default" od "nedirano" — trenutno nema
 takvog pozivaoca u kodu, čisto teorijska granica.
 
-Otvara `DENT-IMPROVE-013` (Auth/RBAC) kao sljedeći neblokiran Prioritet C
-task.
+## `DENT-IMPROVE-013` (Autentifikacija + RBAC) — DONE, merged `da67027`, 27.8.2026
+
+Implementer Claude (HIGH security, dva nezavisna reviewera po
+`docs/dentaland-razvojni-plan-v3.1.md` principu #7). Individualni
+korisnički nalozi (Argon2id password hash — v3.1 eksplicitan zahtjev, ne
+bcrypt), server-side sesije (`secrets.token_urlsafe(32)`, SHA-256 hash,
+`hmac.compare_digest`, `expires_at` + eksplicitna invalidacija — isti
+obrazac kao planirani cancel-link token), RBAC zaštita na tri ranije
+potpuno nezaštićena staff endpointa (`GET /api/booking-requests`,
+`confirm`, `reject`) — **samo `RECEPTION` uloga prolazi**, `ADMIN` i
+`DENTIST` eksplicitno testirani da dobijaju 403 (Radovanova odluka:
+ADMIN ne dobija automatski operativne privilegije, v3.1).
+
+**Namjerno van obima** (Radovanove odluke, 27.8.2026, prije implementacije):
+nema signup UI (nalozi preko `scripts/create_user.py`, CLI + `getpass` —
+nema još stvarnog staff-facing klijenta koji bi UI koristio; desktop app
+ne zove backend uopšte, radi direktno preko SQLAlchemy/SQLite), nema pune
+audit DB tabele (`LOGIN_SUCCESS`/`LOGIN_FAILURE` idu u `logging` modul —
+prava append-only audit infrastruktura je `DENT-IMPROVE-014`), nema
+OAuth/SSO/2FA. Cookie-based sesija (`HttpOnly`+`Secure`+`SameSite=Strict`),
+CSRF pokriven `SameSite=Strict` uz grep-potvrđeno odsustvo bilo kakvog
+cross-origin staff klijenta u kodu — mora se ponovo razmotriti ako se
+ikad doda browser-based admin panel.
+
+**Fix runda 1 (Codex F1, HIGH, stvaran defekt):** `change_password` je
+koristio DVIJE odvojene transakcije/commit-e (hash lozinke, pa zaseban
+opoziv sesija) — kvar u drugom koraku bi ostavio novu lozinku upisanu dok
+bi stare (potencijalno kompromitovane) sesije ostale validne, direktno
+rušeći razlog zbog kojeg je invalidacija tražena. Popravljeno spajanjem u
+jednu transakciju/jedan commit; adversarni regresioni test dodat
+(monkeypatch simulira tačan kvar, potvrđuje potpuni rollback). Codex je
+nezavisno reprodukovao adversarni scenario u re-review-u, ne samo
+prihvatio tvrdnju.
+
+**Pi N1 (kozmetički):** nedostajao trajan test da `hash_password` stvarno
+proizvodi Argon2id hash (samo ručno potvrđeno) — dodat
+`test_hash_password_koristi_argon2id`.
+
+**Nužna posljedica, ne proširenje obima:** `tests/test_backend.py` i
+`tests/test_models.py` izmijenjeni — postojeći testovi su pozivali sad
+zaštićene endpointe bez autentifikacije, i `test_sve_tabele_su_kreirane`
+je provjeravao tačan skup naziva tabela (sad uključuje `users`/`sessions`).
+Oba nalaza je nezavisno potvrdio i Crush kao vidljiv, opravdan deviation.
+
+**Usput popravljen i stari propust iz `DENT-IMPROVE-012`:**
+`.github/workflows/ci.yml` je koristio hardkodiranu listu paketa (ne
+`pyproject.toml`) i falio je i `psycopg2-binary` (dormant od 012) i
+`argon2-cffi` (bio bi odmah aktivan pad na ovoj grani) — popravljeno
+odvojeno na `main` (`0c038d8`) prije merge-a.
+
+**Review:** Codex (Reviewer 1, obavezan, PASS_WITH_NOTES na obje runde),
+Pi (Reviewer 2, PASS_WITH_NOTES), Crush (dodatna nezavisna provjera,
+PASS_WITH_NOTES, nezavisno potvrdio Codex-ov fix). Radovan human approval
+27.8.2026.
+
+Otvara `DENT-IMPROVE-014` (append-only audit log) kao sljedeći neblokiran
+Prioritet C task.
 
 ## Agent availability
 
@@ -236,23 +291,23 @@ uloga.
 
 ## Current verification baseline
 
-Izmjereno 27.8.2026 na `main`, post-merge gate nakon DENT-IMPROVE-012
-(merge `824590f`):
+Izmjereno 27.8.2026 na `main`, post-merge gate nakon DENT-IMPROVE-013
+(merge `da67027`):
 
-- `pytest tests/ -q` (bez `DATABASE_URL`/`DATABASE_URL_TEST`) → **374
-  passed, 2 skipped**, 11 warnings, ~15-20s. Skip su dva nova
-  `tests/test_postgres_migration.py` testa — preskaču se čisto kad
-  izolovana Postgres instanca (port 5433) nije pokrenuta/env varijable
-  nisu postavljene. Sa `DATABASE_URL`+`DATABASE_URL_TEST` postavljenim →
-  **376 passed, 0 skipped/failed** (vidi DENT-IMPROVE-012 sekciju).
-- `ruff check src/dentaland desktop backend tests scripts/agent_sensors.py` →
+- `pytest tests/ -q` (bez `DATABASE_URL`/`DATABASE_URL_TEST`) → **396
+  passed, 2 skipped**, 12 warnings, ~20-25s. Skip su i dalje dva
+  `tests/test_postgres_migration.py` testa (Postgres env nije postavljen).
+  Sa `DATABASE_URL`+`DATABASE_URL_TEST` postavljenim → 398 passed
+  očekivano (nije ponovo mjereno u ovom krugu — DENT-IMPROVE-013 ne dira
+  Postgres put).
+- `ruff check src/dentaland desktop backend tests scripts/agent_sensors.py scripts/create_user.py` →
   **All checks passed**.
-- `mypy src/dentaland desktop backend` → **Success: no issues found in 52
+- `mypy src/dentaland desktop backend` → **Success: no issues found in 53
   source files.**
 - `python scripts/agent_sensors.py --all` → **0 blocking findings**.
 - `web/tests/e2e` (`npx playwright test`) → **6 passed** (od
   DENT-IMPROVE-011 — zahtijeva `npm install` jednokratno, Node v24+; nije
-  ponovo mjereno u ovom krugu, DENT-IMPROVE-012 ga nije dirao).
+  ponovo mjereno u ovom krugu, DENT-IMPROVE-013 ga nije dirao).
 
 Ne tretirati broj testova kao trajno pravilo — raste sa svakim novim
 taskom. Prilikom sljedeće provjere, izmjeriti ponovo, ne kopirati ovaj broj
@@ -298,9 +353,7 @@ ažurirati na prazan skup (sitan follow-up, ne nov task).
 
 ## Next known work
 
-**REF-09/11/12/13 spremni za dodjelu implementerima (Pi/Crush), mogu ići
-paralelno** — vidi tabelu i paralelizacijsku analizu gore. REF-10 čeka
-REF-09 merge (dijeli `appointment_controller.py`), REF-14 čeka oba
-(arhitektonska odluka). Tek nakon zatvaranja F1-F4 i starog duga ima smisla
-razmatrati Prioritet C (`DENT-IMPROVE-010`..`015`, Faza 1 priprema) —
-Radovanova odluka.
+REF-00..15 paket i Prioritet C `DENT-IMPROVE-010/011/012/013` su svi DONE
+(vidi tabele/sekcije gore). **`DENT-IMPROVE-014` (append-only audit log)
+je sad jedini neblokiran Prioritet C task** — `DENT-IMPROVE-015`
+(production gate) čeka njega. Task Contract za 014 još nije napisan.
