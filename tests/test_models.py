@@ -69,6 +69,7 @@ def _make_service(session: Session) -> Service:
 def test_sve_tabele_su_kreirane(engine: Engine) -> None:
     table_names = set(inspect(engine).get_table_names())
     # "users"/"sessions" dodani u DENT-IMPROVE-013 (autentifikacija + RBAC).
+    # "audit_events" dodan u DENT-IMPROVE-014 (append-only audit log, jezgro).
     assert table_names == {
         "doctors",
         "services",
@@ -77,6 +78,7 @@ def test_sve_tabele_su_kreirane(engine: Engine) -> None:
         "appointments",
         "users",
         "sessions",
+        "audit_events",
     }
 
 

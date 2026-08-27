@@ -251,3 +251,78 @@ class Session(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(TZDateTime(), nullable=True)
 
     user: Mapped[User] = relationship(back_populates="sessions")
+
+
+class AuditAction(enum.StrEnum):
+    """Append-only audit akcije (DENT-IMPROVE-014) — TAČNO backlog "Minimum
+    events" lista, ne šira v3.1 lista (``VIEW_PATIENT``,
+    ``EXPORT_PERSONAL_DATA``, ``DELETE_OR_ANONYMIZE_PERSONAL_DATA``,
+    ``VIEW_MEDICAL_DATA`` su van obima — nemaju odgovarajuću funkcionalnost
+    u kodu još, dodaju se kad ta funkcionalnost postoji, ne unaprijed).
+
+    ``CHANGE_ROLE`` je NAMJERNO dormant — definisana vrijednost, bez ijednog
+    pozivaoca u kodu (nema role-change endpointa/UI-ja). Isti tretman kao
+    ``EXCLUDE`` constraint u DENT-IMPROVE-012: definisano radi buduće
+    kompatibilnosti, ne izgrađuje se funkcionalnost oko nje u ovom tasku.
+    """
+
+    LOGIN_SUCCESS = "LOGIN_SUCCESS"
+    LOGIN_FAILURE = "LOGIN_FAILURE"
+    CREATE_APPOINTMENT = "CREATE_APPOINTMENT"
+    UPDATE_APPOINTMENT = "UPDATE_APPOINTMENT"
+    CANCEL_APPOINTMENT = "CANCEL_APPOINTMENT"
+    DELETE_APPOINTMENT = "DELETE_APPOINTMENT"
+    CHANGE_ROLE = "CHANGE_ROLE"
+
+
+class AuditEvent(Base):
+    """Append-only audit zapis (DENT-IMPROVE-014) — v3.1 plan, sekcija
+    "Audit log" (oko linije 267).
+
+    **Append-only napomena**: ova tabela namjerno nema odgovarajuću
+    ``update``/``delete`` funkciju bilo gdje u servisnom sloju
+    (``src/dentaland/services/audit.py``) — append-only ponašanje se u
+    ovom obimu postiže disciplinom (ne izlaganjem mutacionog API-ja), ne
+    DB-nivo trigerom/permisijom. Proporcionalno veličini projekta (jedan
+    VPS, jedna ordinacija) — vidi CLAUDE.md "Šta se namjerno ne gradi
+    unaprijed". Direktan SQL UPDATE/DELETE na tabeli je i dalje tehnički
+    moguć (nema DB-nivo brane), ali nijedan ugrađeni API poziv to ne radi
+    slučajno.
+
+    **`metadata_minimal` upozorenje**: mali JSON-enkodiran string koji
+    pozivalac (budući `write_audit_event` pozivalac, npr. DENT-IMPROVE-014B/
+    014C) popunjava. Pozivalac je ISKLJUČIVO odgovoran da ovdje nikad ne
+    stavi lozinku/token/medicinski sadržaj/pun request body — ova klasa/
+    `write_audit_event` NE validira niti sanitizuje sadržaj (v3.1: "audit
+    log ne kopira medicinski sadržaj u metadata").
+
+    ``actor_user_id`` je nullable — desktop app (Faza 0) nema koncept
+    ulogovanog korisnika, pa će appointment-vezani audit zapisi
+    (CREATE/UPDATE/CANCEL/DELETE_APPOINTMENT, iz DENT-IMPROVE-014C) uvijek
+    imati ``actor_user_id=NULL``. Ovo je prihvaćeno ograničenje (Radovanova
+    odluka, 27.8.2026), ne nedostatak ovog modela.
+    """
+
+    __tablename__ = "audit_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    actor_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    action: Mapped[AuditAction] = mapped_column(
+        Enum(
+            AuditAction,
+            name="audit_action",
+            native_enum=False,
+            create_constraint=True,
+            validate_strings=True,
+        ),
+        nullable=False,
+    )
+    resource_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    resource_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    occurred_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False, default=utcnow)
+    # Backend popunjava (npr. FastAPI request-scoped korelacioni ID);
+    # desktop poziv (nema HTTP request) uvijek ostavlja NULL.
+    request_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Backend popunjava iz `Request.client.host`; desktop poziv uvijek NULL.
+    source_ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    metadata_minimal: Mapped[str | None] = mapped_column(Text, nullable=True)
