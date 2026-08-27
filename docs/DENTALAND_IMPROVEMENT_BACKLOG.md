@@ -791,6 +791,22 @@ Preći sa lokalnog SQLite backend prototipa na planirani PostgreSQL produkcijski
 - dva nezavisna reviewera,
 - human approval.
 
+## Status napomena (27.8.2026)
+
+Implementacija u toku, `task/DENT-IMPROVE-012-postgres-migration` grana,
+čeka review. Obim je Radovanovom odlukom **podijeljen** u odnosu na "Required
+scope" gore — `btree_gist`/`EXCLUDE USING gist` namjerno NIJE dio ove
+implementacije (odvojen, budući, eksplicitno blokiran task zbog otvorenog
+pravnog pitanja u `CLAUDE.md` sekciji "Otvorena pitanja"). Ova implementacija
+pokriva: `DATABASE_URL` konekciju, Alembic migraciju na Postgres, migracioni
+skript SQLite→Postgres testiran na sintetskim podacima, i potvrdu da
+aplikaciona overlap zaštita (`validate_appointment_overlap`) i dalje radi
+nad Postgres. Vidi `agent_reports/2026-08-27-DENT-IMPROVE-012-postgres-migration.md`
+za punu evidenciju. Otkriven i eskaliran (van scope-a implementera):
+`dentaland.db` u glavnom repou sadrži stvaran (ne sintetski) pacijentski
+zapis — vidi taj izvještaj za detalje, Radovan treba odlučiti sudbinu tog
+fajla.
+
 ---
 
 # 14. DENT-IMPROVE-013 — Autentifikacija + RBAC
