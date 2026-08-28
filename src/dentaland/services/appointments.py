@@ -19,7 +19,8 @@ from datetime import date, datetime, time, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from dentaland.models import Appointment, AppointmentStatus, Doctor, Service, utcnow
+from dentaland.models import Appointment, AppointmentStatus, AuditAction, Doctor, Service, utcnow
+from dentaland.services.audit import write_audit_event
 from dentaland.services.availability import validate_appointment_overlap
 from dentaland.timezone import SARAJEVO
 
@@ -87,6 +88,15 @@ def create_appointment(
             status=AppointmentStatus.SCHEDULED,
         )
         session.add(appt)
+        session.flush()
+        write_audit_event(
+            session_factory,
+            AuditAction.CREATE_APPOINTMENT,
+            actor_user_id=None,
+            resource_type="appointment",
+            resource_id=appt.id,
+            session=session,
+        )
         session.commit()
         return _to_dto(appt, service_obj.naziv)
 
@@ -129,6 +139,14 @@ def update_appointment(
         appt.napomena = note
         appt.start_time = start
         appt.end_time = end
+        write_audit_event(
+            session_factory,
+            AuditAction.UPDATE_APPOINTMENT,
+            actor_user_id=None,
+            resource_type="appointment",
+            resource_id=appt.id,
+            session=session,
+        )
         session.commit()
         return _to_dto(appt, service_obj.naziv)
 
@@ -267,6 +285,14 @@ def cancel_appointment(session_factory: Callable[[], Session], appt_id: int) -> 
         if appt.status != AppointmentStatus.SCHEDULED:
             raise ValueError("samo zakazan termin može biti otkazan")
         appt.status = AppointmentStatus.CANCELLED
+        write_audit_event(
+            session_factory,
+            AuditAction.CANCEL_APPOINTMENT,
+            actor_user_id=None,
+            resource_type="appointment",
+            resource_id=appt.id,
+            session=session,
+        )
         session.commit()
         return _to_dto(appt, _service_name(appt))
 
@@ -287,6 +313,14 @@ def delete_appointment(session_factory: Callable[[], Session], appt_id: int) -> 
         if appt is None:
             raise ValueError(f"termin {appt_id} nije pronađen")
         session.delete(appt)
+        write_audit_event(
+            session_factory,
+            AuditAction.DELETE_APPOINTMENT,
+            actor_user_id=None,
+            resource_type="appointment",
+            resource_id=appt_id,
+            session=session,
+        )
         session.commit()
 
 
