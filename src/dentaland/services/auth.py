@@ -22,6 +22,15 @@ sa tačnim ``actor_user_id``, ``LOGIN_FAILURE`` sa ``actor_user_id=NULL``
 (user enumeration zaštita i na audit nivou, ne samo na HTTP response).
 ``logging`` ostaje kao jeftin operativni trag, ``audit_events`` je
 compliance-grade trajan zapis — jedno ne zamjenjuje drugo.
+
+``LOGIN_FAILURE`` upisuje ``metadata=None`` (bez pokušanog username-a) —
+Radovanova odluka (28.8.2026, nakon review nalaza): ako korisnik greškom
+ukuca lozinku u polje za username, ta vrijednost bi se, za razliku od
+rotirajućeg ``logging`` traga, trajno zadržala u append-only tabeli koja
+se nikad ne briše. Gubitak uvida u koji je username bio meta neuspješnog
+pokušaja je prihvaćen kao mala cijena naspram te trajnosti, posebno u
+sistemu sa šačicom naloga gdje ta informacija ionako nosi nisku istražnu
+vrijednost.
 """
 
 from __future__ import annotations
@@ -129,7 +138,6 @@ def authenticate_user(
                 AuditAction.LOGIN_FAILURE,
                 actor_user_id=None,
                 source_ip=source_ip,
-                metadata={"username": username},
             )
             raise AuthenticationError("pogrešno korisničko ime ili lozinka")
 
@@ -140,7 +148,6 @@ def authenticate_user(
                 AuditAction.LOGIN_FAILURE,
                 actor_user_id=None,
                 source_ip=source_ip,
-                metadata={"username": username},
             )
             raise AuthenticationError("pogrešno korisničko ime ili lozinka")
 

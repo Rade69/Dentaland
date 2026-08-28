@@ -1,8 +1,27 @@
 ---
 task_id: DENT-IMPROVE-014B
 implementer: claude
-status: "IMPLEMENTED — čeka review (Codex + Crush, v3.1 princip #7)"
+status: "IMPLEMENTED — Codex (PASS) i Crush (PASS_WITH_NOTES, N1) review završeni. N1 fix primijenjen (28.8.2026). Čeka kratak re-review pa human approval."
 ---
+
+## Fix nakon review N1 (Crush, 28.8.2026) — prazna LOGIN_FAILURE metadata
+
+Crushov N1 (non-blocking): audit tabela je append-only (nikad se ne
+briše), za razliku od rotirajućeg `logger.info` traga — ako korisnik
+greškom ukuca lozinku u polje za username, ona bi TRAJNO ostala u
+`metadata_minimal`. Radovan je, nakon obrazloženja tradeoffa, odlučio da
+je trajnost veći rizik od gubitka istražne vrijednosti (mali broj naloga
+u sistemu čini "koji username je bio meta" niskovrijednim podatkom).
+
+**Izmjena:** `metadata={"username": username}` uklonjeno sa oba
+`LOGIN_FAILURE` poziva u `src/dentaland/services/auth.py` — `metadata`
+sad ostaje na default `None`. Docstring modula ažuriran. Test
+`test_login_failure_metadata_sadrzi_pokusani_username_ali_nikad_lozinku`
+preimenovan u `test_login_failure_metadata_je_prazna_ne_sadrzi_ni_username_ni_lozinku`,
+sad provjerava `metadata_minimal is None` umjesto prisustva username-a.
+Sekcija "Odluka: LOGIN_FAILURE metadata_minimal sadrži pokušani
+username" niže u ovom izvještaju opisuje ORIGINALNU (sad promijenjenu)
+odluku — ostavljena kao istorijski kontekst, ne kao trenutno stanje.
 
 ## Ispravka atribucije (27.8.2026)
 

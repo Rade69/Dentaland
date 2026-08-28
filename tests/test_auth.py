@@ -485,13 +485,15 @@ def test_login_nepostojeci_username_upisuje_login_failure_sa_null_actor(
     assert event.source_ip is not None
 
 
-def test_login_failure_metadata_sadrzi_pokusani_username_ali_nikad_lozinku(
+def test_login_failure_metadata_je_prazna_ne_sadrzi_ni_username_ni_lozinku(
     client: TestClient, session_factory: sessionmaker[Session]
 ) -> None:
-    """DENT-IMPROVE-014B odluka: `metadata_minimal` za LOGIN_FAILURE nosi
-    pokušani username (korisno za istragu brute-force obrazaca, ne novi
-    enumeration kanal jer audit tabela nije javno izložena) — ali NIKAD
-    lozinku, bez obzira koliko puta se pokuša."""
+    """DENT-IMPROVE-014B odluka (28.8.2026, Radovan nakon review nalaza):
+    `metadata_minimal` za LOGIN_FAILURE je PRAZNA — pokušani username se
+    NE upisuje, jer je audit_events append-only i nikad se ne briše (za
+    razliku od rotirajućeg logging traga). Rizik da neko greškom ukuca
+    lozinku u polje za username time nikad ne može trajno završiti u
+    bazi. Lozinka se ni ranije nije upisivala, ali provjeravamo i to."""
     _make_user(session_factory, "sestra1", "tajna-lozinka-xyz", UserRole.RECEPTION)
 
     _login(client, "sestra1", "tajna-lozinka-xyz-pogresno")
@@ -499,11 +501,7 @@ def test_login_failure_metadata_sadrzi_pokusani_username_ali_nikad_lozinku(
     events = _audit_events(session_factory)
     failure_events = [e for e in events if e.action == AuditAction.LOGIN_FAILURE]
     assert len(failure_events) == 1
-    metadata = failure_events[0].metadata_minimal
-    assert metadata is not None
-    assert "sestra1" in metadata
-    assert "tajna-lozinka-xyz" not in metadata
-    assert "tajna-lozinka-xyz-pogresno" not in metadata
+    assert failure_events[0].metadata_minimal is None
 
 
 def test_login_metadata_minimal_nikad_ne_sadrzi_lozinku_ni_na_uspjeh(
