@@ -301,13 +301,58 @@ app nema koncept ulogovanog korisnika → appointment CRUD audit zapisi
 događaji (`DENT-IMPROVE-014B`, iz backend auth-a) imaju pravi actor. Ne
 graditi desktop login da se ovo "riješi" — van obima.
 
-**`DENT-IMPROVE-014B`** (implementer Pi) i **`DENT-IMPROVE-014C`**
-(implementer Crush) — LOGIN_SUCCESS/FAILURE i CREATE/UPDATE/CANCEL/
-DELETE_APPOINTMENT instrumentacija. Nula preklapanja fajlova
-(`auth.py`+`backend/main.py` vs `appointments.py`), potvrđeno prije
-starta oba taska — pravi paralelizam. U TOKU/pokrenuti nakon merge-a
-jezgra — vidi `agent_reports/DENT-IMPROVE-014B-task-contract.md` i
-`DENT-IMPROVE-014C-task-contract.md` za pun obim.
+**`DENT-IMPROVE-014C` DONE, merged `886467c`, 28.8.2026.**
+CREATE/UPDATE/CANCEL/DELETE_APPOINTMENT instrumentacija
+(`src/dentaland/services/appointments.py`), atomsko preko `session=`
+(dijeli transakciju sa samom izmjenom termina). Codex (2 runde,
+PASS_WITH_NOTES — runda 1 tražila trajan adversarni test za atomičnost,
+implementer ga dodao i lično reprodukovao pad/prolaz) + Pi
+(PASS_WITH_NOTES). Claude (koordinator) nezavisno potvrdio.
+**Atribucija:** kontrakt je izvorno pretpostavio implementer=crush, ali
+je Claude session sam implementirao — Radovan je tražio ispravku
+atribucije (implementer: claude), ne ponovno pisanje koda (kod je
+nezavisno verifikovan prije zadržavanja).
+
+**`DENT-IMPROVE-014B` implementiran, DONE, merge čeka Codex+Crush
+review.** LOGIN_SUCCESS/FAILURE instrumentacija (`src/dentaland/services/auth.py`
++ `backend/main.py` za `source_ip`). Ista atribucijska ispravka kao 014C
+(kontrakt pretpostavio implementer=pi, stvarno implementer=claude,
+Radovanova odluka da se zadrži kod uz ispravljenu atribuciju). Claude
+(koordinator) nezavisno potvrdio (416 pytest, ruff, mypy, agent_sensors
+čisti) i pušovao (`ed1bffd`) — čeka Codex + Crush review pa human
+approval.
+
+**`REF-16`** (kidanje cirkularnog importa `main_window ↔
+appointment_controller`, implementer Pi — stvaran Pi ovaj put) je
+takođe pronađen necommitovan i obrađen isti dan: `AppointmentController`
+lazy-uvozi dijaloge preko postojećeg `desktop/views/dialogs/__init__.py`
+registry-a umjesto preko `main_window.py`, koji više ne re-eksportuje 5
+dijalog klasa. `OverlapError` re-eksport (REF-00 baseline) ostaje.
+Pušovano (`f8ebbd0`) — čeka Codex review pa Claude (Reviewer 2) pa
+human approval.
+
+**`DENT-IMPROVE-015` DONE, merged `ee52587`, 28.8.2026.** Rate limiting
+na preostala 4 backend endpointa (`logout` 10/min, `get_pending_requests`
+30/min, `confirm`/`reject` 20/min svaki) — zatvara stvaran propust
+CLAUDE.md pravila ("rate limiting na svakom javnom endpointu"), 4 od 6
+endpointa su bila nezaštićena. Implementer Pi, Claude jedini reviewer
+(LOW risk) PASS_WITH_NOTES. Brojevi limita su bili neizmjerene procjene
+— Radovan ih potvrdio 28.8.2026 nakon obrazloženja (auto-refresh
+dashboard `AUTO_REFRESH_INTERVAL_MS=20_000` × do 3 otvorene instance
+≈ 9/min baseline, limiti ostavljaju rezervu).
+
+**Napomena o sesijskom kontinuitetu (28.8.2026):** REF-16, DENT-IMPROVE-014B/014C
+i DENT-IMPROVE-015 su svi pronađeni kao NECOMMITOVAN, već-implementiran
+rad u worktree-ovima (paralelna Claude Code sesija je implementirala i
+djelimično review-ovala, ali nikad nije prošla kroz commit/push/merge
+korak). Isto se desilo i sa DENT-IMPROVE-012/013/014 (jezgro) ranije istog
+dana — čitava ta serija je bila mergovana ispravno (human approval
+potvrđen u merge porukama) ali task contract `status:` polja su ostala
+neažurirana. **Pouka za ubuduće:** na početku nove sesije UVIJEK provjeriti
+`git worktree list` + `git status --short` u SVAKOM worktree-u (ne samo
+glavnom repou) prije pretpostavke da je "sljedeći korak" ono što task
+contract-i tvrde — status polja mogu zaostajati za stvarnošću ako je
+prethodna sesija prekinuta prije finalnog koraka.
 
 ## Agent availability
 
@@ -319,23 +364,25 @@ uloga.
 
 ## Current verification baseline
 
-Izmjereno 27.8.2026 na `main`, post-merge gate nakon DENT-IMPROVE-013
-(merge `da67027`):
+Izmjereno 28.8.2026 na `main`, post-merge gate nakon DENT-IMPROVE-014C
+(merge `886467c`, POSLJEDNJI merge do sada):
 
-- `pytest tests/ -q` (bez `DATABASE_URL`/`DATABASE_URL_TEST`) → **396
-  passed, 2 skipped**, 12 warnings, ~20-25s. Skip su i dalje dva
-  `tests/test_postgres_migration.py` testa (Postgres env nije postavljen).
-  Sa `DATABASE_URL`+`DATABASE_URL_TEST` postavljenim → 398 passed
-  očekivano (nije ponovo mjereno u ovom krugu — DENT-IMPROVE-013 ne dira
-  Postgres put).
-- `ruff check src/dentaland desktop backend tests scripts/agent_sensors.py scripts/create_user.py` →
+- `pytest tests/ -q` (bez `DATABASE_URL`/`DATABASE_URL_TEST`) → **423
+  passed, 2 skipped**, 16 warnings, ~30-35s. Skip su i dalje dva
+  `tests/test_postgres_migration.py` testa (Postgres env nije postavljen
+  u ovoj komandi).
+- `ruff check src/dentaland desktop backend tests scripts/agent_sensors.py` →
   **All checks passed**.
-- `mypy src/dentaland desktop backend` → **Success: no issues found in 53
+- `mypy src/dentaland desktop backend` → **Success: no issues found in 54
   source files.**
 - `python scripts/agent_sensors.py --all` → **0 blocking findings**.
 - `web/tests/e2e` (`npx playwright test`) → **6 passed** (od
   DENT-IMPROVE-011 — zahtijeva `npm install` jednokratno, Node v24+; nije
-  ponovo mjereno u ovom krugu, DENT-IMPROVE-013 ga nije dirao).
+  ponovo mjereno u ovom krugu).
+
+**Još neintegrisano (poslato na review, nije mergovano):** `DENT-IMPROVE-014B`
+(pušovano `ed1bffd`, čeka Codex+Crush), `REF-16` (pušovano `f8ebbd0`, čeka
+Codex pa Claude).
 
 Ne tretirati broj testova kao trajno pravilo — raste sa svakim novim
 taskom. Prilikom sljedeće provjere, izmjeriti ponovo, ne kopirati ovaj broj
@@ -381,7 +428,16 @@ ažurirati na prazan skup (sitan follow-up, ne nov task).
 
 ## Next known work
 
-REF-00..15 paket i Prioritet C `DENT-IMPROVE-010/011/012/013` su svi DONE
-(vidi tabele/sekcije gore). **`DENT-IMPROVE-014` (append-only audit log)
-je sad jedini neblokiran Prioritet C task** — `DENT-IMPROVE-015`
-(production gate) čeka njega. Task Contract za 014 još nije napisan.
+REF-00..16 paket i `DENT-IMPROVE-010/011/012/013/014/014C/015` su svi
+DONE (vidi sekcije gore za detalje). Preostalo, u toku:
+
+- **`DENT-IMPROVE-014B`** (login audit) — pušovano `ed1bffd`, čeka Codex
+  + Crush review, pa Claude ne treba dodatni review (nije u
+  `reviewers:` listi tog kontrakta), pa human approval.
+- **`REF-16`** (kidanje cirkularnog importa) — pušovano `f8ebbd0`, čeka
+  Codex review, pa Claude (Reviewer 2), pa human approval.
+
+Prioritet C backlog (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`) je time
+funkcionalno završen do kraja liste — nakon 014B/REF-16 merge-a nema
+poznatog otvorenog Prioritet C stavka. Radovanova odluka šta je sljedeći
+prioritet (Faza 1 priprema dalje, ili nešto drugo).

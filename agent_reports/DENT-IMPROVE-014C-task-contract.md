@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-014C
 risk: HIGH
 implementer: claude
 reviewers: [codex, pi]
-status: "READY FOR HUMAN APPROVAL — implementirano, Codex (PASS_WITH_NOTES, 2 runde) i Pi (PASS_WITH_NOTES) review završeni, Claude nezavisno potvrdio (419 pytest, ruff, mypy, agent_sensors čisti). Čeka Radovanovo odobrenje."
+status: "DONE — MERGED u main (merge commit 886467c, 28.8.2026). Post-merge integration gate PASS (423 pytest, ruff, mypy, agent_sensors čisti). Radovan human approval."
 created_at: 2026-08-27
 depends_on: DENT-IMPROVE-014
 ---

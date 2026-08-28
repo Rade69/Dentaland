@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-015
 risk: LOW
 implementer: pi
 reviewers: [claude]
-status: "IMPLEMENTED — izmjene spremne u worktree task/DENT-IMPROVE-015-backend-rate-limit, NIJE commitovano, čeka review + human approval + merge."
+status: "DONE — MERGED u main (merge commit ee52587, 28.8.2026). Brojevi limita potvrđeni od Radovana (obrazloženje: auto-refresh dashboard 20s × 3 instance ~9/min baseline, limiti ostavljaju rezervu). Post-merge integration gate PASS (414 pytest, ruff, mypy)."
 created_at: 2026-08-26
 ---
 
