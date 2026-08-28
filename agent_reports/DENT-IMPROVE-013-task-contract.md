@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-013
 risk: HIGH
 implementer: claude
 reviewers: [codex, pi]
-status: "IMPLEMENTED — vidi agent_reports/2026-08-27-DENT-IMPROVE-013-auth-rbac.md; čeka Codex (obavezan) + Pi/Crush review, zatim Radovanovo odobrenje."
+status: "DONE — MERGED u main (merge commit da67027, 27.8.2026). Individualni nalozi (Argon2id), server-side sesije, RBAC (RECEPTION-only) na tri ranije nezaštićena endpointa. Fix runda 1 (Codex F1, HIGH): change_password nije bio atomski sa opozivom sesija. Review: Codex+Pi+Crush (svi PASS_WITH_NOTES). Radovan human approval 27.8.2026. Otvara DENT-IMPROVE-014."
 created_at: 2026-08-27
 ---
 

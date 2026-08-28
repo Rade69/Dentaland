@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-012
 risk: HIGH
 implementer: claude
 reviewers: [codex, pi]
-status: "NOT STARTED — task contract napisan 26.8.2026, čeka worktree + početak implementacije. Pristup bazi riješen (izolovana lokalna PostgreSQL instanca, port 5433, vidi Kontekst)."
+status: "DONE — MERGED u main (merge commit 824590f, 27.8.2026). SQLite→PostgreSQL migracija bez EXCLUDE constrainta (odvojeno u budući task zbog nerješenog pravnog pitanja). Dva fix kruga (Codex F1: percent-encoded DATABASE_URL; Pi nalaz potvrđen Crush-em: bezuslovan override pregazio test-izolovanu SQLite bazu). Review: Codex+Pi+Crush (svi PASS_WITH_NOTES). Radovan human approval 27.8.2026. Otvara DENT-IMPROVE-013."
 created_at: 2026-08-26
 ---
 

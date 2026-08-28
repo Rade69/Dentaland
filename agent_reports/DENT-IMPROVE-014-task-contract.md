@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-014
 risk: HIGH
 implementer: claude
 reviewers: [codex, pi]
-status: "NOT STARTED — task contract napisan 27.8.2026. MORA se mergovati u main PRIJE nego 014B/014C mogu početi."
+status: "DONE (jezgro) — MERGED u main (merge commit 41cb94e, 27.8.2026). AuditEvent model + AuditAction enum (v3.1 šema, 9 polja), write_audit_event servisna funkcija sa opcionim session= za atomsku upotrebu. Nula instrumentacije stvarnih poziva — to rade DENT-IMPROVE-014B/014C. Review: Codex+Pi (PASS_WITH_NOTES). Radovan human approval 27.8.2026."
 created_at: 2026-08-27
 ---
 
