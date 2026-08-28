@@ -14,12 +14,23 @@ korisničko ime nepoznato ili je lozinka pogrešna (zaštita od user
 enumeration) — i u oba slučaja izvršava Argon2 verifikaciju (na pravom
 ili dummy hash-u) da vremenski profil bude što bliži identičan.
 
-Audit granica (Radovanova odluka, kontrakt DENT-IMPROVE-013): login
-pokušaji idu SAMO u standardni ``logging`` modul (username, ishod,
-timestamp — NIKAD lozinka/token/cookie vrijednost). Prava append-only
-audit tabela je poseban budući zadatak (DENT-IMPROVE-014) — logovanje je
-namjerno koncentrisano na dva mjesta ispod (`authenticate_user`) da se
-kasnije lako zamijeni/dopuni jednim audit pozivom.
+Audit trag (DENT-IMPROVE-014B): pored standardnog ``logging`` poziva
+(username, ishod, timestamp — NIKAD lozinka/token/cookie vrijednost), oba
+mjesta u ``authenticate_user`` upisuju i append-only red u ``audit_events``
+preko ``write_audit_event`` (DENT-IMPROVE-014 jezgro) — ``LOGIN_SUCCESS``
+sa tačnim ``actor_user_id``, ``LOGIN_FAILURE`` sa ``actor_user_id=NULL``
+(user enumeration zaštita i na audit nivou, ne samo na HTTP response).
+``logging`` ostaje kao jeftin operativni trag, ``audit_events`` je
+compliance-grade trajan zapis — jedno ne zamjenjuje drugo.
+
+``LOGIN_FAILURE`` upisuje ``metadata=None`` (bez pokušanog username-a) —
+Radovanova odluka (28.8.2026, nakon review nalaza): ako korisnik greškom
+ukuca lozinku u polje za username, ta vrijednost bi se, za razliku od
+rotirajućeg ``logging`` traga, trajno zadržala u append-only tabeli koja
+se nikad ne briše. Gubitak uvida u koji je username bio meta neuspješnog
+pokušaja je prihvaćen kao mala cijena naspram te trajnosti, posebno u
+sistemu sa šačicom naloga gdje ta informacija ionako nosi nisku istražnu
+vrijednost.
 """
 
 from __future__ import annotations
@@ -37,8 +48,9 @@ from argon2.exceptions import InvalidHash, VerificationError, VerifyMismatchErro
 from sqlalchemy import select
 from sqlalchemy.orm import Session as OrmSession
 
+from dentaland.models import AuditAction, User, UserRole, utcnow
 from dentaland.models import Session as SessionModel
-from dentaland.models import User, UserRole, utcnow
+from dentaland.services.audit import write_audit_event
 
 logger = logging.getLogger("dentaland.auth")
 
@@ -97,11 +109,22 @@ def _hash_token(token: str) -> str:
 
 
 def authenticate_user(
-    session_factory: Callable[[], OrmSession], username: str, password: str
+    session_factory: Callable[[], OrmSession],
+    username: str,
+    password: str,
+    *,
+    source_ip: str | None = None,
 ) -> AuthenticatedUser:
     """Provjeri kredencijale. Diže `AuthenticationError` (generička poruka)
     na pogrešno korisničko ime ILI pogrešnu lozinku ILI neaktivan nalog —
-    namjerno se ne razlikuje koji je slučaj u pitanju."""
+    namjerno se ne razlikuje koji je slučaj u pitanju.
+
+    `source_ip` je opcion (default `None`) — backend route handler
+    (`backend/main.py`) ga popunjava iz stvarnog FastAPI `Request` objekta
+    (`request.client.host`); `auth.py` sam nema pristup `Request` tipu
+    (servisni sloj ostaje framework-agnostičan). Postojeći pozivaoci koji
+    ga ne prosljeđuju (npr. desktop, testovi) i dalje rade nepromijenjeno —
+    audit red se tad upisuje sa `source_ip=NULL`."""
     with session_factory() as session:
         user = session.scalar(select(User).where(User.username == username))
 
@@ -110,13 +133,33 @@ def authenticate_user(
             # hash-a) — drži vremenski profil blizak stvarnom slučaju.
             verify_password(_DUMMY_PASSWORD_HASH, password)
             logger.info("LOGIN_FAILURE username=%r", username)
+            write_audit_event(
+                session_factory,
+                AuditAction.LOGIN_FAILURE,
+                actor_user_id=None,
+                source_ip=source_ip,
+            )
             raise AuthenticationError("pogrešno korisničko ime ili lozinka")
 
         if not verify_password(user.password_hash, password):
             logger.info("LOGIN_FAILURE username=%r", username)
+            write_audit_event(
+                session_factory,
+                AuditAction.LOGIN_FAILURE,
+                actor_user_id=None,
+                source_ip=source_ip,
+            )
             raise AuthenticationError("pogrešno korisničko ime ili lozinka")
 
         logger.info("LOGIN_SUCCESS username=%r", username)
+        write_audit_event(
+            session_factory,
+            AuditAction.LOGIN_SUCCESS,
+            actor_user_id=user.id,
+            resource_type="user",
+            resource_id=user.id,
+            source_ip=source_ip,
+        )
         return AuthenticatedUser(id=user.id, username=user.username, role=user.role)
 
 
