@@ -233,6 +233,7 @@ def login(
 
 
 @app.post("/api/auth/logout", status_code=204)
+@limiter.limit("10/minute")
 def logout(request: Request, response: Response, session_factory: SessionFactoryDep) -> None:
     """Invalidira trenutnu sesiju (ako postoji) i briše kolačić."""
     token = request.cookies.get(SESSION_COOKIE_NAME)
@@ -257,8 +258,11 @@ def submit_booking_request(
 
 
 @app.get("/api/booking-requests", response_model=list[PendingRequestOut])
+@limiter.limit("30/minute")
 def get_pending_requests(
-    session_factory: SessionFactoryDep, _current_user: RequireReceptionDep
+    request: Request,
+    session_factory: SessionFactoryDep,
+    _current_user: RequireReceptionDep,
 ) -> list[PendingRequestOut]:
     return [
         PendingRequestOut(
@@ -274,7 +278,9 @@ def get_pending_requests(
 
 
 @app.post("/api/booking-requests/{request_id}/confirm", status_code=204)
+@limiter.limit("20/minute")
 def confirm(
+    request: Request,
     request_id: int,
     payload: ConfirmIn,
     session_factory: SessionFactoryDep,
@@ -295,8 +301,12 @@ def confirm(
 
 
 @app.post("/api/booking-requests/{request_id}/reject", status_code=204)
+@limiter.limit("20/minute")
 def reject(
-    request_id: int, session_factory: SessionFactoryDep, _current_user: RequireReceptionDep
+    request: Request,
+    request_id: int,
+    session_factory: SessionFactoryDep,
+    _current_user: RequireReceptionDep,
 ) -> None:
     try:
         reject_request(session_factory, request_id)

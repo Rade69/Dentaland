@@ -293,6 +293,11 @@ def test_logout_invalidira_sesiju(
     assert after_logout.status_code == 401
 
 
+def test_rate_limit_na_logout_endpointu(client: TestClient) -> None:
+    statuses = [client.post("/api/auth/logout").status_code for _ in range(11)]
+    assert 429 in statuses, "11. logout zahtjev u minuti treba biti odbijen (limit 10/minute)"
+
+
 # --- Rate limit na login, odvojen od booking-request limita ------------
 
 
