@@ -1,9 +1,9 @@
 ---
 task_id: DENT-IMPROVE-014C
 risk: HIGH
-implementer: crush
+implementer: claude
 reviewers: [codex, pi]
-status: "NOT STARTED — čeka DENT-IMPROVE-014 (jezgro) merge u main prije početka."
+status: "READY FOR HUMAN APPROVAL — implementirano, Codex (PASS_WITH_NOTES, 2 runde) i Pi (PASS_WITH_NOTES) review završeni, Claude nezavisno potvrdio (419 pytest, ruff, mypy, agent_sensors čisti). Čeka Radovanovo odobrenje."
 created_at: 2026-08-27
 depends_on: DENT-IMPROVE-014
 ---
