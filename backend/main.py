@@ -214,9 +214,18 @@ def login(
 
     Generička greška (401, ista poruka) na pogrešno korisničko ime ILI
     pogrešnu lozinku — `authenticate_user` ne otkriva koji je slučaj.
+
+    `source_ip` (DENT-IMPROVE-014B) dolazi iz stvarnog `Request` objekta —
+    dostupan samo ovdje, ne u `auth.py` — i prosljeđuje se u
+    `authenticate_user` da se upiše u `LOGIN_SUCCESS`/`LOGIN_FAILURE`
+    audit zapis. `request.client` može biti `None` (npr. neki test/proxy
+    konteksti) — u tom slučaju `source_ip` ostaje `NULL`, ne diže grešku.
     """
+    source_ip = request.client.host if request.client is not None else None
     try:
-        user = authenticate_user(session_factory, payload.username, payload.password)
+        user = authenticate_user(
+            session_factory, payload.username, payload.password, source_ip=source_ip
+        )
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
 

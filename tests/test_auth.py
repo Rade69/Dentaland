@@ -13,13 +13,13 @@ import logging
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from backend.main import SESSION_COOKIE_NAME, app, get_session_factory, limiter
-from dentaland.models import Base, User, UserRole
+from dentaland.models import AuditAction, AuditEvent, Base, User, UserRole
 from dentaland.services.auth import hash_password, invalidate_all_sessions_for_user
 
 
@@ -425,3 +425,121 @@ def test_login_pokusaji_se_loguju_bez_lozinke(
     assert "LOGIN_FAILURE" in log_text
     assert "tajna-lozinka-xyz" not in log_text
     assert "pogresna-lozinka" not in log_text
+
+
+# --- Audit: LOGIN_SUCCESS/LOGIN_FAILURE (DENT-IMPROVE-014B) -------------
+
+
+def _audit_events(session_factory: sessionmaker[Session]) -> list[AuditEvent]:
+    with session_factory() as session:
+        return list(
+            session.scalars(select(AuditEvent).order_by(AuditEvent.id)).all()
+        )
+
+
+def test_login_uspjeh_upisuje_login_success_audit_zapis(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    user_id = _make_user(session_factory, "sestra1", "lozinka123", UserRole.RECEPTION)
+
+    response = _login(client, "sestra1", "lozinka123")
+    assert response.status_code == 200
+
+    events = _audit_events(session_factory)
+    success_events = [e for e in events if e.action == AuditAction.LOGIN_SUCCESS]
+    assert len(success_events) == 1
+    event = success_events[0]
+    assert event.actor_user_id == user_id
+    assert event.resource_type == "user"
+    assert event.resource_id == user_id
+    assert event.source_ip is not None
+
+
+def test_login_pogresna_lozinka_upisuje_login_failure_sa_null_actor(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    _make_user(session_factory, "sestra1", "lozinka123", UserRole.RECEPTION)
+
+    response = _login(client, "sestra1", "pogresna-lozinka")
+    assert response.status_code == 401
+
+    events = _audit_events(session_factory)
+    failure_events = [e for e in events if e.action == AuditAction.LOGIN_FAILURE]
+    assert len(failure_events) == 1
+    event = failure_events[0]
+    assert event.actor_user_id is None
+    assert event.source_ip is not None
+
+
+def test_login_nepostojeci_username_upisuje_login_failure_sa_null_actor(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    response = _login(client, "ne-postoji-uopste", "bilo-sta")
+    assert response.status_code == 401
+
+    events = _audit_events(session_factory)
+    failure_events = [e for e in events if e.action == AuditAction.LOGIN_FAILURE]
+    assert len(failure_events) == 1
+    event = failure_events[0]
+    assert event.actor_user_id is None
+    assert event.source_ip is not None
+
+
+def test_login_failure_metadata_sadrzi_pokusani_username_ali_nikad_lozinku(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    """DENT-IMPROVE-014B odluka: `metadata_minimal` za LOGIN_FAILURE nosi
+    pokušani username (korisno za istragu brute-force obrazaca, ne novi
+    enumeration kanal jer audit tabela nije javno izložena) — ali NIKAD
+    lozinku, bez obzira koliko puta se pokuša."""
+    _make_user(session_factory, "sestra1", "tajna-lozinka-xyz", UserRole.RECEPTION)
+
+    _login(client, "sestra1", "tajna-lozinka-xyz-pogresno")
+
+    events = _audit_events(session_factory)
+    failure_events = [e for e in events if e.action == AuditAction.LOGIN_FAILURE]
+    assert len(failure_events) == 1
+    metadata = failure_events[0].metadata_minimal
+    assert metadata is not None
+    assert "sestra1" in metadata
+    assert "tajna-lozinka-xyz" not in metadata
+    assert "tajna-lozinka-xyz-pogresno" not in metadata
+
+
+def test_login_metadata_minimal_nikad_ne_sadrzi_lozinku_ni_na_uspjeh(
+    client: TestClient, session_factory: sessionmaker[Session]
+) -> None:
+    """Spot-check preko svih upisanih audit redova (uspjeh + oba neuspjeh
+    scenarija) — lozinka se nigdje ne pojavljuje u `metadata_minimal`."""
+    _make_user(session_factory, "sestra1", "tajna-lozinka-xyz", UserRole.RECEPTION)
+
+    _login(client, "sestra1", "tajna-lozinka-xyz")
+    _login(client, "sestra1", "pogresna-lozinka")
+    _login(client, "ne-postoji-uopste", "bilo-sta-2")
+
+    events = _audit_events(session_factory)
+    assert len(events) == 3
+    for audit_event in events:
+        metadata = audit_event.metadata_minimal
+        assert metadata is None or "tajna-lozinka-xyz" not in metadata
+        assert metadata is None or "pogresna-lozinka" not in metadata
+        assert metadata is None or "bilo-sta-2" not in metadata
+
+
+def test_authenticate_user_bez_source_ip_upisuje_audit_sa_null_ip(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Postojeći pozivaoci koji ne prosljeđuju `source_ip` (npr. desktop,
+    direktni pozivi u testovima) i dalje rade — audit red se upisuje sa
+    `source_ip=NULL`, ne diže grešku."""
+    from dentaland.services.auth import authenticate_user
+
+    _make_user(session_factory, "sestra1", "lozinka123", UserRole.RECEPTION)
+
+    authenticated = authenticate_user(session_factory, "sestra1", "lozinka123")
+    assert authenticated.username == "sestra1"
+
+    events = _audit_events(session_factory)
+    success_events = [e for e in events if e.action == AuditAction.LOGIN_SUCCESS]
+    assert len(success_events) == 1
+    assert success_events[0].source_ip is None
