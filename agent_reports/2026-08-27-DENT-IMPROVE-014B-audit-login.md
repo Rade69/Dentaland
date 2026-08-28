@@ -1,7 +1,7 @@
 ---
 task_id: DENT-IMPROVE-014B
 implementer: claude
-status: "IMPLEMENTED — Codex (PASS) i Crush (PASS_WITH_NOTES, N1) review završeni. N1 fix primijenjen (28.8.2026). Čeka kratak re-review pa human approval."
+status: "READY FOR HUMAN APPROVAL — Codex PASS i Crush PASS (oba re-review na dfcae0d, N1 riješen, nema novih nalaza). Čeka Radovanovo odobrenje."
 ---
 
 ## Fix nakon review N1 (Crush, 28.8.2026) — prazna LOGIN_FAILURE metadata
