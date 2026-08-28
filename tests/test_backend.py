@@ -253,6 +253,32 @@ def test_rate_limit_na_submit_endpointu(client: TestClient) -> None:
     assert 429 in statuses, "11. zahtjev u minuti treba da bude odbijen (limit 10/minute)"
 
 
+def test_rate_limit_na_get_pending_endpointu(client: TestClient, reception_session: None) -> None:
+    statuses = [client.get("/api/booking-requests").status_code for _ in range(31)]
+    assert 429 in statuses, "31. get_pending zahtjev u minuti treba biti odbijen (limit 30/minute)"
+
+
+def test_rate_limit_na_confirm_endpointu(
+    client: TestClient, doctor_and_service: tuple[int, int], reception_session: None
+) -> None:
+    doctor_id, service_id = doctor_and_service
+    payload = {
+        "doctor_id": doctor_id,
+        "service_id": service_id,
+        "start_time": datetime(2026, 8, 20, 9, 0, tzinfo=UTC).isoformat(),
+    }
+    statuses = [
+        client.post("/api/booking-requests/999/confirm", json=payload).status_code
+        for _ in range(21)
+    ]
+    assert 429 in statuses, "21. confirm zahtjev u minuti treba biti odbijen (limit 20/minute)"
+
+
+def test_rate_limit_na_reject_endpointu(client: TestClient, reception_session: None) -> None:
+    statuses = [client.post("/api/booking-requests/999/reject").status_code for _ in range(21)]
+    assert 429 in statuses, "21. reject zahtjev u minuti treba biti odbijen (limit 20/minute)"
+
+
 def test_scheduler_bira_samo_scheduled_termine_u_uskom_prozoru(
     session_factory: sessionmaker[Session], doctor_and_service: tuple[int, int]
 ) -> None:
