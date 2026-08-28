@@ -10,6 +10,7 @@ from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QApplication, QDialog, QLabel, QMessageBox
 
 from desktop.fake_data import SARAJEVO, FakeStore
+from desktop.views import dialogs as dialogs_mod
 from desktop.views import main_window as main_window_mod
 from desktop.views.main_window import MainWindow
 
@@ -252,7 +253,7 @@ def test_unos_u_svi_doktori_bira_doktora_u_modalu(
         def show_error(self, message):
             pass
 
-    monkeypatch.setattr(main_window_mod, "AppointmentEditorDialog", FakeEditor)
+    monkeypatch.setattr(dialogs_mod, "AppointmentEditorDialog", FakeEditor)
 
     win = MainWindow(appointment_service, week_start)
     qtbot.addWidget(win)
@@ -298,7 +299,7 @@ def test_klik_na_slot_otvara_editor_i_dodaje_termin(qtbot, store, week_start, mo
         def show_error(self, message):
             pass
 
-    monkeypatch.setattr(main_window_mod, "AppointmentEditorDialog", FakeEditor)
+    monkeypatch.setattr(dialogs_mod, "AppointmentEditorDialog", FakeEditor)
     win = MainWindow(store, week_start)
     qtbot.addWidget(win)
 
@@ -371,7 +372,7 @@ def test_overlap_greska_se_prikazuje_u_dijalogu_i_ne_zatvara_ga(
         def show_error(self, message):
             self.errors.append(message)
 
-    monkeypatch.setattr(main_window_mod, "AppointmentEditorDialog", FakeEditor)
+    monkeypatch.setattr(dialogs_mod, "AppointmentEditorDialog", FakeEditor)
     win = MainWindow(appointment_service, week_start)
     qtbot.addWidget(win)
 
@@ -405,7 +406,7 @@ def test_klik_na_termin_otvara_detalje(
         def selected_action(self):
             return None
 
-    monkeypatch.setattr(main_window_mod, "AppointmentDetailsDialog", FakeDetails)
+    monkeypatch.setattr(dialogs_mod, "AppointmentDetailsDialog", FakeDetails)
     win = MainWindow(appointment_service, week_start)
     qtbot.addWidget(win)
 
@@ -466,7 +467,7 @@ def test_delete_akcija_trajno_uklanja_termin_kroz_pravi_servis(
         def exec(self):
             return QDialog.DialogCode.Accepted
 
-    monkeypatch.setattr(main_window_mod, "DeleteAppointmentDialog", FakeDeleteDialog)
+    monkeypatch.setattr(dialogs_mod, "DeleteAppointmentDialog", FakeDeleteDialog)
 
     win._handle_appointment_action(dto.id, "delete")
 
@@ -491,7 +492,7 @@ def test_delete_odustani_ne_brise_termin(
         def exec(self):
             return QDialog.DialogCode.Rejected
 
-    monkeypatch.setattr(main_window_mod, "DeleteAppointmentDialog", FakeDeleteDialog)
+    monkeypatch.setattr(dialogs_mod, "DeleteAppointmentDialog", FakeDeleteDialog)
 
     win._handle_appointment_action(dto.id, "delete")
 
@@ -614,7 +615,7 @@ def test_cancel_na_terminalnom_terminu_prikazuje_poruku(
         def exec(self):
             return QDialog.DialogCode.Accepted
 
-    monkeypatch.setattr(main_window_mod, "CancelAppointmentDialog", FakeCancelDialog)
+    monkeypatch.setattr(dialogs_mod, "CancelAppointmentDialog", FakeCancelDialog)
     win = MainWindow(appointment_service, week_start)
     qtbot.addWidget(win)
     win._cancel_appointment(cancelled)
@@ -640,7 +641,7 @@ def test_delete_nepostojeceg_termina_prikazuje_poruku(
         def exec(self):
             return QDialog.DialogCode.Accepted
 
-    monkeypatch.setattr(main_window_mod, "DeleteAppointmentDialog", FakeDeleteDialog)
+    monkeypatch.setattr(dialogs_mod, "DeleteAppointmentDialog", FakeDeleteDialog)
     win = MainWindow(appointment_service, week_start)
     qtbot.addWidget(win)
     win._delete_appointment(SimpleNamespace(id=99999))
