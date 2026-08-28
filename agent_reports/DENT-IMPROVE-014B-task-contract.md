@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-014B
 risk: HIGH
 implementer: claude
 reviewers: [codex, crush]
-status: "IMPLEMENTED — čeka review (Codex + Crush, v3.1 princip #7). Claude (koordinator) nezavisno potvrdio: 416 pytest, ruff, mypy, agent_sensors čisti."
+status: "DONE — MERGED u main (merge commit 74a1bce, 28.8.2026, auto-merge sa DENT-IMPROVE-015 na backend/main.py i tests/test_auth.py, verifikovano semantički ispravno). Codex + Crush PASS (re-review nakon N1 fixa — LOGIN_FAILURE metadata prazna, Radovanova odluka). Post-merge integration gate PASS (429 pytest, ruff, mypy, agent_sensors čisti)."
 created_at: 2026-08-27
 depends_on: DENT-IMPROVE-014
 ---
