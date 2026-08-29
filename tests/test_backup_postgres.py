@@ -17,6 +17,7 @@ from pathlib import Path
 
 import psycopg2
 import pytest
+from psycopg2 import sql as pg_sql
 from sqlalchemy import create_engine, delete
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import Session, sessionmaker
@@ -30,13 +31,12 @@ from dentaland.backup_postgres import (
     RESTORE_TEST_DB_SUFFIX,
     PostgresBackupConfig,
     RestoreVerificationError,
-    _create_throwaway_database,
-    _decrypt,
+    _check_digests_match,
     _drop_throwaway_database,
+    _read_backup_file,
     _resolve_binary,
     _run_pg_dump,
     _run_pg_restore,
-    _verify_content_matches_manifest,
     _verify_postgres_db,
     build_config,
     create_backup,
@@ -45,6 +45,20 @@ from dentaland.backup_postgres import (
     restore_test,
 )
 from dentaland.models import Base, Doctor
+
+
+def _raw_create_database(database_url: str, name: str) -> None:
+    """Test-only helper — obično ``CREATE DATABASE``, bez self-cleanup
+    kontrakta (za setup adversarnih scenarija gdje test sam kontroliše
+    kada/da li se čisti — vidi ``dentaland.backup_postgres._temporary_database``
+    za produkcijski self-cleanup mehanizam koji se testira zasebno)."""
+    conn = psycopg2.connect(database_url)
+    conn.autocommit = True
+    try:
+        with conn.cursor() as cur:
+            cur.execute(pg_sql.SQL("CREATE DATABASE {}").format(pg_sql.Identifier(name)))
+    finally:
+        conn.close()
 
 DATABASE_URL_TEST = os.environ.get("DATABASE_URL_TEST")
 
@@ -149,7 +163,7 @@ def test_verify_odbija_nepotpunu_semu(config: PostgresBackupConfig) -> None:
     tabelom (bez ostatka Dentaland šeme) mora pasti verifikaciju, ne proći
     kao 'restore uspio'."""
     fake_name = f"{make_url(config.database_url).database}_fake_incomplete_schema_check"
-    _create_throwaway_database(config.database_url, fake_name)
+    _raw_create_database(config.database_url, fake_name)
     fake_url = (
         make_url(config.database_url).set(database=fake_name).render_as_string(hide_password=False)
     )
@@ -204,7 +218,7 @@ def test_restore_hvata_izmijenjen_sadrzaj_uz_isti_broj_redova(
     enc_path = create_backup(config)
 
     tampered_name = f"{make_url(config.database_url).database}_tampered_content_check"
-    _create_throwaway_database(config.database_url, tampered_name)
+    _raw_create_database(config.database_url, tampered_name)
     tampered_url = (
         make_url(config.database_url)
         .set(database=tampered_name)
@@ -214,8 +228,9 @@ def test_restore_hvata_izmijenjen_sadrzaj_uz_isti_broj_redova(
         pg_restore_bin = _resolve_binary("pg_restore", None)
         dump_tmp = config.local_dir / "tampered-restore-check.dump"
         key = load_key(config.key_path)
+        expected_digests, plain_dump = _read_backup_file(enc_path, key)
         try:
-            _decrypt(enc_path, dump_tmp, key)
+            dump_tmp.write_bytes(plain_dump)
             _run_pg_restore(pg_restore_bin, tampered_url, dump_tmp)
         finally:
             dump_tmp.unlink(missing_ok=True)
@@ -230,7 +245,7 @@ def test_restore_hvata_izmijenjen_sadrzaj_uz_isti_broj_redova(
 
         _, tampered_digests = _verify_postgres_db(tampered_url)
         with pytest.raises(RestoreVerificationError):
-            _verify_content_matches_manifest(enc_path, tampered_digests)
+            _check_digests_match(expected_digests, tampered_digests)
     finally:
         _drop_throwaway_database(config.database_url, tampered_name)
 
@@ -255,7 +270,7 @@ def test_create_throwaway_ne_brise_postojecu_bazu_kod_kolizije(
     )
 
     # Simulira da baza VEC postoji (npr. tuđa) prije nego što restore_test krene.
-    _create_throwaway_database(config.database_url, colliding_name)
+    _raw_create_database(config.database_url, colliding_name)
     colliding_url = (
         make_url(config.database_url)
         .set(database=colliding_name)
@@ -292,8 +307,8 @@ def test_create_throwaway_samocisti_kad_connection_close_pukne_nakon_create(
     """Adversarna regresija za Codex F3 round 3
     (ORIGINAL_POST_CREATE_FAILURE_LEFT_DB): simulira da ``CREATE DATABASE``
     uspije server-side, ali da ``conn.close()`` (post-CREATE cleanup korak
-    UNUTAR ``_create_throwaway_database``) pukne prije nego što funkcija
-    uredno vrati — baza ne smije preživjeti.
+    UNUTAR ``_temporary_database``, PRIJE ``yield``-a) pukne prije nego što
+    kontrolu dobije pozivalac — baza ne smije preživjeti.
 
     ``psycopg2`` konekcija je C-extension objekat — ``close`` se ne može
     monkeypatch-ovati direktno na instanci (read-only atribut), pa se
@@ -326,14 +341,16 @@ def test_create_throwaway_samocisti_kad_connection_close_pukne_nakon_create(
     def _connect_prva_konekcija_ima_flaky_close(*args: object, **kwargs: object) -> object:
         call_count["n"] += 1
         real_conn = real_connect(*args, **kwargs)
-        if call_count["n"] == 1:  # prva konekcija = ona unutar _create_throwaway_database
+        if call_count["n"] == 1:  # prva konekcija = ona unutar _temporary_database
             return _FlakyCloseConnProxy(real_conn)
         return real_conn
 
     monkeypatch.setattr(bp.psycopg2, "connect", _connect_prva_konekcija_ima_flaky_close)
 
-    with pytest.raises(RuntimeError, match="simulirani pad"):
-        bp._create_throwaway_database(config.database_url, throwaway_name)
+    with pytest.raises(RuntimeError, match="simulirani pad"), bp._temporary_database(
+        config.database_url, throwaway_name
+    ):
+        pass  # ne bi trebalo doci dovde ako flaky close pukne prije yield-a
 
     throwaway_url = (
         make_url(config.database_url)
@@ -433,6 +450,39 @@ def test_restore_test_ne_dira_aktivnu_bazu(
 def test_restore_test_bez_backupa_baca_gresku(config: PostgresBackupConfig) -> None:
     with pytest.raises(BackupError, match="Nema backupa"):
         restore_test(config)
+
+
+def test_neuspjesan_drugi_backup_ne_kvari_prethodni_validan_par(
+    config: PostgresBackupConfig,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Adversarna regresija za Codex F5
+    (PREVIOUS_VALID_SAME_DAY_BACKUP_PAIR_BROKEN): neuspješan DRUGI backup
+    pokušaj istog dana (isto dnevno ime) ne smije pokvariti prethodni,
+    VALIDAN dump+manifest par — atomsko objavljivanje preko staging
+    fajla mora ostaviti stari par potpuno netaknutim."""
+    first_path = create_backup(config)
+    original_bytes = first_path.read_bytes()
+
+    real_compute_manifest = bp._compute_manifest
+
+    def _boom(*args: object, **kwargs: object) -> tuple[dict[str, int], dict[str, str]]:
+        raise RuntimeError("simuliran pad drugog backup pokušaja")
+
+    monkeypatch.setattr(bp, "_compute_manifest", _boom)
+    try:
+        with pytest.raises(RuntimeError, match="simuliran pad"):
+            create_backup(config)
+    finally:
+        monkeypatch.setattr(bp, "_compute_manifest", real_compute_manifest)
+
+    # Prethodni validan par MORA ostati bit-za-bit netaknut.
+    assert first_path.read_bytes() == original_bytes
+    # I dalje se uspješno restore-test-uje.
+    result = restore_test(config)
+    assert result.backup_path == first_path
+    # Nema zaostalih staging fajlova.
+    assert not any(config.cloud_dir.glob("*.staging"))
 
 
 def test_rotacija_zadrzava_samo_daily_keep(config: PostgresBackupConfig) -> None:

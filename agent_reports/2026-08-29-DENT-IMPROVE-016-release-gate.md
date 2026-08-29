@@ -251,14 +251,66 @@ dva dublja problema — jedan nov (F1), jedan ponovo otvoren (F3):
   55 source files**.
 - `python scripts/agent_sensors.py --all` → **0 blocking findings**.
 
+## Fix runda 4 (Codex REJECT četvrti put, 29.8.2026) — F3 caller-gap + F5 (nov, HIGH)
+
+Codexova četvrta re-verifikacija je potvrdila F1/F2/F4 kao trajno
+zatvorene, ali pokazala da F3 ima još uži preostali prozor, i otkrila
+NOV HIGH nalaz (F5):
+
+- **F3 (`POST_HELPER_RETURN_GAP_LEFT_DB=True`):** self-cleanup UNUTAR
+  `_create_throwaway_database` je ispravno pokrivao greške unutar te
+  funkcije — ali oba pozivaoca su je pozivala PRIJE uspostavljanja
+  SVOG `try/finally` za DROP. Ako bi izuzetak pogodio TAČNO na granici
+  između uspješnog povratka helpera i ulaska pozivaoca u svoj `try`
+  (npr. signal/`KeyboardInterrupt`), ni jedna strana ne bi imala
+  cleanup obavezu aktivnu. **Fix:** `_create_throwaway_database` i
+  `_drop_throwaway_database` spojeni u JEDAN `@contextlib.contextmanager`
+  (`_temporary_database`) čiji `try/finally` pokriva CIJELI životni vijek
+  baze — kreiranje, `yield` pozivaocu, i DROP — bez ijedne praznine
+  između faza. Pozivaoci (`create_backup`, `restore_test`) sad koriste
+  `with _temporary_database(url, name): ...` umjesto ručnog
+  create+try/finally sklopa.
+- **F5 (HIGH, nov, `PREVIOUS_VALID_SAME_DAY_BACKUP_PAIR_BROKEN`):**
+  fix runde 3 je pisao dump i manifest kao DVA odvojena fajla, svaki
+  objavljen svojim `Path.replace()` pozivom — ako DRUGI replace pukne
+  nakon što je PRVI uspio, prethodni validan par (dnevno ime se ponavlja)
+  biva pokvaren/nekompletan. **Fix:** dump i manifest se sad pakuju u
+  JEDAN kombinovan fajl (`_pack_backup_file`/`_unpack_backup_file` —
+  `[8B dužina][manifest JSON][enkriptovan dump]`), pisan na STAGING
+  putanju i objavljen JEDNIM `Path.replace()` pozivom tek kad SVE uspije
+  — stvarna atomičnost, nema prozora između dva koraka jer postoji samo
+  jedan. `.manifest.json` sidecar mehanizam iz runde 2/3 je uklonjen u
+  potpunosti (zamijenjen ovim).
+
+Novi adversarni regresioni testovi: prošireni
+`test_create_throwaway_samocisti_kad_connection_close_pukne_nakon_create`
+(sad testira `_temporary_database` direktno) i nov
+`test_neuspjesan_drugi_backup_ne_kvari_prethodni_validan_par`
+(simulira pad `_compute_manifest` na DRUGOM pokušaju istog dana,
+potvrđuje da prvi validan par ostaje bit-za-bit netaknut i i dalje
+prolazi `restore_test`, i da nema zaostalih `.staging` fajlova).
+
+## Verifikacija (nakon fix runde 4)
+
+- `pytest tests/test_backup_postgres.py -v` (sa `DATABASE_URL_TEST`) →
+  **16 passed** (15 iz runde 3 + 1 nov adversarni regresioni test za F5;
+  F3 test prerađen da testira `_temporary_database`).
+- `pytest tests/ -q` (sa `DATABASE_URL_TEST`) → **445 passed, 2 failed**
+  — ista dva pre-postojeća OUT_OF_SCOPE_FINDING failure-a, nepromijenjena.
+- `ruff check src/dentaland desktop backend tests scripts/agent_sensors.py`
+  → **All checks passed**.
+- `mypy src/dentaland desktop backend` → **Success: no issues found in
+  55 source files**.
+- `python scripts/agent_sensors.py --all` → **0 blocking findings**.
+
 ## Required output
 
 ```yaml
 verdict: PASS_WITH_NOTES
 blocking_findings: []
 evidence:
-  - src/dentaland/backup_postgres.py (F1-F4 popravljeni kroz tri runde, uklj. snapshot race i cleanup handoff gap)
-  - tests/test_backup_postgres.py (15 passed, uklj. 9 adversarnih regresionih testova za F1/F2/F3/F4 kroz sve tri runde)
+  - src/dentaland/backup_postgres.py (F1-F5 popravljeni kroz cetiri runde - snapshot race, unified cleanup context manager, atomsko jednofajlno objavljivanje)
+  - tests/test_backup_postgres.py (16 passed, uklj. 10 adversarnih regresionih testova za F1/F2/F3/F4/F5 kroz sve cetiri runde)
   - docs/dentaland-postgres-backup-operativni-vodic.md
   - docs/dentaland-breach-runbook.md
   - docs/dentaland-retention-politika.md

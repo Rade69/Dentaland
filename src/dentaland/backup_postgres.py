@@ -31,7 +31,7 @@ import secrets
 import shutil
 import subprocess
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -155,16 +155,59 @@ def _resolve_binary(name: str, env: Mapping[str, str] | None) -> str:
     )
 
 
-def _encrypt(plain_path: Path, enc_path: Path, key: bytes) -> None:
-    enc_path.write_bytes(Fernet(key).encrypt(plain_path.read_bytes()))
+def _encrypt_bytes(data: bytes, key: bytes) -> bytes:
+    return Fernet(key).encrypt(data)
 
 
-def _decrypt(enc_path: Path, plain_path: Path, key: bytes) -> None:
+def _decrypt_bytes(data: bytes, key: bytes) -> bytes:
     try:
-        data = Fernet(key).decrypt(enc_path.read_bytes())
+        return Fernet(key).decrypt(data)
     except InvalidToken as exc:
-        raise BackupError(f"Neispravan ključ ili oštećen backup: {enc_path}") from exc
-    plain_path.write_bytes(data)
+        raise BackupError("Neispravan ključ ili oštećen backup (dump dio).") from exc
+
+
+_MANIFEST_LENGTH_PREFIX_BYTES = 8
+
+
+def _pack_backup_file(digests: dict[str, str], encrypted_dump: bytes) -> bytes:
+    """Kombinuje sadržajni manifest i enkriptovan dump u JEDAN fajl.
+
+    Codex review F5 (2026-08-29,
+    ``PREVIOUS_VALID_SAME_DAY_BACKUP_PAIR_BROKEN``): dva odvojena fajla
+    (dump + sidecar manifest) zahtijevaju DVA odvojena atomska koraka da
+    bi se objavili zajedno — ako drugi pukne nakon prvog, prethodni
+    validan par biva pokvaren (mismatch). Jedan fajl = jedan
+    ``Path.replace()`` = stvarna atomičnost, nema prozora između.
+
+    Format: ``[8 bajtova dužina manifesta][manifest JSON][enkriptovan dump]``.
+    Manifest NIJE enkriptovan — sadrži samo SHA-256 otiske, ne sirove
+    podatke, prihvatljivo za operativnu metapodatak.
+    """
+    manifest_bytes = json.dumps({"content_digests": digests}).encode("utf-8")
+    length_prefix = len(manifest_bytes).to_bytes(_MANIFEST_LENGTH_PREFIX_BYTES, "big")
+    return length_prefix + manifest_bytes + encrypted_dump
+
+
+def _unpack_backup_file(data: bytes) -> tuple[dict[str, str], bytes]:
+    if len(data) < _MANIFEST_LENGTH_PREFIX_BYTES:
+        raise BackupError("Backup fajl je prekratak/oštećen (nedostaje manifest header).")
+    length = int.from_bytes(data[:_MANIFEST_LENGTH_PREFIX_BYTES], "big")
+    manifest_bytes = data[_MANIFEST_LENGTH_PREFIX_BYTES : _MANIFEST_LENGTH_PREFIX_BYTES + length]
+    encrypted_dump = data[_MANIFEST_LENGTH_PREFIX_BYTES + length :]
+    try:
+        payload = json.loads(manifest_bytes)
+    except ValueError as exc:
+        raise BackupError(f"Manifest header u backup fajlu je neispravan: {exc}") from exc
+    digests = payload.get("content_digests")
+    if not isinstance(digests, dict):
+        raise BackupError("Backup fajl nema 'content_digests' u manifest headeru.")
+    return digests, encrypted_dump
+
+
+def _read_backup_file(enc_path: Path, key: bytes) -> tuple[dict[str, str], bytes]:
+    """Učitaj kombinovani backup fajl: (snimljen manifest, DEKRIPTOVAN plain dump)."""
+    digests, encrypted_dump = _unpack_backup_file(enc_path.read_bytes())
+    return digests, _decrypt_bytes(encrypted_dump, key)
 
 
 def _extract_password(database_url: str) -> str | None:
@@ -244,22 +287,16 @@ def _latest_backup(cloud_dir: Path) -> Path | None:
 
 
 def rotate_backups(config: PostgresBackupConfig) -> list[Path]:
-    """Zadrži zadnjih ``daily_keep`` dumpova, obriši ostalo (uklj. manifest
-    sidecar fajlove); vrati obrisane."""
+    """Zadrži zadnjih ``daily_keep`` dumpova, obriši ostalo; vrati obrisane."""
     files = _list_backups(config.cloud_dir)
     to_delete = files[config.daily_keep :]
     for path in to_delete:
         path.unlink(missing_ok=True)
-        _manifest_path(path).unlink(missing_ok=True)
     return to_delete
 
 
 def _write_last_backup(cloud_dir: Path, when: datetime) -> None:
     (cloud_dir / LAST_BACKUP_FILENAME).write_text(when.isoformat() + "\n")
-
-
-def _manifest_path(enc_path: Path) -> Path:
-    return enc_path.with_name(enc_path.name + ".manifest.json")
 
 
 def _rows_digest(rows: list[tuple[object, ...]]) -> str:
@@ -295,24 +332,6 @@ def _compute_manifest(database_url: str) -> tuple[dict[str, int], dict[str, str]
         return counts, digests
     finally:
         conn.close()
-
-
-def _write_content_manifest(enc_path: Path, digests: dict[str, str]) -> None:
-    _manifest_path(enc_path).write_text(json.dumps({"content_digests": digests}, indent=2))
-
-
-def _read_content_manifest(enc_path: Path) -> dict[str, str]:
-    manifest_path = _manifest_path(enc_path)
-    if not manifest_path.exists():
-        raise BackupError(f"Manifest fajl ne postoji za backup: {manifest_path.name}")
-    try:
-        data = json.loads(manifest_path.read_text())
-    except (OSError, ValueError) as exc:
-        raise BackupError(f"Manifest fajl je neispravan: {manifest_path.name}: {exc}") from exc
-    digests = data.get("content_digests")
-    if not isinstance(digests, dict):
-        raise BackupError(f"Manifest fajl nema 'content_digests': {manifest_path.name}")
-    return digests
 
 
 def _run_pg_dump(pg_dump_bin: str, database_url: str, dest_path: Path) -> None:
@@ -363,30 +382,28 @@ def _throwaway_url(database_url: str, throwaway_name: str) -> str:
     return make_url(database_url).set(database=throwaway_name).render_as_string(hide_password=False)
 
 
-def _create_throwaway_database(admin_url: str, throwaway_name: str) -> None:
-    """Kreira privremenu bazu. NAMJERNO bez pre-emptive ``DROP IF EXISTS``
-    (Codex F2 round 2) — samo pokušava ``CREATE``; ako ime već postoji, to
-    je greška (kolizija), ne signal da treba obrisati postojeće.
+@contextlib.contextmanager
+def _temporary_database(admin_url: str, throwaway_name: str) -> Iterator[None]:
+    """Cijeli životni vijek privremene baze (CREATE → tijelo → DROP) kao
+    JEDNA neprekidna cleanup obaveza — nema praznine između "kreiranje
+    uspjelo" i "cleanup je uspostavljen" (Codex F3 round 4: kad su create
+    i cleanup bili u odvojenim funkcijama/koracima, izuzetak TAČNO na toj
+    handoff granici — npr. signal/`KeyboardInterrupt` — je mogao ostaviti
+    bazu bez ijedne strane koja zna da je treba obrisati).
 
-    Samo-čisti se na BILO KOJI izuzetak OSIM kolizije imena (Codex F3
-    round 3 — "post-CREATE handoff gap": ako ``CREATE`` uspije server-side
-    ali nešto DRUGO — npr. cursor/connection cleanup — pukne prije nego
-    što ova funkcija uredno vrati, pozivalac bi mogao pogrešno zaključiti
-    da baza nije kreirana i preskočiti cleanup). Ime je jedinstveno po
-    pozivu, pa je ``DROP IF EXISTS`` u toj grani uvijek bezbjedan — ili
-    ništa ne postoji pod tim imenom, ili je naša upravo-kreirana baza.
-
-    Kontrakt za pozivaoca: ako ova funkcija vrati normalno, baza postoji i
-    pozivalac je vlasnik (mora je sam obrisati kad završi). Ako baci
-    izuzetak, NIJEDNA baza nije ostala iza nje — ili nikad nije ni
-    kreirana, ili je već samo-očišćena.
+    NAMJERNO bez pre-emptive ``DROP IF EXISTS`` (Codex F2 round 2) — samo
+    pokušava ``CREATE``; ako ime već postoji, to je kolizija (``BackupError``),
+    ne signal da treba obrisati postojeće — ta grana NIKAD ne čisti, jer
+    baza nije naša. Svaka DRUGA greška (uklj. odmah nakon uspješnog
+    ``CREATE``-a, unutar tijela ``with`` bloka, ili bilo gdje između) čisti
+    privremenu bazu prije re-raise-a. Ime je jedinstveno po pozivu, pa je
+    ``DROP IF EXISTS`` u toj grani uvijek bezbjedan.
     """
     conn = psycopg2.connect(admin_url)
     conn.autocommit = True
     try:
         with conn.cursor() as cur:
             cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(throwaway_name)))
-        conn.close()
     except psycopg2.errors.DuplicateDatabase as exc:
         conn.close()
         raise BackupError(
@@ -398,6 +415,15 @@ def _create_throwaway_database(admin_url: str, throwaway_name: str) -> None:
             conn.close()
         _drop_throwaway_database(admin_url, throwaway_name)
         raise
+
+    # Od ovog trenutka baza POSTOJI i mi smo vlasnik — SVE što slijedi
+    # (zatvaranje admin konekcije, yield pozivaocu, tijelo with-bloka) je
+    # pod ISTOM cleanup zaštitom, bez praznine.
+    try:
+        conn.close()
+        yield
+    finally:
+        _drop_throwaway_database(admin_url, throwaway_name)
 
 
 def _drop_throwaway_database(admin_url: str, throwaway_name: str) -> None:
@@ -430,16 +456,13 @@ def _verify_postgres_db(database_url: str) -> tuple[dict[str, int], dict[str, st
         ) from exc
 
 
-def _verify_content_matches_manifest(
-    enc_path: Path, restored_digests: dict[str, str]
-) -> None:
+def _check_digests_match(expected: dict[str, str], actual: dict[str, str]) -> None:
     """Uporedi digest restore-ovane baze sa onim snimljenim u trenutku
     backupa. Codex review F1 round 2 (2026-08-29): isti broj redova sa
     IZMIJENJENIM sadržajem je ranije prolazio kao "identično" — ovo je
     stvaran dokaz sadržaja, ne samo broja.
     """
-    expected = _read_content_manifest(enc_path)
-    mismatched = [t for t in CORE_TABLES if expected.get(t) != restored_digests.get(t)]
+    mismatched = [t for t in CORE_TABLES if expected.get(t) != actual.get(t)]
     if mismatched:
         raise RestoreVerificationError(
             "Sadržaj restore-ovane baze se ne poklapa sa backup manifestom "
@@ -465,6 +488,17 @@ def create_backup(
     dumpu, ništa drugo (isti mehanizam kao ``restore_test`` sam po sebi —
     ovo je "self-check" u trenutku kreiranja, odvojeno od periodičnog
     provjeravanja arhiviranog backupa kasnije).
+
+    Manifest i enkriptovan dump se pišu u JEDAN kombinovan fajl
+    (``_pack_backup_file``) preko STAGING putanje, objavljene na konačno
+    (dnevno) ime tek nakon što SVE uspije, kroz JEDAN ``Path.replace()``
+    (atomsko na istom fajl-sistemu). Codex review F5 (2026-08-29,
+    ``PREVIOUS_VALID_SAME_DAY_BACKUP_PAIR_BROKEN``): raniji dvo-fajlni
+    dizajn (dump + sidecar manifest) je zahtijevao DVA odvojena atomska
+    koraka da bi se objavili zajedno — ako drugi pukne nakon prvog,
+    prethodni validan par biva pokvaren (dnevno ime se inače ponavlja,
+    ``rotate_backups`` overwrite semantika). Jedan fajl eliminiše taj
+    prozor u potpunosti.
     """
     now = now or datetime.now().astimezone()
     config.local_dir.mkdir(parents=True, exist_ok=True)
@@ -474,15 +508,15 @@ def create_backup(
     pg_dump_bin = _resolve_binary("pg_dump", env)
     pg_restore_bin = _resolve_binary("pg_restore", env)
     local_tmp = config.local_dir / "backup-tmp.dump"
+    final_enc_path = config.cloud_dir / _backup_filename(config.database_url, now)
+    staging_path = final_enc_path.with_name(final_enc_path.name + ".staging")
     try:
         _run_pg_dump(pg_dump_bin, config.database_url, local_tmp)
-        enc_path = config.cloud_dir / _backup_filename(config.database_url, now)
-        _encrypt(local_tmp, enc_path, key)
+        encrypted_dump = _encrypt_bytes(local_tmp.read_bytes(), key)
 
         manifest_db_name = _throwaway_db_name(config.database_url)
         manifest_url = _throwaway_url(config.database_url, manifest_db_name)
-        _create_throwaway_database(config.database_url, manifest_db_name)
-        try:
+        with _temporary_database(config.database_url, manifest_db_name):
             _run_pg_restore(pg_restore_bin, manifest_url, local_tmp)
             try:
                 _, digests = _compute_manifest(manifest_url)
@@ -490,15 +524,16 @@ def create_backup(
                 raise BackupError(
                     f"Ne mogu izračunati content manifest netom napravljenog dumpa: {exc}"
                 ) from exc
-        finally:
-            _drop_throwaway_database(config.database_url, manifest_db_name)
+
+        staging_path.write_bytes(_pack_backup_file(digests, encrypted_dump))
+        staging_path.replace(final_enc_path)  # JEDAN atomski korak — Codex F5
     finally:
         local_tmp.unlink(missing_ok=True)
+        staging_path.unlink(missing_ok=True)  # no-op ako je već replace-ovan
 
-    _write_content_manifest(enc_path, digests)
     rotate_backups(config)
     _write_last_backup(config.cloud_dir, now)
-    return enc_path
+    return final_enc_path
 
 
 def restore_test(
@@ -506,38 +541,28 @@ def restore_test(
 ) -> RestoreTestResult:
     """Dekriptuj najnoviji backup, restore u PRIVREMENU bazu, verifikuj, obriši je.
 
-    Nikad ne dira ``config.database_url`` bazu samu — koristi se samo kao
-    admin konekcija za ``CREATE``/``DROP DATABASE`` privremene test baze.
-    Ime privremene baze je jedinstveno po pozivu (``_throwaway_db_name``).
-
-    ``_create_throwaway_database`` se poziva IZVAN unutrašnjeg
-    try/finally koji radi cleanup — ta funkcija sad ima sopstveni
-    self-cleanup kontrakt (Codex F2/F3 round 2-3, vidi njen docstring):
-    ako uspije, mi smo vlasnik i moramo obrisati (unutrašnji
-    try/finally ispod to pokriva za sve što se desi POSLIJE uspješnog
-    kreiranja — restore, verifikacija, poređenje manifesta). Ako baci
-    izuzetak, ništa nije ostalo iza nje (ili kolizija — nije naša baza,
-    ne diramo je; ili se sama već očistila) — dodatni cleanup poziv ovdje
-    bi u slučaju kolizije pogrešno obrisao TUĐU bazu.
+    Nikad ne dira ``config.database_url`` bazu samu — ``_temporary_database``
+    koristi je samo kao admin konekciju za ``CREATE``/``DROP DATABASE``
+    privremene test baze, čiji je cijeli životni vijek (uklj. ovaj
+    ``with`` blok) jedna neprekidna cleanup obaveza (Codex F3 round 4 —
+    vidi ``_temporary_database`` docstring).
     """
     enc_path = _latest_backup(config.cloud_dir)
     if enc_path is None:
         raise BackupError(f"Nema backupa za testiranje u: {config.cloud_dir}")
     key = load_key(config.key_path)
+    expected_digests, plain_dump = _read_backup_file(enc_path, key)
 
     pg_restore_bin = _resolve_binary("pg_restore", env)
     dump_tmp = config.local_dir / "restore-test.dump"
     throwaway_name = _throwaway_db_name(config.database_url)
     throwaway_url = _throwaway_url(config.database_url, throwaway_name)
     try:
-        _decrypt(enc_path, dump_tmp, key)
-        _create_throwaway_database(config.database_url, throwaway_name)
-        try:
+        dump_tmp.write_bytes(plain_dump)
+        with _temporary_database(config.database_url, throwaway_name):
             _run_pg_restore(pg_restore_bin, throwaway_url, dump_tmp)
             table_counts, content_digests = _verify_postgres_db(throwaway_url)
-            _verify_content_matches_manifest(enc_path, content_digests)
-        finally:
-            _drop_throwaway_database(config.database_url, throwaway_name)
+            _check_digests_match(expected_digests, content_digests)
     finally:
         dump_tmp.unlink(missing_ok=True)
     return RestoreTestResult(

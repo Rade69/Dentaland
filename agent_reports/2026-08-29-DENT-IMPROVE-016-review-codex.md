@@ -6,11 +6,12 @@ verdict: REJECT
 scope: PASS
 acceptance: FAIL
 blocking_findings:
-  - F1: "Manifest i pg_dump nisu iz istog PostgreSQL snapshot-a"
-  - F3: "created zastavica ponovo ostavlja bazu kod post-CREATE izuzetka prije povratka helpera"
+  - F3: "Post-helper-return prozor i dalje ostavlja kreiranu bazu prije caller finally granice"
+  - F5: "Neuspješan interni restore/manifest može pregaziti prethodni validni backup par"
 reviewed_commit: 9b20d22db9415b469718177fbe284e4109ba2147
 rereviewed_commit: dc9e00882c98a48245052f98a13c970af3248308
 rereviewed_round2_commit: 613436474ba6ab2e887778bcdfbb0dadba9293ba
+rereviewed_round3_commit: 34c661c726ee72d7f15af65ec13cf06d66cce813
 reviewed_at: 2026-08-29
 ---
 
@@ -394,3 +395,128 @@ HTTPS/`EXCLUDE` scope.
 **SLJEDEĆE:** implementer popravlja dvije preostale putanje i dodaje tačne
 regresione testove. Nakon Codex PASS-a ide direktno Radovanov human
 approval.
+
+## Četvrta ciljana re-verifikacija — Fix runda 3 (`34c661c`)
+
+### Verdikt
+
+**REJECT ostaje.** F1 snapshot race je zatvoren. F3 još ima uži
+post-helper-return prozor, a novi interni restore otkriva F5: backup dump i
+manifest nisu objavljeni atomski, pa neuspješan backup može pokvariti
+prethodni validni backup istog dana.
+
+### F1 — ZATVOREN
+
+Manifest se sada računa iz privremenog restorea upravo napravljenog dumpa,
+ne iz žive baze. Time dump i digest opisuju isti sadržaj bez obzira na
+kasnije upise u izvor.
+
+Ponovljen je stroži originalni scenario: stvarni `_run_pg_dump` završi,
+zatim se prije nastavka `create_backup` upiše novi sintetički doktor u
+izvornu bazu. `create_backup` je izračunao manifest iz dumpa i naknadni
+`restore_test` je ispravno prošao:
+
+```text
+ORIGINAL_CONCURRENT_POST_DUMP_WRITE_NOW_PASSES=True
+```
+
+Marker red je poslije probe obrisan. Novi implementerov test mijenja izvor
+tek nakon cijelog `create_backup`; to je slabiji timing od reviewer probe,
+ali produkcijska implementacija je prošla i stroži prozor. Digest i dalje
+hvata statičnu izmjenu sadržaja uz isti broj redova.
+
+### F3 — NIJE POTPUNO ZATVOREN: caller još nema cleanup granicu oko helper povratka
+
+Self-cleanup unutar `_create_throwaway_database` ispravno pokriva stvaran
+`conn.close()` failure NAKON server-side CREATE-a; novi proxy test je
+genuin i ta putanja je zatvorena.
+
+Međutim, oba pozivaoca (`create_backup` i `restore_test`) pozivaju helper
+PRIJE uspostavljanja svog `try/finally` za DROP. Ako helper normalno kreira
+bazu, ali se izuzetak desi odmah nakon njegovog povratka i prije ulaska u
+caller `try`, helper više nema kontrolu, a caller još nema cleanup.
+
+Ponovljen je originalni stroži wrapper: stvarni helper uredno kreira bazu,
+wrapper zatim baca na return granici. Baza je ostala i reviewer ju je morao
+ručno obrisati:
+
+```text
+POST_HELPER_RETURN_GAP_LEFT_DB=True
+MANUAL_CLEANUP_COMPLETED=True
+```
+
+Ovaj prozor je uzak, ali postoji za `KeyboardInterrupt`/procesni signal ili
+drugi exception hook upravo na handoff granici, a task eksplicitno zahtijeva
+cleanup failure putanja. Self-cleanup funkcija sama ne može garantovati ono
+što se desi nakon njenog povratka.
+
+**Minimal correction:** CREATE/ownership/yield/DROP objediniti u context
+manageru čiji `try/finally` obuhvata cijeli život baze, a pozivaoce svesti
+na `with temporary_database(...) as url:`. Collision ostaje failure prije
+ownershipa; sve nakon uspješnog CREATE-a mora biti unutar context-manager
+cleanup granice. Regresioni test treba zadržati i internal-close failure i
+tačan post-create handoff scenario.
+
+### F5 — HIGH: neuspješan backup može pokvariti prethodni validni backup par
+
+`create_backup` piše/enkriptuje direktno na konačni dnevni `enc_path` prije
+internog restorea, obračuna digest-a i pisanja manifesta. Ime sadrži samo
+datum, pa drugi pokušaj istog dana pregazi postojeći validni dump. Ako
+interni restore ili `_compute_manifest` zatim pukne, novi dump ostaje na
+disku, dok manifest nedostaje ili ostaje od prethodnog dumpa.
+
+Adversarna proba:
+
+1. napravi validan backup + manifest;
+2. promijeni sintetički izvorni sadržaj;
+3. ponovi backup sa ISTIM dnevnim imenom i simulira failure internog
+   manifesta nakon što je novi dump već upisan;
+4. pokuša restore prethodnog backup para.
+
+Rezultat:
+
+```text
+SECOND_CREATE_FAILED=True
+PREVIOUS_VALID_SAME_DAY_BACKUP_PAIR_BROKEN=True
+```
+
+Svi marker podaci i privremene baze su očišćeni. Ovo znači da neuspješan
+backup pokušaj ne čuva princip “posljednji poznato-dobar backup ostaje
+upotrebljiv”. `_latest_backup` zatim bira nekompletan/neusklađen artefakt.
+
+**Minimal correction:** dump i manifest graditi pod jedinstvenim privremenim
+imenima; tek nakon uspješnog pg_dump → internal restore → digest → sidecar
+slijeda objaviti oba konačna fajla atomskim `Path.replace`/rename korakom.
+Na bilo koji failure obrisati samo privremene artefakte i ostaviti postojeći
+konačni par netaknut. Dodati regresioni test sa prethodnim validnim parom i
+failure-om drugog pokušaja istog dana.
+
+### F2 i F4 — OSTAJU ZATVORENI
+
+Collision i ownership test čuva postojeću sentinel bazu; nema pre-emptive
+DROP-a. Authority/query password oblici ostaju uklonjeni iz oba subprocess
+argv puta i proslijeđeni kroz `PGPASSWORD`.
+
+### Svježa verifikacija
+
+- `pytest tests/test_backup_postgres.py -v` sa `DATABASE_URL_TEST` →
+  **15 passed**.
+- Puni suite sa `DATABASE_URL_TEST` → **444 passed, 2 failed**; ista dva
+  potvrđena out-of-scope RBAC/Alembic failure-a.
+- Ruff → **All checks passed**.
+- Mypy → **no issues found in 55 source files**.
+- Agent sensors → **0 blocking findings**.
+
+### Handoff
+
+**CILJ:** zatvoriti snapshot, lifecycle i backup-publication integritet.
+
+**URAĐENO:** F1/F2/F4 PASS; F3 i F5 ostaju blocking, pa verdict ostaje
+REJECT.
+
+**NE DIRATI:** dva poznata Postgres suite failure-a i hosting/HTTPS/
+`EXCLUDE` scope.
+
+**SLJEDEĆE:** implementer uvodi ownership context manager i atomsko
+objavljivanje dump+manifest para, sa adversarnim regresijama. Nakon Codex
+PASS-a ide direktno Radovanov human approval.
