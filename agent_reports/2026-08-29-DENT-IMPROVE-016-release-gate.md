@@ -203,14 +203,62 @@ pozivaocu.
   55 source files**.
 - `python scripts/agent_sensors.py --all` → **0 blocking findings**.
 
+## Fix runda 3 (Codex REJECT treći put, 29.8.2026) — F1 snapshot race + F3 ponovo
+
+Codexova treća re-verifikacija je zatvorila F2 i F4 potpuno, ali otkrila
+dva dublja problema — jedan nov (F1), jedan ponovo otvoren (F3):
+
+- **F1 (`VALID_DUMP_REJECTED_AFTER_CONCURRENT_POST_DUMP_WRITE=True`):**
+  fix runde 2 je računao manifest iz ŽIVE izvorne baze NAKON što je
+  `pg_dump` završio — ako neko upiše podatak u aktivnu bazu baš u tom
+  malom vremenskom prozoru, manifest opisuje NOVIJE stanje nego što dump
+  stvarno sadrži, pa bi VALIDAN backup lažno pao restore-test kasnije.
+  **Fix:** `create_backup` sad računa manifest iz PRIVREMENOG RESTORE-A
+  SAMOG DUMPA (isti mehanizam kao `restore_test`), ne iz žive baze —
+  garantuje da manifest opisuje TAČNO ono što je u dumpu, bez obzira šta
+  se dešava sa izvornom bazom poslije. Cijena: `create_backup` sad radi
+  pun restore-ciklus interno (dvostruko sporije nego prije), prihvatljivo
+  za obim jedne ordinacije. Novi test
+  `test_restore_test_prolazi_i_kad_se_izvorna_baza_promijeni_poslije_backupa`
+  direktno reprodukuje Codexov scenario (upis u izvornu bazu POSLIJE
+  `create_backup`) i potvrđuje da `restore_test` i dalje prolazi.
+- **F3 (`ORIGINAL_POST_CREATE_FAILURE_LEFT_DB=True`, ponovo otvoren):**
+  `created` zastavica u pozivaocu se postavljala TEK nakon što je
+  `_create_throwaway_database` uredno vratila — ako CREATE uspije
+  server-side ali NEŠTO DRUGO (npr. cursor/connection cleanup unutar te
+  funkcije) pukne prije povratka, pozivalac nikad nije saznao da treba
+  čistiti. **Fix:** `_create_throwaway_database` sad ima sopstveni
+  self-cleanup kontrakt — ako baci BILO KOJI izuzetak osim kolizije
+  imena, GARANTOVANO nije ostavila bazu iza sebe (sama je čisti prije
+  re-raise-a). Pozivaoci (`restore_test`, `create_backup`) više ne prate
+  `created` zastavicu — samo pozivaju funkciju izvan svog cleanup
+  try/finally-a, koji sad pokriva SAMO korake POSLIJE uspješnog kreiranja.
+  Novi adversarni test
+  `test_create_throwaway_samocisti_kad_connection_close_pukne_nakon_create`
+  koristi tanak proxy oko psycopg2 konekcije (C-extension objekat, `close`
+  se ne može direktno monkeypatch-ovati) da simulira tačno taj handoff gap.
+
+## Verifikacija (nakon fix runde 3)
+
+- `pytest tests/test_backup_postgres.py -v` (sa `DATABASE_URL_TEST`) →
+  **15 passed** (13 iz runde 2 + 2 nova adversarna regresiona testa za
+  F1 snapshot race i F3 handoff gap).
+- `pytest tests/ -q` (sa `DATABASE_URL_TEST`) → **444 passed, 2 failed**
+  — ista dva pre-postojeća OUT_OF_SCOPE_FINDING failure-a, nepromijenjena.
+- `ruff check src/dentaland desktop backend tests scripts/agent_sensors.py`
+  → **All checks passed**.
+- `mypy src/dentaland desktop backend` → **Success: no issues found in
+  55 source files**.
+- `python scripts/agent_sensors.py --all` → **0 blocking findings**.
+
 ## Required output
 
 ```yaml
 verdict: PASS_WITH_NOTES
 blocking_findings: []
 evidence:
-  - src/dentaland/backup_postgres.py (F1-F4 popravljeni, fix runda 1)
-  - tests/test_backup_postgres.py (13 passed, uklj. 7 adversarnih regresionih testova za F1/F2/F4, obje runde)
+  - src/dentaland/backup_postgres.py (F1-F4 popravljeni kroz tri runde, uklj. snapshot race i cleanup handoff gap)
+  - tests/test_backup_postgres.py (15 passed, uklj. 9 adversarnih regresionih testova za F1/F2/F3/F4 kroz sve tri runde)
   - docs/dentaland-postgres-backup-operativni-vodic.md
   - docs/dentaland-breach-runbook.md
   - docs/dentaland-retention-politika.md

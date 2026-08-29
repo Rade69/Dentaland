@@ -23,6 +23,7 @@ Razlike u odnosu na SQLite backup (namjerne, ne nedovršenost):
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
@@ -363,30 +364,40 @@ def _throwaway_url(database_url: str, throwaway_name: str) -> str:
 
 
 def _create_throwaway_database(admin_url: str, throwaway_name: str) -> None:
-    """Kreira privremenu bazu. NAMJERNO bez pre-emptive ``DROP IF EXISTS``.
+    """Kreira privremenu bazu. NAMJERNO bez pre-emptive ``DROP IF EXISTS``
+    (Codex F2 round 2) — samo pokušava ``CREATE``; ako ime već postoji, to
+    je greška (kolizija), ne signal da treba obrisati postojeće.
 
-    Codex review F2 round 2 (2026-08-29): pre-emptive DROP je pretpostavljao
-    da svaka baza sa tim imenom mora biti naš stari ostatak — kod kolizije
-    (neko drugi/nešto drugo već ima bazu tog imena) to je brisalo tuđi
-    objekat. Sad se samo pokušava ``CREATE`` — ako ime već postoji, to je
-    greška (kolizija), ne signal da treba obrisati postojeće. Pozivalac
-    (``restore_test``) postavlja cleanup-eligible zastavicu TEK nakon što
-    ovaj poziv uspije, pa se ``DROP`` u cleanup-u nikad ne poziva nad bazom
-    koju ovaj proces nije sam kreirao.
+    Samo-čisti se na BILO KOJI izuzetak OSIM kolizije imena (Codex F3
+    round 3 — "post-CREATE handoff gap": ako ``CREATE`` uspije server-side
+    ali nešto DRUGO — npr. cursor/connection cleanup — pukne prije nego
+    što ova funkcija uredno vrati, pozivalac bi mogao pogrešno zaključiti
+    da baza nije kreirana i preskočiti cleanup). Ime je jedinstveno po
+    pozivu, pa je ``DROP IF EXISTS`` u toj grani uvijek bezbjedan — ili
+    ništa ne postoji pod tim imenom, ili je naša upravo-kreirana baza.
+
+    Kontrakt za pozivaoca: ako ova funkcija vrati normalno, baza postoji i
+    pozivalac je vlasnik (mora je sam obrisati kad završi). Ako baci
+    izuzetak, NIJEDNA baza nije ostala iza nje — ili nikad nije ni
+    kreirana, ili je već samo-očišćena.
     """
     conn = psycopg2.connect(admin_url)
     conn.autocommit = True
     try:
         with conn.cursor() as cur:
-            try:
-                cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(throwaway_name)))
-            except psycopg2.errors.DuplicateDatabase as exc:
-                raise BackupError(
-                    f"Privremena baza '{throwaway_name}' već postoji (kolizija imena) — "
-                    "odustajem umjesto da je obrišem, nije naša da je brišemo."
-                ) from exc
-    finally:
+            cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(throwaway_name)))
         conn.close()
+    except psycopg2.errors.DuplicateDatabase as exc:
+        conn.close()
+        raise BackupError(
+            f"Privremena baza '{throwaway_name}' već postoji (kolizija imena) — "
+            "odustajem umjesto da je obrišem, nije naša da je brišemo."
+        ) from exc
+    except Exception:
+        with contextlib.suppress(Exception):  # best-effort, ne smije sakriti pravi uzrok
+            conn.close()
+        _drop_throwaway_database(admin_url, throwaway_name)
+        raise
 
 
 def _drop_throwaway_database(admin_url: str, throwaway_name: str) -> None:
@@ -441,29 +452,50 @@ def create_backup(
     env: Mapping[str, str] | None = None,
     now: datetime | None = None,
 ) -> Path:
-    """Napravi enkriptovan ``pg_dump`` i vrati putanju do njega."""
+    """Napravi enkriptovan ``pg_dump`` i vrati putanju do njega.
+
+    Sadržajni manifest (za kasniju ``restore_test`` provjeru integriteta)
+    se računa iz PRIVREMENOG RESTORE-A OVOG DUMPA, ne iz žive izvorne baze
+    nakon dump-a. Codex review F1 round 3 (2026-08-29,
+    ``VALID_DUMP_REJECTED_AFTER_CONCURRENT_POST_DUMP_WRITE``): upis u
+    aktivnu bazu IZMEĐU završetka ``pg_dump``-a i računanja manifesta bi
+    dao manifest koji opisuje novije stanje nego što dump stvarno sadrži
+    — validan backup bi tad lažno pao restore-test kasnije. Restore u
+    privremenu bazu garantuje da manifest opisuje TAČNO ono što je u
+    dumpu, ništa drugo (isti mehanizam kao ``restore_test`` sam po sebi —
+    ovo je "self-check" u trenutku kreiranja, odvojeno od periodičnog
+    provjeravanja arhiviranog backupa kasnije).
+    """
     now = now or datetime.now().astimezone()
     config.local_dir.mkdir(parents=True, exist_ok=True)
     config.cloud_dir.mkdir(parents=True, exist_ok=True)
 
     key = ensure_key(config.key_path)
     pg_dump_bin = _resolve_binary("pg_dump", env)
+    pg_restore_bin = _resolve_binary("pg_restore", env)
     local_tmp = config.local_dir / "backup-tmp.dump"
     try:
         _run_pg_dump(pg_dump_bin, config.database_url, local_tmp)
         enc_path = config.cloud_dir / _backup_filename(config.database_url, now)
         _encrypt(local_tmp, enc_path, key)
+
+        manifest_db_name = _throwaway_db_name(config.database_url)
+        manifest_url = _throwaway_url(config.database_url, manifest_db_name)
+        _create_throwaway_database(config.database_url, manifest_db_name)
+        try:
+            _run_pg_restore(pg_restore_bin, manifest_url, local_tmp)
+            try:
+                _, digests = _compute_manifest(manifest_url)
+            except psycopg2.Error as exc:
+                raise BackupError(
+                    f"Ne mogu izračunati content manifest netom napravljenog dumpa: {exc}"
+                ) from exc
+        finally:
+            _drop_throwaway_database(config.database_url, manifest_db_name)
     finally:
         local_tmp.unlink(missing_ok=True)
 
-    # Sadržajni otisak IZVORNE baze u trenutku backupa — restore_test ga
-    # kasnije upoređuje sa otiskom restore-ovane baze (Codex F1 round 2).
-    try:
-        _, digests = _compute_manifest(config.database_url)
-    except psycopg2.Error as exc:
-        raise BackupError(f"Ne mogu izračunati content manifest izvorne baze: {exc}") from exc
     _write_content_manifest(enc_path, digests)
-
     rotate_backups(config)
     _write_last_backup(config.cloud_dir, now)
     return enc_path
@@ -477,13 +509,16 @@ def restore_test(
     Nikad ne dira ``config.database_url`` bazu samu — koristi se samo kao
     admin konekcija za ``CREATE``/``DROP DATABASE`` privremene test baze.
     Ime privremene baze je jedinstveno po pozivu (``_throwaway_db_name``).
-    Cleanup u ``finally`` ispod se poziva SAMO ako je ``_create_throwaway_database``
-    stvarno uspjela (``created`` zastavica) — Codex review F2 round 2
-    (2026-08-29): bezuslovan cleanup bi kod kolizije imena obrisao tuđu
-    bazu; ownership se dokazuje time da je OVAJ proces stvarno kreirao
-    bazu, ne pretpostavkom. Kreiranje je unutar istog bloka koji cleanup
-    pokriva (Codex F3): pad ODMAH nakon uspješnog ``CREATE DATABASE`` i
-    dalje briše ono što je kreirano.
+
+    ``_create_throwaway_database`` se poziva IZVAN unutrašnjeg
+    try/finally koji radi cleanup — ta funkcija sad ima sopstveni
+    self-cleanup kontrakt (Codex F2/F3 round 2-3, vidi njen docstring):
+    ako uspije, mi smo vlasnik i moramo obrisati (unutrašnji
+    try/finally ispod to pokriva za sve što se desi POSLIJE uspješnog
+    kreiranja — restore, verifikacija, poređenje manifesta). Ako baci
+    izuzetak, ništa nije ostalo iza nje (ili kolizija — nije naša baza,
+    ne diramo je; ili se sama već očistila) — dodatni cleanup poziv ovdje
+    bi u slučaju kolizije pogrešno obrisao TUĐU bazu.
     """
     enc_path = _latest_backup(config.cloud_dir)
     if enc_path is None:
@@ -494,18 +529,15 @@ def restore_test(
     dump_tmp = config.local_dir / "restore-test.dump"
     throwaway_name = _throwaway_db_name(config.database_url)
     throwaway_url = _throwaway_url(config.database_url, throwaway_name)
-    created = False
     try:
         _decrypt(enc_path, dump_tmp, key)
+        _create_throwaway_database(config.database_url, throwaway_name)
         try:
-            _create_throwaway_database(config.database_url, throwaway_name)
-            created = True
             _run_pg_restore(pg_restore_bin, throwaway_url, dump_tmp)
             table_counts, content_digests = _verify_postgres_db(throwaway_url)
             _verify_content_matches_manifest(enc_path, content_digests)
         finally:
-            if created:
-                _drop_throwaway_database(config.database_url, throwaway_name)
+            _drop_throwaway_database(config.database_url, throwaway_name)
     finally:
         dump_tmp.unlink(missing_ok=True)
     return RestoreTestResult(

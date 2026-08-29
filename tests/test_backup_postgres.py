@@ -21,6 +21,7 @@ from sqlalchemy import create_engine, delete
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import Session, sessionmaker
 
+from dentaland import backup_postgres as bp
 from dentaland.backup import BackupError
 from dentaland.backup_postgres import (
     BACKUP_PREFIX,
@@ -167,6 +168,31 @@ def test_verify_odbija_nepotpunu_semu(config: PostgresBackupConfig) -> None:
         _drop_throwaway_database(config.database_url, fake_name)
 
 
+def test_restore_test_prolazi_i_kad_se_izvorna_baza_promijeni_poslije_backupa(
+    config: PostgresBackupConfig,
+    pg_session_factory: sessionmaker[Session],
+) -> None:
+    """Regresija za Codex F1 round 3
+    (VALID_DUMP_REJECTED_AFTER_CONCURRENT_POST_DUMP_WRITE): upis u IZVORNU
+    bazu NAKON ``create_backup`` ne smije uzrokovati lažan mismatch —
+    manifest se računa iz restore-a SAMOG dumpa (vidi ``create_backup``
+    docstring), ne iz žive baze poslije dump-a."""
+    create_backup(config)
+
+    naknadno_ime = f"{_DOCTOR_NAME} Naknadno Dodat Poslije Backupa"
+    with pg_session_factory() as session:
+        session.add(Doctor(ime=naknadno_ime))
+        session.commit()
+
+    try:
+        result = restore_test(config)  # validan backup MORA proći uprkos naknadnom upisu
+        assert result.table_counts["doctors"] >= 1
+    finally:
+        with pg_session_factory() as session:
+            session.execute(delete(Doctor).where(Doctor.ime == naknadno_ime))
+            session.commit()
+
+
 def test_restore_hvata_izmijenjen_sadrzaj_uz_isti_broj_redova(
     config: PostgresBackupConfig,
     pg_session_factory: sessionmaker[Session],
@@ -217,6 +243,12 @@ def test_create_throwaway_ne_brise_postojecu_bazu_kod_kolizije(
     (EXISTING_DB_WAS_DROPPED_AND_RECREATED): ako ime koje je
     ``_throwaway_db_name`` generisala VEĆ postoji (kolizija), taj proces
     mora odustati sa greškom, ne obrisati i rekreirati postojeću bazu."""
+    # Napravi backup PRIJE monkeypatch-a - create_backup interno takodje
+    # zove _throwaway_db_name (F1 manifest-iz-dumpa mehanizam), pa mora
+    # koristiti nasumicno ime, ne kolidujuce, da se ne pomijesa sa onim
+    # sto ovaj test stvarno proverava (restore_test kolizija).
+    create_backup(config)
+
     colliding_name = f"{make_url(config.database_url).database}{RESTORE_TEST_DB_SUFFIX}_kolizija"
     monkeypatch.setattr(
         "dentaland.backup_postgres._throwaway_db_name", lambda database_url: colliding_name
@@ -238,7 +270,6 @@ def test_create_throwaway_ne_brise_postojecu_bazu_kod_kolizije(
         conn.close()
 
     try:
-        create_backup(config)
         with pytest.raises(BackupError, match="kolizija"):
             restore_test(config)
 
@@ -252,6 +283,66 @@ def test_create_throwaway_ne_brise_postojecu_bazu_kod_kolizije(
             conn.close()
     finally:
         _drop_throwaway_database(config.database_url, colliding_name)
+
+
+def test_create_throwaway_samocisti_kad_connection_close_pukne_nakon_create(
+    config: PostgresBackupConfig,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Adversarna regresija za Codex F3 round 3
+    (ORIGINAL_POST_CREATE_FAILURE_LEFT_DB): simulira da ``CREATE DATABASE``
+    uspije server-side, ali da ``conn.close()`` (post-CREATE cleanup korak
+    UNUTAR ``_create_throwaway_database``) pukne prije nego što funkcija
+    uredno vrati — baza ne smije preživjeti.
+
+    ``psycopg2`` konekcija je C-extension objekat — ``close`` se ne može
+    monkeypatch-ovati direktno na instanci (read-only atribut), pa se
+    koristi tanak proxy koji delegira sve OSIM ``close()``.
+    """
+    throwaway_name = f"{make_url(config.database_url).database}{RESTORE_TEST_DB_SUFFIX}_f3r3"
+
+    class _FlakyCloseConnProxy:
+        def __init__(self, real_conn: object) -> None:
+            self._real = real_conn
+
+        def cursor(self, *args: object, **kwargs: object) -> object:
+            return self._real.cursor(*args, **kwargs)  # type: ignore[attr-defined]
+
+        @property
+        def autocommit(self) -> bool:
+            return self._real.autocommit  # type: ignore[attr-defined]
+
+        @autocommit.setter
+        def autocommit(self, value: bool) -> None:
+            self._real.autocommit = value  # type: ignore[attr-defined]
+
+        def close(self) -> None:
+            self._real.close()  # type: ignore[attr-defined]
+            raise RuntimeError("simulirani pad conn.close() odmah nakon uspješnog CREATE")
+
+    real_connect = bp.psycopg2.connect
+    call_count = {"n": 0}
+
+    def _connect_prva_konekcija_ima_flaky_close(*args: object, **kwargs: object) -> object:
+        call_count["n"] += 1
+        real_conn = real_connect(*args, **kwargs)
+        if call_count["n"] == 1:  # prva konekcija = ona unutar _create_throwaway_database
+            return _FlakyCloseConnProxy(real_conn)
+        return real_conn
+
+    monkeypatch.setattr(bp.psycopg2, "connect", _connect_prva_konekcija_ima_flaky_close)
+
+    with pytest.raises(RuntimeError, match="simulirani pad"):
+        bp._create_throwaway_database(config.database_url, throwaway_name)
+
+    throwaway_url = (
+        make_url(config.database_url)
+        .set(database=throwaway_name)
+        .render_as_string(hide_password=False)
+    )
+    with pytest.raises(psycopg2.OperationalError):
+        conn = psycopg2.connect(throwaway_url)
+        conn.close()
 
 
 @pytest.mark.parametrize(

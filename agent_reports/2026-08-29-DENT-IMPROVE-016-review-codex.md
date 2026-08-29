@@ -6,11 +6,11 @@ verdict: REJECT
 scope: PASS
 acceptance: FAIL
 blocking_findings:
-  - F1: "Count manifest i dalje ne dokazuje identičnost sadržaja podataka"
-  - F2: "Nasumično ime i dalje bezuslovno briše postojeću bazu pri collision/race scenariju"
-  - F4: "Lozinka u DATABASE_URL query parametru i dalje završava u argv-u"
+  - F1: "Manifest i pg_dump nisu iz istog PostgreSQL snapshot-a"
+  - F3: "created zastavica ponovo ostavlja bazu kod post-CREATE izuzetka prije povratka helpera"
 reviewed_commit: 9b20d22db9415b469718177fbe284e4109ba2147
 rereviewed_commit: dc9e00882c98a48245052f98a13c970af3248308
+rereviewed_round2_commit: 613436474ba6ab2e887778bcdfbb0dadba9293ba
 reviewed_at: 2026-08-29
 ---
 
@@ -283,3 +283,114 @@ REJECT.
 **SLJEDEĆE:** implementer popravlja preostala tri nalaza; Codex radi još
 jednu ciljanu re-verifikaciju. Po novom projektnom pravilu poslije Codex
 PASS-a ide direktno Radovanov human approval, bez Reviewer 2 koraka.
+
+## Treća ciljana re-verifikacija — Fix runda 2 (`6134364`)
+
+### Verdikt
+
+**REJECT ostaje.** F2 i F4 su zatvoreni. F1 sada hvata statičnu izmjenu
+sadržaja, ali manifest nije vezan za isti snapshot kao dump. F3 je ponovo
+otvoren u originalnom strožem failure scenariju.
+
+### F1 — DJELIMIČNO ZATVOREN, NOVI BLOCKER: dump i manifest nisu isti snapshot
+
+Sadržajni SHA-256 digest je stvaran napredak: `ORDER BY id` daje stabilan
+redoslijed, `repr` razlikuje tipične SQL vrijednosti/`NULL`/prazan string,
+a novi test za UPDATE bez promjene broja redova stvarno pada na mismatch.
+Nisam pronašao način da stvarna izmjena sadržaja uz nepromijenjen snapshot
+lažno prođe trenutni digest.
+
+Međutim, `create_backup` prvo završi `_run_pg_dump`, zatim otvara potpuno
+novu konekciju u `_compute_manifest`. Aktivna baza se smije promijeniti
+između ta dva koraka. Sidecar tada opisuje novije stanje, ne snapshot koji
+je `pg_dump` sačuvao.
+
+Adversarna reprodukcija je omotala stvarni `_run_pg_dump`, nakon njegovog
+uspješnog završetka upisala sintetičkog doktora, pa pustila
+`create_backup` da izračuna manifest. Dump je bio validan i konzistentan,
+ali ga je `restore_test` odbio jer sidecar sadrži kasniji red:
+
+```text
+VALID_DUMP_REJECTED_AFTER_CONCURRENT_POST_DUMP_WRITE=True
+```
+
+Marker red i privremene baze su očišćeni poslije probe. Ovo je realna
+produkcijska putanja: booking baza može primiti upis dok dnevni backup
+traje. Rezultat je lažni alarm i backup koji se ne može proglasiti
+verifikovanim iako je dump ispravan.
+
+**Minimal correction:** digest i `pg_dump` moraju koristiti isti
+PostgreSQL snapshot. Jedan standardan smjer je otvoriti
+REPEATABLE READ transakciju, izvesti snapshot (`pg_export_snapshot`),
+držati transakciju otvorenom, proslijediti snapshot u `pg_dump --snapshot`
+i izračunati manifest kroz istu transakciju. Alternativno, manifest
+izračunati iz neposredno restoreovanog dumpa, a ne iz žive baze nakon
+dumpa. Dodati regresioni test sa upisom između dumpa i manifest koraka;
+validan backup mora i dalje proći restore-test.
+
+### F2 — ZATVOREN
+
+`_create_throwaway_database` više ne radi pre-emptive DROP. Stvarna
+`DuplicateDatabase` kolizija postaje `BackupError`, `created` ostaje
+`False`, a sentinel postojeće baze preživi. Novi integracijski test zaista
+kreira tuđu bazu i provjerava njen sadržaj nakon neuspjelog restore-test
+pokušaja. Originalni destruktivni collision scenario više nije
+reprodukovan.
+
+### F3 — PONOVO OTVOREN: ownership zastavica ima post-CREATE handoff gap
+
+`created = True` se postavlja tek nakon što
+`_create_throwaway_database(...)` uredno vrati. Ako CREATE uspije, ali
+helper zatim digne izuzetak prije povratka (npr. failure pri izlasku iz
+cursor/connection cleanup granice), caller ostaje na `created=False` i
+preskače DROP.
+
+Ponovljen je originalni reviewer wrapper: stvarni helper kreira bazu, pa
+wrapper baca prije povratka. Baza je ostala i morala je biti ručno očišćena:
+
+```text
+ORIGINAL_POST_CREATE_FAILURE_LEFT_DB=True
+MANUAL_CLEANUP_COMPLETED=True
+```
+
+Novi test `test_restore_test_cisti_i_kad_pukne_odmah_nakon_create` baca iz
+`_run_pg_restore`, dakle tek NAKON što je helper uredno vratio i caller već
+postavio `created=True`; zato ne pokriva originalni handoff scenario.
+
+**Minimal correction:** ownership i cleanup moraju živjeti u istoj
+abstrakciji koja izvršava CREATE (npr. context manager koji nakon uspješnog
+CREATE-a garantuje DROP u svom `finally`), ili sam create helper mora u
+svakoj post-CREATE exception putanji očistiti bazu prije re-raise-a. Dodati
+tačan create-then-raise-before-return regresioni test.
+
+### F4 — ZATVOREN
+
+`_extract_password` i `_url_without_password` sada pokrivaju authority i
+`?password=` query oblik. Parametrizovani test zaista prolazi kroz oba
+produkcijska subprocess wrappera (`pg_dump` i `pg_restore`), potvrđuje da
+sintetička lozinka nije u argv-u i da je u `PGPASSWORD`. Ponovljeni query
+bypass iz prethodnog review-a više ne prolazi.
+
+### Svježa verifikacija
+
+- `pytest tests/test_backup_postgres.py -v` sa `DATABASE_URL_TEST` →
+  **13 passed**.
+- Puni suite sa `DATABASE_URL_TEST` → **442 passed, 2 failed**; ista dva
+  potvrđena out-of-scope RBAC/Alembic failure-a.
+- Ruff → **All checks passed**.
+- Mypy → **no issues found in 55 source files**.
+- Agent sensors → **0 blocking findings**.
+
+### Handoff
+
+**CILJ:** zatvoriti backup integritet i destruktivnu lifecycle granicu.
+
+**URAĐENO:** F2/F4 PASS; F1 snapshot race i F3 post-CREATE handoff ostaju
+blocking, pa verdict ostaje REJECT.
+
+**NE DIRATI:** dva poznata Postgres suite failure-a i odgođeni hosting/
+HTTPS/`EXCLUDE` scope.
+
+**SLJEDEĆE:** implementer popravlja dvije preostale putanje i dodaje tačne
+regresione testove. Nakon Codex PASS-a ide direktno Radovanov human
+approval.
