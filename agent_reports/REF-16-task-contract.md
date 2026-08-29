@@ -3,7 +3,7 @@ task_id: REF-16
 risk: MEDIUM
 implementer: pi
 reviewers: [codex, claude]
-status: "IMPLEMENTED — izmjene spremne u worktree task/REF-16-circular-import-dialogs, NIJE commitovano, čeka review + human approval + merge."
+status: "DONE — MERGED u main (merge commit 3c51856, 29.8.2026). Codex + Claude PASS (bez rezervi). Post-merge integration gate PASS (429 pytest, ruff, mypy, agent_sensors čisti). Zatvara cijeli Prioritet C backlog."
 created_at: 2026-08-26
 ---
 

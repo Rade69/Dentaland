@@ -338,14 +338,22 @@ Claude nezavisno verifikovao da je REZULTAT semantički ispravan (ne samo
 tekstualno bez konflikta) čitanjem merged koda + punim post-merge gate-om
 prije nego što je prihvaćen kao završen.
 
-**`REF-16`** (kidanje cirkularnog importa `main_window ↔
-appointment_controller`, implementer Pi — stvaran Pi ovaj put) je
-takođe pronađen necommitovan i obrađen isti dan: `AppointmentController`
-lazy-uvozi dijaloge preko postojećeg `desktop/views/dialogs/__init__.py`
-registry-a umjesto preko `main_window.py`, koji više ne re-eksportuje 5
-dijalog klasa. `OverlapError` re-eksport (REF-00 baseline) ostaje.
-Pušovano (`f8ebbd0`) — čeka Codex review pa Claude (Reviewer 2) pa
-human approval.
+**`REF-16` DONE, merged `3c51856`, 29.8.2026.** Kidanje cirkularnog
+importa `main_window ↔ appointment_controller` (implementer Pi — stvaran
+Pi ovaj put, ne atribucijska ispravka). `AppointmentController` lazy-uvozi
+dijaloge preko postojećeg `desktop/views/dialogs/__init__.py` registry-a
+umjesto preko `main_window.py`, koji više ne re-eksportuje 5 dijalog
+klasa. `OverlapError` re-eksport (REF-00 baseline) ostaje. Dublji,
+zaseban lanac (`dialogs → week_view → appointment_controller`) ostaje
+priznat kao van scope-a, nije preuveličana tvrdnja o potpuno acikličnom
+grafu. Codex + Claude PASS bez rezervi — oba nezavisno provjerila da
+`main` nije dirao nijedan od 4 REF-16 fajla otkako je grana odvojena
+(bezbjedan merge bez rebase-a).
+
+**Ovim je cijeli Prioritet C backlog
+(`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`) funkcionalno završen** —
+DENT-IMPROVE-010 do 015 (uklj. 014B/014C podzadatke) i REF-16 su svi
+DONE. Nema poznatog otvorenog Prioritet C stavka.
 
 **`DENT-IMPROVE-015` DONE, merged `ee52587`, 28.8.2026.** Rate limiting
 na preostala 4 backend endpointa (`logout` 10/min, `get_pending_requests`
@@ -380,12 +388,12 @@ uloga.
 
 ## Current verification baseline
 
-Izmjereno 28.8.2026 na `main`, post-merge gate nakon DENT-IMPROVE-014B
-(merge `74a1bce`, POSLJEDNJI merge do sada — uključuje auto-merge sa
-DENT-IMPROVE-015, semantički verifikovano):
+Izmjereno 29.8.2026 na `main`, post-merge gate nakon REF-16 (merge
+`3c51856`, POSLJEDNJI merge do sada — zatvara cijeli Prioritet C
+backlog):
 
 - `pytest tests/ -q` (bez `DATABASE_URL`/`DATABASE_URL_TEST`) → **429
-  passed, 2 skipped**, 16 warnings, ~20-35s. Skip su i dalje dva
+  passed, 2 skipped**, 16 warnings, ~25s. Skip su i dalje dva
   `tests/test_postgres_migration.py` testa (Postgres env nije postavljen
   u ovoj komandi).
 - `ruff check src/dentaland desktop backend tests scripts/agent_sensors.py` →
@@ -397,8 +405,8 @@ DENT-IMPROVE-015, semantički verifikovano):
   DENT-IMPROVE-011 — zahtijeva `npm install` jednokratno, Node v24+; nije
   ponovo mjereno u ovom krugu).
 
-**Još neintegrisano (poslato na review, nije mergovano):** `REF-16`
-(pušovano `f8ebbd0`, čeka Codex review pa Claude Reviewer 2).
+**Sve poslato na review je sada mergovano — nema otvorenih grana koje
+čekaju review/approval.**
 
 Ne tretirati broj testova kao trajno pravilo — raste sa svakim novim
 taskom. Prilikom sljedeće provjere, izmjeriti ponovo, ne kopirati ovaj broj
@@ -444,13 +452,8 @@ ažurirati na prazan skup (sitan follow-up, ne nov task).
 
 ## Next known work
 
-REF-00..16 paket i `DENT-IMPROVE-010/011/012/013/014/014B/014C/015` su
-svi DONE (vidi sekcije gore za detalje). Preostalo, u toku:
-
-- **`REF-16`** (kidanje cirkularnog importa) — pušovano `f8ebbd0`, čeka
-  Codex review, pa Claude (Reviewer 2), pa human approval.
-
-Prioritet C backlog (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`) je time
-funkcionalno završen — nakon REF-16 merge-a nema poznatog otvorenog
-Prioritet C stavka. Radovanova odluka šta je sljedeći prioritet (Faza 1
-priprema dalje, ili nešto drugo).
+REF-00..16 paket i cijeli `DENT-IMPROVE-010..015` Prioritet C backlog
+(uklj. `014B`/`014C` podzadatke) su svi DONE (vidi sekcije gore za
+detalje). **Nema poznatog otvorenog taska.** Radovanova odluka šta je
+sljedeći prioritet — Faza 1 priprema dalje (javno online zakazivanje,
+CLAUDE.md fazni plan), ili nešto drugo van dosadašnjeg backloga.
