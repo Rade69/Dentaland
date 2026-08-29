@@ -6,11 +6,11 @@ verdict: REJECT
 scope: PASS
 acceptance: FAIL
 blocking_findings:
-  - F1: "Restore verifikacija ne dokazuje integritet niti identičnost podataka"
-  - F2: "Deterministički naziv i bezuslovni DROP mogu obrisati postojeću ne-privremenu bazu"
-  - F3: "Kvar neposredno nakon CREATE DATABASE ostavlja privremenu bazu iza sebe"
-  - F4: "DATABASE_URL sa lozinkom se prosljeđuje kroz command-line argumente pg_dump/pg_restore procesa"
+  - F1: "Count manifest i dalje ne dokazuje identičnost sadržaja podataka"
+  - F2: "Nasumično ime i dalje bezuslovno briše postojeću bazu pri collision/race scenariju"
+  - F4: "Lozinka u DATABASE_URL query parametru i dalje završava u argv-u"
 reviewed_commit: 9b20d22db9415b469718177fbe284e4109ba2147
+rereviewed_commit: dc9e00882c98a48245052f98a13c970af3248308
 reviewed_at: 2026-08-29
 ---
 
@@ -167,5 +167,119 @@ kanalom), bez ispisa tajne u greškama/testovima.
 
 Implementer treba popraviti F1-F4 i dodati adversarne regresione testove za
 integritet, ownership naziva baze i post-create cleanup. Nakon toga Codex
-ponavlja ciljanu verifikaciju; tek poslije PASS-a ide Reviewer 2 i Radovanov
-human approval.
+ponavlja ciljanu verifikaciju. Ovaj tekst je iz prvog review-a; novo pravilo
+od 29.8.2026. ukida Reviewer 2 korak, pa poslije Codex PASS-a ide direktno
+Radovanov human approval.
+
+## Ciljana re-verifikacija — Fix runda 1 (`dc9e008`)
+
+### Verdikt
+
+**REJECT ostaje.** F3 je zatvoren. F1, F2 i F4 su djelimično popravljeni,
+ali originalne sigurnosne/integritetske garancije još nisu ostvarene.
+
+### F1 — NIJE ZATVOREN: manifest broja redova nije dokaz identičnog sadržaja
+
+Nova provjera svih osam `CORE_TABLES` ispravno odbija prvobitnu bazu koja
+ima samo praznu `appointments` tabelu. Novi integracijski test takođe
+potvrđuje jednak ukupan broj doktora između izvora i restorea. To je stvaran
+napredak, ali ne dokazuje da su podaci identični.
+
+Adversarna proba je napravila kompletnu Dentaland šemu sa jednim doktorom,
+uzela manifest, promijenila `Doctor.ime` u potpuno drugu vrijednost bez
+promjene broja redova i ponovo pozvala `_verify_postgres_db`. Oba manifesta
+su bila identična i izmijenjeni sadržaj je prihvaćen:
+
+```text
+DIFFERENT_DATA_SAME_MANIFEST_ACCEPTED=True
+DOCTOR_COUNT=1
+```
+
+`test_restore_test_manifest_odgovara_izvornoj_bazi` provjerava samo
+`result.table_counts["doctors"] == source_doctor_count`; ne provjerava
+seedovani marker ni vrijednosti/redove. Za ugovoreni kriterij “podaci
+čitljivi i identični” potreban je dokaz sadržaja, npr. stabilan digest
+kanonski sortiranih relevantnih redova/tabela ili barem stroga provjera
+poznatog seedovanog reda u integracijskom testu uz precizno ograničenu
+produkcijsku tvrdnju. Sam count manifest ne smije se nazivati dokazom
+integriteta/identičnosti.
+
+### F2 — NIJE ZATVOREN: random sufiks smanjuje vjerovatnoću, ne uspostavlja ownership
+
+`secrets.token_hex(8)` uklanja praktičnu determinističku koliziju, ali
+`_create_throwaway_database` i dalje prvo bezuslovno radi
+`DROP DATABASE IF EXISTS` nad izabranim imenom. Ne postoji provjera da je
+bazu kreirao ovaj run. Collision ili race zato i dalje briše tuđu bazu.
+
+Kontrolisana proba je kreirala nasumično imenovanu sentinel bazu sa tabelom
+`ownership_sentinel`, zatim pozvala stvarni `_create_throwaway_database`
+sa istim imenom. Sentinel je nestao jer je postojeća baza obrisana i
+rekreirana:
+
+```text
+EXISTING_DB_WAS_DROPPED_AND_RECREATED=True
+```
+
+Reviewer je test bazu odmah obrisao. Sigurna granica je: pokušati
+`CREATE DATABASE` bez pre-emptive DROP-a, evidentirati `created=True` tek
+nakon uspjeha i cleanup raditi samo za bazu koju je ovaj run stvarno
+kreirao. Kolizija mora završiti greškom, nikad brisanjem postojećeg
+objekta. I novi testovi koriste fiksna imena koja helper prije kreiranja
+bezuslovno briše, pa ni test setup ne dokazuje ownership zaštitu.
+
+### F3 — ZATVOREN
+
+Kreiranje baze je sada unutar `try/finally` cleanup granice. Ponovljen je
+originalni reviewer scenario: wrapper pozove stvarni CREATE, zatim baci
+izuzetak prije nego što `_create_throwaway_database` uredno vrati.
+Privremena baza nije ostala:
+
+```text
+ORIGINAL_POST_CREATE_FAILURE_CLEANUP=PASS
+```
+
+Novi regresioni test baca kasnije, iz `_run_pg_restore`, ali produkcijski
+raspored `try/finally` pokriva i stroži originalni scenario.
+
+### F4 — NIJE ZATVOREN: query-param password zaobilazi sanitizaciju
+
+Authority oblik `postgresql://user:password@host/db` je ispravno očišćen i
+oba produkcijska subprocess puta (`pg_dump` i `pg_restore`) sada koriste
+`_url_without_password` + `_pg_subprocess_env`. Međutim helper zadržava
+cijeli `url.query`, a `_pg_subprocess_env` čita samo `url.password`.
+Libpq/PostgreSQL URL može nositi connection parametar `password` u query-u.
+Adversarna proba sa sintetičkom vrijednošću je dala:
+
+```text
+QUERY_PASSWORD_IN_ARGV=True
+QUERY_PASSWORD_IN_PGPASSWORD=False
+```
+
+Novi test pokriva samo authority oblik i samo direktni `_run_pg_dump`.
+Potrebno je iz query mape ukloniti `password`, prenijeti ga u zaštićeni
+auth kanal i dodati parametrizovan test za authority/query oblike kroz oba
+`pg_dump` i `pg_restore` argv puta.
+
+### Svježa verifikacija
+
+- `pytest tests/test_backup_postgres.py -v` sa `DATABASE_URL_TEST` →
+  **10 passed**.
+- Puni suite sa `DATABASE_URL_TEST` → **439 passed, 2 failed**; ista dva
+  prethodno potvrđena out-of-scope RBAC/Alembic failure-a.
+- Ruff → **All checks passed**.
+- Mypy → **no issues found in 55 source files**.
+- Agent sensors → **0 blocking findings**.
+
+### Handoff
+
+**CILJ:** zatvoriti originalna F1-F4 prije security/privacy release gate-a.
+
+**URAĐENO:** F3 PASS; F1/F2/F4 ostaju blocking, pa ukupni verdict ostaje
+REJECT.
+
+**NE DIRATI:** dva pre-postojeća Postgres suite failure-a i hosting/HTTPS/
+`EXCLUDE` scope.
+
+**SLJEDEĆE:** implementer popravlja preostala tri nalaza; Codex radi još
+jednu ciljanu re-verifikaciju. Po novom projektnom pravilu poslije Codex
+PASS-a ide direktno Radovanov human approval, bez Reviewer 2 koraka.

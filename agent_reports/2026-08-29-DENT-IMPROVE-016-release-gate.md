@@ -139,6 +139,70 @@ pa je `pg_dump` pucao na DNS resoluciji za "localhost". Ispravljeno da
   55 source files**.
 - `python scripts/agent_sensors.py --all` → **0 blocking findings**.
 
+## Fix runda 2 (Codex REJECT ponovo, 29.8.2026) — F1/F2/F4 dublje
+
+Codexov re-review je zatvorio F3, ali ispravno pokazao da F1/F2/F4 fix
+runde 1 nisu bili dovoljno duboki — svaki sa konkretnim adversarnim
+dokazom:
+
+- **F1 (`DIFFERENT_DATA_SAME_MANIFEST_ACCEPTED=True`):** manifest broja
+  redova ne dokazuje da je SADRŽAJ identičan — restore koji tiho
+  zamijeni vrijednost u redu bez promjene broja redova je prolazio.
+  **Fix:** `_compute_manifest` sad računa SHA-256 digest nad kanonski
+  poređanim (`ORDER BY id`) sadržajem svakog reda, ne samo broj.
+  `create_backup` snima taj digest u novi sidecar fajl
+  (`<backup>.manifest.json`, pored enkriptovanog dumpa — nije osjetljiv,
+  sadrži samo hash-eve, ne sirove podatke) u trenutku kad je IZVORNA
+  baza dumpovana. `restore_test` poredi digest RESTORE-ovane baze sa tim
+  snimljenim manifestom (`_verify_content_matches_manifest`) — mismatch
+  baca `RestoreVerificationError`. `rotate_backups` briše i sidecar uz
+  stari dump. Novi adversarni test
+  `test_restore_hvata_izmijenjen_sadrzaj_uz_isti_broj_redova` restore-uje
+  STVARAN backup u privremenu bazu, ručno mijenja sadržaj bez mijenjanja
+  broja redova, i potvrđuje da poređenje to hvata.
+- **F2 (`EXISTING_DB_WAS_DROPPED_AND_RECREATED=True`):** nasumičan sufiks
+  je smanjio VJEROVATNOĆU kolizije, ali `_create_throwaway_database` je
+  i dalje radila bezuslovan `DROP IF EXISTS` prije `CREATE` — kod
+  kolizije bi obrisala tuđu bazu. **Fix:** uklonjen pre-emptive `DROP`;
+  `_create_throwaway_database` sad SAMO pokušava `CREATE DATABASE` —
+  kolizija (`psycopg2.errors.DuplicateDatabase`) postaje `BackupError`
+  ("kolizija imena... nije naša da je brišemo"), ne brisanje. `restore_test`
+  postavlja `created = True` TEK nakon uspješnog create-a, a cleanup u
+  `finally` poziva `_drop_throwaway_database` SAMO ako je ta zastavica
+  `True` — ownership se dokazuje činjenicom da smo mi kreirali bazu, ne
+  pretpostavkom. Novi adversarni test
+  `test_create_throwaway_ne_brise_postojecu_bazu_kod_kolizije` unaprijed
+  kreira "tuđu" bazu sa sentinel tabelom pod imenom koje će
+  `restore_test` pokušati koristiti, i potvrđuje da (a) `restore_test`
+  baca grešku umjesto da je obriše, (b) sentinel tabela preživi.
+- **F4 (`QUERY_PASSWORD_IN_ARGV=True`):** fix runde 1 je čistio lozinku
+  SAMO iz authority dijela URL-a (`user:pass@host`) — libpq URL može
+  nositi lozinku i kao `?password=...` query parametar, koji je i dalje
+  curio u argv. **Fix:** `_extract_password` sad čita OBA oblika;
+  `_url_without_password` dodatno zove
+  `URL.difference_update_query(["password"])` da ukloni query-param
+  formu. Novi parametrizovan test
+  `test_pg_dump_i_restore_ne_stavljaju_lozinku_u_argv_ni_jednim_oblikom`
+  pokriva oba oblika (authority/query) kroz OBA subprocess puta
+  (`pg_dump` i `pg_restore`), ne samo jedan kao ranije.
+
+`RestoreTestResult` proširen sa `content_digests: dict[str, str]` poljem
+(pored postojećeg `table_counts`) — dokaz i broja i sadržaja dostupan
+pozivaocu.
+
+## Verifikacija (nakon fix runde 2)
+
+- `pytest tests/test_backup_postgres.py -v` (sa `DATABASE_URL_TEST`) →
+  **13 passed** (10 iz runde 1 + 3 nova adversarna regresiona testa za
+  F1/F2/F4 round 2).
+- `pytest tests/ -q` (sa `DATABASE_URL_TEST`) → **442 passed, 2 failed**
+  — ista dva pre-postojeća OUT_OF_SCOPE_FINDING failure-a, nepromijenjena.
+- `ruff check src/dentaland desktop backend tests scripts/agent_sensors.py`
+  → **All checks passed**.
+- `mypy src/dentaland desktop backend` → **Success: no issues found in
+  55 source files**.
+- `python scripts/agent_sensors.py --all` → **0 blocking findings**.
+
 ## Required output
 
 ```yaml
@@ -146,7 +210,7 @@ verdict: PASS_WITH_NOTES
 blocking_findings: []
 evidence:
   - src/dentaland/backup_postgres.py (F1-F4 popravljeni, fix runda 1)
-  - tests/test_backup_postgres.py (10 passed, uklj. 4 regresiona testa za F1-F4)
+  - tests/test_backup_postgres.py (13 passed, uklj. 7 adversarnih regresionih testova za F1/F2/F4, obje runde)
   - docs/dentaland-postgres-backup-operativni-vodic.md
   - docs/dentaland-breach-runbook.md
   - docs/dentaland-retention-politika.md

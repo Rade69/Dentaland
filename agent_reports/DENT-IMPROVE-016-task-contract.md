@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-016
 risk: HIGH
 implementer: claude
 reviewers: [codex]
-status: "FIX RUNDA 1 GOTOVA — Codex REJECT (F1-F4) popravljen (secrets/URL.create/try-finally/PGPASSWORD fixevi + 4 nova regresiona testa). Ceka Codex re-review, pa human approval. Vidi 2026-08-29-DENT-IMPROVE-016-release-gate.md."
+status: "FIX RUNDA 2 GOTOVA — Codex REJECT dva puta (F1-F4, pa dublji F1/F2/F4). Sada: content-digest manifest (F1), ownership-based cleanup bez pre-emptive DROP (F2), password i iz query-stringa (F4). 7 adversarnih regresionih testova. Ceka Codex re-review, pa human approval. Vidi 2026-08-29-DENT-IMPROVE-016-release-gate.md."
 created_at: 2026-08-29
 depends_on: DENT-IMPROVE-012, DENT-IMPROVE-013, DENT-IMPROVE-014, DENT-IMPROVE-014B, DENT-IMPROVE-014C, DENT-IMPROVE-015
 ---

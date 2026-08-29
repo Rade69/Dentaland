@@ -30,11 +30,16 @@ from dentaland.backup_postgres import (
     PostgresBackupConfig,
     RestoreVerificationError,
     _create_throwaway_database,
+    _decrypt,
     _drop_throwaway_database,
+    _resolve_binary,
     _run_pg_dump,
+    _run_pg_restore,
+    _verify_content_matches_manifest,
     _verify_postgres_db,
     build_config,
     create_backup,
+    load_key,
     main,
     restore_test,
 )
@@ -162,6 +167,136 @@ def test_verify_odbija_nepotpunu_semu(config: PostgresBackupConfig) -> None:
         _drop_throwaway_database(config.database_url, fake_name)
 
 
+def test_restore_hvata_izmijenjen_sadrzaj_uz_isti_broj_redova(
+    config: PostgresBackupConfig,
+    pg_session_factory: sessionmaker[Session],
+) -> None:
+    """Adversarna regresija za Codex F1 round 2
+    (DIFFERENT_DATA_SAME_MANIFEST_ACCEPTED): restore-uje pravi backup u
+    privremenu bazu, pa RUČNO izmijeni sadržaj bez promjene broja redova —
+    manifest poređenje mora ovo uhvatiti, ne samo brojanje redova."""
+    enc_path = create_backup(config)
+
+    tampered_name = f"{make_url(config.database_url).database}_tampered_content_check"
+    _create_throwaway_database(config.database_url, tampered_name)
+    tampered_url = (
+        make_url(config.database_url)
+        .set(database=tampered_name)
+        .render_as_string(hide_password=False)
+    )
+    try:
+        pg_restore_bin = _resolve_binary("pg_restore", None)
+        dump_tmp = config.local_dir / "tampered-restore-check.dump"
+        key = load_key(config.key_path)
+        try:
+            _decrypt(enc_path, dump_tmp, key)
+            _run_pg_restore(pg_restore_bin, tampered_url, dump_tmp)
+        finally:
+            dump_tmp.unlink(missing_ok=True)
+
+        conn = psycopg2.connect(tampered_url)
+        conn.autocommit = True
+        try:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE doctors SET ime = 'Izmijenjeno bez promjene broja redova'")
+        finally:
+            conn.close()
+
+        _, tampered_digests = _verify_postgres_db(tampered_url)
+        with pytest.raises(RestoreVerificationError):
+            _verify_content_matches_manifest(enc_path, tampered_digests)
+    finally:
+        _drop_throwaway_database(config.database_url, tampered_name)
+
+
+def test_create_throwaway_ne_brise_postojecu_bazu_kod_kolizije(
+    config: PostgresBackupConfig,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Adversarna regresija za Codex F2 round 2
+    (EXISTING_DB_WAS_DROPPED_AND_RECREATED): ako ime koje je
+    ``_throwaway_db_name`` generisala VEĆ postoji (kolizija), taj proces
+    mora odustati sa greškom, ne obrisati i rekreirati postojeću bazu."""
+    colliding_name = f"{make_url(config.database_url).database}{RESTORE_TEST_DB_SUFFIX}_kolizija"
+    monkeypatch.setattr(
+        "dentaland.backup_postgres._throwaway_db_name", lambda database_url: colliding_name
+    )
+
+    # Simulira da baza VEC postoji (npr. tuđa) prije nego što restore_test krene.
+    _create_throwaway_database(config.database_url, colliding_name)
+    colliding_url = (
+        make_url(config.database_url)
+        .set(database=colliding_name)
+        .render_as_string(hide_password=False)
+    )
+    conn = psycopg2.connect(colliding_url)
+    conn.autocommit = True
+    try:
+        with conn.cursor() as cur:
+            cur.execute("CREATE TABLE ownership_sentinel (id integer)")
+    finally:
+        conn.close()
+
+    try:
+        create_backup(config)
+        with pytest.raises(BackupError, match="kolizija"):
+            restore_test(config)
+
+        # Sentinel MORA i dalje postojati — kolizija ne smije obrisati postojeću bazu.
+        conn = psycopg2.connect(colliding_url)
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM ownership_sentinel")
+                assert cur.fetchone()[0] == 0
+        finally:
+            conn.close()
+    finally:
+        _drop_throwaway_database(config.database_url, colliding_name)
+
+
+@pytest.mark.parametrize(
+    "url_template",
+    [
+        "postgresql://neko:{password}@localhost:5433/dentaland_test",
+        "postgresql://neko@localhost:5433/dentaland_test?password={password}",
+    ],
+    ids=["authority-forma", "query-param-forma"],
+)
+def test_pg_dump_i_restore_ne_stavljaju_lozinku_u_argv_ni_jednim_oblikom(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, url_template: str
+) -> None:
+    """Regresija za Codex F4 round 2 (QUERY_PASSWORD_IN_ARGV=True): lozinka
+    ne smije u argv ni kad je u authority dijelu URL-a ni kad je
+    ``?password=...`` query parametar — provjereno za OBA subprocess puta
+    (``pg_dump`` i ``pg_restore``)."""
+    password = "TajnaLozinkaZaTest456"
+    url = url_template.format(password=password)
+    captured: list[dict[str, object]] = []
+
+    def _fake_run(cmd: list[str], capture_output: bool, text: bool, env: dict[str, str]):
+        captured.append({"cmd": cmd, "env": env})
+
+        class _Result:
+            returncode = 0
+            stderr = ""
+
+        return _Result()
+
+    monkeypatch.setattr("dentaland.backup_postgres.subprocess.run", _fake_run)
+
+    _run_pg_dump("pg_dump", url, tmp_path / "out.dump")
+    _run_pg_restore("pg_restore", url, tmp_path / "out.dump")
+
+    assert len(captured) == 2
+    for call in captured:
+        cmd = call["cmd"]
+        assert isinstance(cmd, list)
+        assert password not in " ".join(cmd)
+        env = call["env"]
+        assert isinstance(env, dict)
+        assert env.get("PGPASSWORD") == password
+
+
 def test_restore_test_cisti_i_kad_pukne_odmah_nakon_create(
     config: PostgresBackupConfig,
     monkeypatch: pytest.MonkeyPatch,
@@ -216,36 +351,6 @@ def test_rotacija_zadrzava_samo_daily_keep(config: PostgresBackupConfig) -> None
 
     files = sorted(config.cloud_dir.glob(f"{BACKUP_PREFIX}*{BACKUP_SUFFIX}"))
     assert len(files) == 1  # isto ime svaki put (isti dan) -> overwrite, ne akumulacija
-
-
-def test_run_pg_dump_ne_stavlja_lozinku_u_argv(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """Regresija za Codex F4: lozinka ide kroz PGPASSWORD env, ne argv."""
-    password = "TajnaLozinkaZaTest123"  # nije stvarna lozinka, samo fixture
-    url = f"postgresql://neko:{password}@localhost:5433/dentaland_test"
-    captured: dict[str, object] = {}
-
-    def _fake_run(cmd: list[str], capture_output: bool, text: bool, env: dict[str, str]):
-        captured["cmd"] = cmd
-        captured["env"] = env
-
-        class _Result:
-            returncode = 0
-            stderr = ""
-
-        return _Result()
-
-    monkeypatch.setattr("dentaland.backup_postgres.subprocess.run", _fake_run)
-
-    _run_pg_dump("pg_dump", url, tmp_path / "out.dump")
-
-    cmd = captured["cmd"]
-    assert isinstance(cmd, list)
-    assert password not in " ".join(cmd)
-    env = captured["env"]
-    assert isinstance(env, dict)
-    assert env.get("PGPASSWORD") == password
 
 
 def test_build_config_bez_database_url_baca_gresku() -> None:
