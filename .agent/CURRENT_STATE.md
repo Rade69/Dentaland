@@ -456,6 +456,32 @@ ažurirati na prazan skup (sitan follow-up, ne nov task).
   drugoj mašini) ostaje Radovanova provjera — implementacija/review su
   samo simulirali to lokalno na istoj mašini.
 
+## Riješen incident: GitHub Actions CI bio crven 3 dana (otkriveno i popravljeno 29.8.2026)
+
+`.github/workflows/ci.yml` je koristio `actions/checkout@v4` bez
+`fetch-depth: 0` — plitak checkout (samo zadnji commit). Otkad je
+`tests/test_architecture_contracts.py` uveden (DENT-IMPROVE-010, merge
+`1ef2889`, 26.8.2026 ~13:12), taj test treba `git ls-tree`/`git show` na
+starijim pinovanim commit-ima (`ce2d270`, `a87d423`) — bez pune istorije
+puca sa exit 128. **CI je bio crven na SVAKOM pushu na `main` od tog
+trenutka, tri dana, desetine commit-a** — niko nije primijetio jer su svi
+agenti (uklj. mene) pokretali `pytest tests/ -q` LOKALNO (puna git
+istorija u lokalnom checkout-u prolazi normalno) i nikad nisu provjerili
+stvaran GitHub Actions status.
+
+**Popravljeno:** `fetch-depth: 0` dodan u checkout korak (commit `3d76051`
+na `main`, potvrđeno zeleno na `main` i na `task/DENT-IMPROVE-016-release-gate`
+nakon merge-a fixa).
+
+**Pouka za ubuduće:** "post-merge integration gate" opisan u
+`docs/dentaland-agentski-razvoj.md` se DOSAD provjeravao isključivo
+lokalnim pytest pokretanjem — to NIJE isto što i provjera stvarnog CI
+statusa (`gh run list`/`gh run view`). Lokalni test-run ne otkriva greške
+specifične za CI okruženje (plitak checkout, drugačiji OS/dependency
+verzije, environment varijable). Povremeno provjeriti `gh run list
+--branch main --limit 5` kao dio "gdje smo trenutno" provjere, ne
+pretpostaviti da zeleni lokalni pytest znači zelen CI.
+
 ## Next known work
 
 REF-00..16 paket je DONE. Preostaje tačno JEDAN poznat Prioritet C task:
