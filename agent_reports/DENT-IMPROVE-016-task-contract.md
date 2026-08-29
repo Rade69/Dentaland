@@ -2,8 +2,8 @@
 task_id: DENT-IMPROVE-016
 risk: HIGH
 implementer: claude
-reviewers: [codex, crush]
-status: "IMPLEMENTED — ceka Codex (Reviewer 1) + Crush (Reviewer 2) review, pa human approval. Verdict: PASS_WITH_NOTES (vidi 2026-08-29-DENT-IMPROVE-016-release-gate.md)."
+reviewers: [codex]
+status: "IMPLEMENTED — ceka Codex review (jedan reviewer, novo pravilo od 29.8.2026 - vidi docs/dentaland-agentski-razvoj.md), pa human approval. Verdict: PASS_WITH_NOTES (vidi 2026-08-29-DENT-IMPROVE-016-release-gate.md)."
 created_at: 2026-08-29
 depends_on: DENT-IMPROVE-012, DENT-IMPROVE-013, DENT-IMPROVE-014, DENT-IMPROVE-014B, DENT-IMPROVE-014C, DENT-IMPROVE-015
 ---
@@ -193,9 +193,10 @@ backend/**                          (osim ako implementer utvrdi da je stvarno p
 
 ## Review
 
-Codex (Reviewer 1, obavezan, v3.1 princip #7) + Crush (Reviewer 2,
-nezavisna sesija — implementer je Claude). Human approval prije merge-a.
-Codex posebno provjerava: (a) da li restore test stvarno verifikuje
+Codex (jedini reviewer — pravilo od 29.8.2026, vidi
+`docs/dentaland-agentski-razvoj.md` "Uloge"; implementer je Claude, pa
+Claude ne može biti reviewer istog zadatka). Human approval prije
+merge-a. Codex posebno provjerava: (a) da li restore test stvarno verifikuje
 integritet podataka a ne samo "fajl postoji", (b) da li su svi novi
 dokumenti na srpskom/bosanskom latinicom, (c) da retention/breach
 dokumenti ne izmišljaju pravne rokove van onoga što je već potvrđeno
