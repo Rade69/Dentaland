@@ -398,6 +398,14 @@ def _temporary_database(admin_url: str, throwaway_name: str) -> Iterator[None]:
     ``CREATE``-a, unutar tijela ``with`` bloka, ili bilo gdje između) čisti
     privremenu bazu prije re-raise-a. Ime je jedinstveno po pozivu, pa je
     ``DROP IF EXISTS`` u toj grani uvijek bezbjedan.
+
+    Hvata ``BaseException``, ne samo ``Exception`` (Codex F3 round 5):
+    ``KeyboardInterrupt``/``SystemExit`` NISU ``Exception`` podklase — da
+    je ovaj blok hvatao samo ``Exception``, prekid TAČNO nakon što
+    PostgreSQL server-side izvrši ``CREATE`` (ali prije nego što se
+    ``cur.execute`` poziv vrati) bi zaobišao cleanup u potpunosti. Uvijek
+    se ponovo baca (``raise`` bez argumenta) — nikad ne guta signal, samo
+    interponuje cleanup prije normalnog propagiranja.
     """
     conn = psycopg2.connect(admin_url)
     conn.autocommit = True
@@ -410,7 +418,7 @@ def _temporary_database(admin_url: str, throwaway_name: str) -> Iterator[None]:
             f"Privremena baza '{throwaway_name}' već postoji (kolizija imena) — "
             "odustajem umjesto da je obrišem, nije naša da je brišemo."
         ) from exc
-    except Exception:
+    except BaseException:
         with contextlib.suppress(Exception):  # best-effort, ne smije sakriti pravi uzrok
             conn.close()
         _drop_throwaway_database(admin_url, throwaway_name)

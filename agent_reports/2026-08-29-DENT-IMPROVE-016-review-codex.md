@@ -6,12 +6,12 @@ verdict: REJECT
 scope: PASS
 acceptance: FAIL
 blocking_findings:
-  - F3: "Post-helper-return prozor i dalje ostavlja kreiranu bazu prije caller finally granice"
-  - F5: "Neuspješan interni restore/manifest može pregaziti prethodni validni backup par"
+  - F3: "KeyboardInterrupt tokom CREATE execute handoffa prolazi mimo except Exception i ostavlja privremenu bazu"
 reviewed_commit: 9b20d22db9415b469718177fbe284e4109ba2147
 rereviewed_commit: dc9e00882c98a48245052f98a13c970af3248308
 rereviewed_round2_commit: 613436474ba6ab2e887778bcdfbb0dadba9293ba
 rereviewed_round3_commit: 34c661c726ee72d7f15af65ec13cf06d66cce813
+rereviewed_round4_commit: 9eae6b32d0905fb6c867cbad9f760fc9101fdd22
 reviewed_at: 2026-08-29
 ---
 
@@ -520,3 +520,79 @@ REJECT.
 **SLJEDEĆE:** implementer uvodi ownership context manager i atomsko
 objavljivanje dump+manifest para, sa adversarnim regresijama. Nakon Codex
 PASS-a ide direktno Radovanov human approval.
+
+## Peta ciljana re-verifikacija — Fix runda 4 (`9eae6b3`)
+
+### Verdikt
+
+**REJECT ostaje.** F5 je zatvoren stvarnim jednofajlnim staging/replace
+protokolom. F3 je znatno sužen, ali context manager još ne ispunjava vlastiti
+cleanup kontrakt za `KeyboardInterrupt` neposredno nakon server-side CREATE-a.
+
+### F3 — NIJE POTPUNO ZATVOREN: `BaseException` tokom CREATE handoffa zaobilazi cleanup
+
+`_temporary_database` sada ispravno drži normalni životni vijek baze u jednom
+`try/finally`: `conn.close()`, `yield`, tijelo pozivaoca i izlazak iz tijela su
+pod DROP zaštitom. Time je prethodni post-helper-return caller gap zatvoren.
+
+Međutim, prvi blok oko `cur.execute(CREATE DATABASE ...)` hvata samo
+`Exception`. `KeyboardInterrupt` i `SystemExit` su `BaseException`, pa mogu
+nastati nakon što je PostgreSQL već izvršio CREATE, ali prije nego što tok
+dođe do drugog `try/finally`. Docstring upravo signal/`KeyboardInterrupt`
+navodi kao razlog objedinjavanja lifecycle-a, zato ovo nije samo teorijsko
+odstupanje od neobećane robusnosti.
+
+Adversarna proba je proxyjem pozvala stvarni `cur.execute`, a zatim odmah
+bacila `KeyboardInterrupt`. Produkcijski context manager nije pozvao DROP:
+
+```text
+INTERRUPT_PROPAGATED=KeyboardInterrupt
+KEYBOARD_INTERRUPT_LEFT_DB=True
+MANUAL_CLEANUP_COMPLETED=True
+```
+
+Reviewer je jedinstveno imenovanu bazu nakon provjere ručno uklonio. Novi
+test sa failure-om na `conn.close()` jeste genuin, ali se taj failure dešava
+u drugom `try/finally`, pa ne pokriva ovu raniju granicu.
+
+**Minimal correction:** nakon uspješnog CREATE-a postaviti ownership stanje
+u `finally` strukturi koja hvata cleanup za sve `BaseException` izlaze, ili
+eksplicitno uhvatiti `BaseException` u CREATE bloku uz poseban
+`DuplicateDatabase` tretman i DROP samo kada je CREATE stvarno uspio. Dodati
+regresiju koja izvrši stvarni CREATE pa digne `KeyboardInterrupt` prije
+povratka iz cursor execute granice.
+
+### F5 — ZATVOREN
+
+Manifest i Fernet-enkriptovan dump sada čine jedan dužina-prefiksovan fajl.
+Novi sadržaj se prvo potpuno gradi na `.staging` putanji, a postojeći dnevni
+backup se mijenja samo jednim `Path.replace()` nakon uspješnog dump → interni
+restore → digest slijeda. Failure prije replace-a ostavlja prethodni backup
+bit-za-bit netaknut, a `finally` uklanja staging. Regresioni test strogo
+provjerava bajtove starog artefakta i zatim ga stvarno restore-testuje.
+
+Nisam potvrdio novi F5 defect u pregledanom scope-u. F1/F2/F4 takođe ostaju
+zatvoreni.
+
+### Svježa verifikacija
+
+- `pytest tests/test_backup_postgres.py -q` sa `DATABASE_URL_TEST` →
+  **16 passed**.
+- Puni suite sa `DATABASE_URL_TEST` → **445 passed, 2 failed**; ista dva
+  potvrđena out-of-scope RBAC/Alembic failure-a.
+- Ruff → **All checks passed**.
+- Mypy → **no issues found in 55 source files**.
+- Agent sensors → **0 blocking findings**.
+
+### Handoff
+
+**CILJ:** zatvoriti F3 lifecycle cleanup i F5 atomsko objavljivanje.
+
+**URAĐENO:** F5 PASS; F1/F2/F4 ostaju PASS. F3 još propušta
+`KeyboardInterrupt` poslije stvarnog CREATE-a, pa verdict ostaje REJECT.
+
+**NE DIRATI:** dva poznata PostgreSQL suite failure-a i hosting/HTTPS/
+`EXCLUDE` scope.
+
+**SLJEDEĆE:** proširiti CREATE ownership cleanup na `BaseException` prozor i
+dodati tačan regresioni test. Nakon Codex PASS-a ide Radovanov human approval.

@@ -303,14 +303,50 @@ prolazi `restore_test`, i da nema zaostalih `.staging` fajlova).
   55 source files**.
 - `python scripts/agent_sensors.py --all` → **0 blocking findings**.
 
+## Fix runda 5 (Codex REJECT peti put, 29.8.2026) — F3 konačno, BaseException
+
+Codexova peta re-verifikacija je potvrdila F1/F2/F4/F5 kao trajno
+zatvorene — F3 je bio jedini preostali nalaz, sad na svom najužem mogućem
+obliku:
+
+- **F3 (`KEYBOARD_INTERRUPT_LEFT_DB=True`):** `_temporary_database`-ov
+  prvi `try/except` (oko `CREATE DATABASE`) je hvatao samo `Exception`.
+  `KeyboardInterrupt`/`SystemExit` NISU `Exception` podklase (direktne su
+  `BaseException` podklase) — da PostgreSQL server-side izvrši `CREATE`
+  uspješno, ali se `KeyboardInterrupt` desi PRIJE nego što `cur.execute()`
+  poziv vrati kontrolu, cleanup grana se nikad ne bi izvršila. **Fix:**
+  `except Exception:` → `except BaseException:` u toj konkretnoj grani
+  (kolizija imena i dalje ostaje zasebna, specifičnija
+  `except psycopg2.errors.DuplicateDatabase` grana ISPRED nje, ne
+  utiče na nju). Uvijek se ponovo baca (`raise` bez argumenta) — nikad
+  ne guta signal, samo interponuje cleanup prije normalnog propagiranja.
+  Novi adversarni test
+  `test_temporary_database_samocisti_kad_keyboardinterrupt_odmah_nakon_create`
+  koristi proxy oko cursor-a čiji `execute()` poziva STVARAN `CREATE
+  DATABASE`, pa odmah baca `KeyboardInterrupt` — direktna reprodukcija
+  Codexovog scenarija.
+
+## Verifikacija (nakon fix runde 5)
+
+- `pytest tests/test_backup_postgres.py -v` (sa `DATABASE_URL_TEST`) →
+  **17 passed** (16 iz runde 4 + 1 nov adversarni regresioni test za F3
+  `BaseException`).
+- `pytest tests/ -q` (sa `DATABASE_URL_TEST`) → **446 passed, 2 failed**
+  — ista dva pre-postojeća OUT_OF_SCOPE_FINDING failure-a, nepromijenjena.
+- `ruff check src/dentaland desktop backend tests scripts/agent_sensors.py`
+  → **All checks passed**.
+- `mypy src/dentaland desktop backend` → **Success: no issues found in
+  55 source files**.
+- `python scripts/agent_sensors.py --all` → **0 blocking findings**.
+
 ## Required output
 
 ```yaml
 verdict: PASS_WITH_NOTES
 blocking_findings: []
 evidence:
-  - src/dentaland/backup_postgres.py (F1-F5 popravljeni kroz cetiri runde - snapshot race, unified cleanup context manager, atomsko jednofajlno objavljivanje)
-  - tests/test_backup_postgres.py (16 passed, uklj. 10 adversarnih regresionih testova za F1/F2/F3/F4/F5 kroz sve cetiri runde)
+  - src/dentaland/backup_postgres.py (F1-F5 popravljeni kroz pet rundi - snapshot race, BaseException-safe unified cleanup context manager, atomsko jednofajlno objavljivanje)
+  - tests/test_backup_postgres.py (17 passed, uklj. 11 adversarnih regresionih testova za F1/F2/F3/F4/F5 kroz svih pet rundi)
   - docs/dentaland-postgres-backup-operativni-vodic.md
   - docs/dentaland-breach-runbook.md
   - docs/dentaland-retention-politika.md
