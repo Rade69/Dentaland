@@ -100,6 +100,19 @@ Prema `docs/dentaland-politika-produkcijski-podaci.md`
   55 source files**.
 - `python scripts/agent_sensors.py --all` → **0 blocking findings**.
 
+## Codex review — PASS_WITH_NOTES, N1 (operativna preporuka, ne blocker)
+
+Codex je potvrdio PASS bez blocking nalaza (fixture ekvivalencija,
+FK-safe cleanup, marker kolizije, stvaran alembic head — sve provjereno
+nezavisno, uklj. dva uzastopna runa). Jedna napomena za budućnost: DROP
+komande dokumentovane iznad ("Sigurnosna provjera" sekcija) su tekstualne
+i ne provjeravaju same host/port/naziv baze niti koriste
+`psql --set ON_ERROR_STOP=1` — bezbjedne su za ono što su upravo uradile
+(provjereno lokalno okruženje, port 5433, sadržaj provjeren prije
+brisanja), ali se ne smiju slijepo kopirati u drugo okruženje. Za buduće
+ponavljanje: prvo ispisati/validirati target host/port/database/owner,
+ponoviti provjeru sadržaja, koristiti fail-fast `psql`.
+
 ## Required output
 
 ```yaml

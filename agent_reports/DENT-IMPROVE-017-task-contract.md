@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-017
 risk: HIGH
 implementer: claude
 reviewers: [codex]
-status: "IMPLEMENTED — oba testa prolaze (449 passed, 0 failed sa DATABASE_URL_TEST), alembic_version pecat tacan na obje lokalne baze. Ceka Codex review, pa human approval. Vidi 2026-08-29-DENT-IMPROVE-017-postgres-fixes.md."
+status: "CODEX PASS_WITH_NOTES (prvi pokusaj, bez blocking nalaza) — oba testa prolaze (449 passed, 0 failed sa DATABASE_URL_TEST), alembic_version pecat tacan na obje lokalne baze. N1 operativna preporuka za buduce ponavljanje (nije blocker). Ceka Radovanov human approval. Vidi 2026-08-29-DENT-IMPROVE-017-postgres-fixes.md i 2026-08-29-DENT-IMPROVE-017-review-codex.md."
 created_at: 2026-08-29
 depends_on: DENT-IMPROVE-012, DENT-IMPROVE-013, DENT-IMPROVE-014
 ---
