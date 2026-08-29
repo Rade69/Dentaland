@@ -8,12 +8,11 @@ Pravila sloja (plan sekcija 3.2): Controller SMIJE uvoziti PySide6 i pozivati
 Dialog klase kao crnu kutiju, ali NE smije crtati widgete niti raditi SQL —
 sav pristup podacima ide kroz ``store`` (facade).
 
-Dijalog klase se dohvataju lazy importom iz ``desktop.views.main_window`` u
-trenutku poziva (late binding), umjesto module-level importa: postojeći GUI
-testovi monkeypatch-uju dijaloge na ``desktop.views.main_window`` modulu i
-moraju ostati nepromijenjeni, a neki to rade i NAKON konstrukcije
-``MainWindow``-a. ``MainWindow`` re-eksportuje dijaloge isključivo radi ovog
-late bindinga i testova.
+Dijalog klase se dohvataju lazy importom iz ``desktop.views.dialogs`` u
+trenutku poziva (late binding), umjesto module-level importa: GUI testovi
+monkeypatch-uju dijaloge na ``desktop.views.dialogs`` modulu i neki to rade
+i NAKON konstrukcije ``MainWindow``-a. Ovo kida cirkularni import
+``main_window`` ↔ ``appointment_controller`` (REF-16).
 """
 
 from __future__ import annotations
@@ -85,7 +84,7 @@ class AppointmentController:
     # --- workflow ---
 
     def on_slot_selected(self, start: datetime) -> None:
-        from desktop.views.main_window import AppointmentEditorDialog
+        from desktop.views.dialogs import AppointmentEditorDialog
 
         dialog = AppointmentEditorDialog(
             [(d.id, d.ime) for d in self._doctors()],
@@ -121,7 +120,7 @@ class AppointmentController:
         self._refresh_callback()
 
     def edit_appointment(self, appt: Any) -> None:
-        from desktop.views.main_window import AppointmentEditorDialog
+        from desktop.views.dialogs import AppointmentEditorDialog
 
         dialog = AppointmentEditorDialog(
             [(d.id, d.ime) for d in self._doctors()],
@@ -161,7 +160,7 @@ class AppointmentController:
         self._refresh_callback()
 
     def open_appointment_details(self, appt_id: int) -> None:
-        from desktop.views.main_window import AppointmentDetailsDialog
+        from desktop.views.dialogs import AppointmentDetailsDialog
 
         appt = self._store.get(appt_id)
         if appt is None:
@@ -216,7 +215,7 @@ class AppointmentController:
         self._refresh_callback()
 
     def move_appointment(self, appt: Any) -> None:
-        from desktop.views.main_window import MoveAppointmentDialog
+        from desktop.views.dialogs import MoveAppointmentDialog
 
         dialog = MoveAppointmentDialog(appt, self._parent_widget)
         while True:
@@ -240,7 +239,7 @@ class AppointmentController:
         return True
 
     def cancel_appointment(self, appt: Any) -> None:
-        from desktop.views.main_window import CancelAppointmentDialog
+        from desktop.views.dialogs import CancelAppointmentDialog
 
         dialog = CancelAppointmentDialog(appt, self._parent_widget)
         if dialog.exec() == QDialog.DialogCode.Accepted:
@@ -255,7 +254,7 @@ class AppointmentController:
             self._refresh_callback()
 
     def delete_appointment(self, appt: Any) -> None:
-        from desktop.views.main_window import DeleteAppointmentDialog
+        from desktop.views.dialogs import DeleteAppointmentDialog
 
         dialog = DeleteAppointmentDialog(appt, self._parent_widget)
         if dialog.exec() == QDialog.DialogCode.Accepted:

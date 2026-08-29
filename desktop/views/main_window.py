@@ -35,14 +35,6 @@ from desktop.controllers.schedule_controller import ScheduleController
 from desktop.presentation.theme import apply_theme
 from desktop.views.blockout_panel import BlockoutPanel
 from desktop.views.day_view import DayView
-
-# Re-eksport dijalog klasa: AppointmentController ih dohvata lazy importom
-# (late binding), a postojeći GUI testovi monkeypatch-uju ih na ovom modulu.
-from desktop.views.dialogs.appointment_details import AppointmentDetailsDialog  # noqa: F401
-from desktop.views.dialogs.appointment_editor import AppointmentEditorDialog  # noqa: F401
-from desktop.views.dialogs.cancel_appointment import CancelAppointmentDialog  # noqa: F401
-from desktop.views.dialogs.delete_appointment import DeleteAppointmentDialog  # noqa: F401
-from desktop.views.dialogs.move_appointment import MoveAppointmentDialog  # noqa: F401
 from desktop.views.requests_page import RequestsPage
 from desktop.views.requests_panel import DashboardPanels
 from desktop.views.settings_panel import SettingsPanel

@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QDialog
 
 from dentaland.services import OverlapError
 from desktop.controllers.appointment_controller import AppointmentController
-from desktop.views import main_window as main_window_mod
+from desktop.views import dialogs as dialogs_mod
 
 START = datetime(2026, 8, 17, 9, 0, tzinfo=UTC)
 
@@ -55,7 +55,7 @@ def test_on_slot_selected_kreira_termin_i_poziva_refresh(monkeypatch) -> None:
         set_doctor=lambda _id: None,
         create=lambda **kw: created.append(kw),
     )
-    monkeypatch.setattr(main_window_mod, "AppointmentEditorDialog", FakeEditor)
+    monkeypatch.setattr(dialogs_mod, "AppointmentEditorDialog", FakeEditor)
 
     controller = _controller(store, refreshes=refreshes)
     controller.on_slot_selected(START)
@@ -107,7 +107,7 @@ def test_on_slot_selected_retry_na_overlap(monkeypatch) -> None:
         set_doctor=lambda _id: None,
         create=create,
     )
-    monkeypatch.setattr(main_window_mod, "AppointmentEditorDialog", FakeEditor)
+    monkeypatch.setattr(dialogs_mod, "AppointmentEditorDialog", FakeEditor)
 
     controller = _controller(store, refreshes=refreshes)
     controller.on_slot_selected(START)
@@ -154,7 +154,7 @@ def test_delete_appointment_poziva_store_i_refresh(monkeypatch) -> None:
             return QDialog.DialogCode.Accepted
 
     store = SimpleNamespace(delete=MagicMock())
-    monkeypatch.setattr(main_window_mod, "DeleteAppointmentDialog", FakeDelete)
+    monkeypatch.setattr(dialogs_mod, "DeleteAppointmentDialog", FakeDelete)
 
     controller = _controller(store, refreshes=refreshes)
     controller.delete_appointment(SimpleNamespace(id=7))
