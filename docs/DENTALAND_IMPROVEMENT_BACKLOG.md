@@ -57,8 +57,9 @@ Za svaki task važe postojeća Dentaland pravila:
 11. ~~`DENT-IMPROVE-011` — browser E2E testovi javne forme~~ — DONE, 26.8.2026 (merge `f9de00e`; Playwright, 6 scenarija, F1 REJECT→fix za sigurnost izolovane test baze — vidi task contract za detalje)
 12. ~~`DENT-IMPROVE-012` — PostgreSQL migracija~~ — DONE, 27.8.2026 (merge `824590f`; obim sužen — SAMO SQLite→PostgreSQL konekcija/podaci, BEZ EXCLUDE/`btree_gist` zbog nerešenog pravnog pitanja, odvojeno u budući task — vidi `agent_reports/2026-08-27-DENT-IMPROVE-012-postgres-migration.md` za detalje)
 13. ~~`DENT-IMPROVE-013` — autentifikacija + RBAC~~ — DONE, 27.8.2026 (merge `da67027`; Argon2id, RECEPTION-only RBAC, Codex F1 fix runda — vidi `agent_reports/2026-08-27-DENT-IMPROVE-013-auth-rbac.md` za detalje)
-14. `DENT-IMPROVE-014` — audit log — **sad jedini neblokiran Prioritet C task**
-15. `DENT-IMPROVE-015` — produkcijski security/privacy release gate
+14. ~~`DENT-IMPROVE-014` — audit log~~ — DONE, 28.8.2026 (jezgro + `DENT-IMPROVE-014B` login audit + `DENT-IMPROVE-014C` appointment audit, sva tri mergovana — vidi `.agent/CURRENT_STATE.md`)
+15. ~~`DENT-IMPROVE-015` — rate limiting (4 backend endpointa)~~ — DONE, 28.8.2026 (implementer Pi; NAPOMENA: ovaj broj je ID-kolizija sa originalnim planom, vidi stavku 16)
+16. `DENT-IMPROVE-016` (originalno pogrešno numerisan kao 015) — produkcijski security/privacy release gate — **jedini preostali, nikad urađen Prioritet C task, vidi sekciju 16 ispod za pun checklist**
 
 ---
 
@@ -890,7 +891,18 @@ Audit ne smije sadržati:
 
 ---
 
-# 16. DENT-IMPROVE-015 — Produkcijski security/privacy release gate
+# 16. DENT-IMPROVE-016 — Produkcijski security/privacy release gate
+
+> **ID kolizija (otkriveno 29.8.2026):** ovaj task je originalno nosio broj
+> `DENT-IMPROVE-015`. Taj broj je u međuvremenu (28.8.2026) dodijeljen i
+> stvarno iskorišten za DRUGI, manji zadatak — rate limiting na 4 backend
+> endpointa (implementer Pi, merge commit `ee52587`, 28.8.2026, vidi
+> `agent_reports/DENT-IMPROVE-015-task-contract.md`). Taj rad je ispravan i
+> ostaje pod brojem 015 (već je u git istoriji, retroaktivno preimenovanje
+> bi samo unijelo zabunu). Ovaj, ORIGINALNI i još nikad urađen task, dobija
+> nov broj **`DENT-IMPROVE-016`** i čeka svoj task contract — vidi
+> `.agent/CURRENT_STATE.md` za trenutni status. Isti obrazac kolizije kao
+> kod `DENT-IMPROVE-010` (vidi stavku 10 iznad).
 
 **Risk:** HIGH  
 **Tip:** release readiness  
