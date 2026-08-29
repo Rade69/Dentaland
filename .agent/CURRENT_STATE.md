@@ -479,24 +479,29 @@ prije pisanja kontrakta:**
 | minimalna javna forma | VJEROVATNO DONE, nije formalno auditovano | DENT-IMPROVE-011 E2E postoji, ali "minimalnost" polja nije eksplicitno provjerena kroz ovaj gate |
 | HTTPS | ODGOĐENO do hosting odluke | fizički zahtijeva stvaran server — ne može se raditi prije nego što VPS/hosting bude izabran |
 | backup + restore (PostgreSQL) | NIJE URAĐENO, ali izvodljivo ODMAH | SQLite backup postoji (DENT-004/DENT-IMPROVE-007, `docs/dentaland-backup-operativni-vodic.md`), ali `pg_dump` + testiran restore ne postoji — može se odraditi na postojećoj LOKALNOJ Dentaland Postgres instanci (port 5433), ne mora čekati produkcijski server |
-| privacy notice | NIJE URAĐENO, izvodljivo ODMAH | dokument ne postoji, nezavisan je od hostinga |
+| privacy notice | DONE (otkriveno 29.8.2026) | `web/privacy.html`, napisao Radovan lično, commit `16d0a17` 17.8.2026 — kompletan (kontrolor, svrha, pravni osnov, prava, Agencija za zaštitu ličnih podataka BiH, retention). Nije prošao kroz agent review proces, ali sadržajno je gotov — verifikovan ovim gate-om, ne pisan ispočetka |
 | breach runbook | NIJE URAĐENO, izvodljivo ODMAH | dokument ne postoji, nezavisan je od hostinga |
-| retention dokument | NIJE FORMALIZOVANO, izvodljivo ODMAH | Riješeno 29.8.2026: medicinska dokumentacija ostaje na papiru van sistema, pitanje rokova čuvanja MEDICINSKE dokumentacije time nije primjenjivo na Dentaland. Booking podaci već imaju pravilo (12 mjeseci, anonimizacija — CLAUDE.md "Sigurnost i privatnost"), samo treba formalni dokument da to zapiše |
+| retention dokument | NIJE FORMALIZOVANO, izvodljivo ODMAH | Riješeno 29.8.2026: medicinska dokumentacija ostaje na papiru van sistema, pitanje rokova čuvanja MEDICINSKE dokumentacije time nije primjenjivo na Dentaland. Booking podaci već imaju pravilo — **pet godina** od posljednjeg unosa (potvrđeno 29.8.2026, usklađeno sa `web/privacy.html`, NE 12 mjeseci kako je pogrešno pisalo u CLAUDE.md prije ove ispravke), samo treba formalni dokument koji to zapiše |
 | processor evidenciju | ODGOĐENO do hosting odluke | CLAUDE.md "Otvorena pitanja" — izbor hosting/cloud procesora i kontrolor/obrađivač ugovor nisu razriješeni; Radovan 29.8.2026 eksplicitno odgodio hosting odluku do kraja projekta (trenutno nema pristup/info o hostingu zvaničnog sajta) |
 | produkcijski podaci van AI/dev dumpova | NIJE FORMALIZOVANO | politika/proces, nezavisan je od hostinga, izvodljivo odmah |
 | PostgreSQL concurrency protection (EXCLUDE constraint) | ODGOĐENO do hosting odluke | namjerno izostavljeno iz DENT-IMPROVE-012 obima; čeka istu hosting/procesor odluku |
 
 **Zaključak (ažurirano 29.8.2026 — Radovan eksplicitno odgodio hosting
-odluku do kraja projekta):** pravni osnov obrade i retention medicinske
-dokumentacije su riješeni kao poslovna odluka. 3 stavke (HTTPS, processor
-evidencija, EXCLUDE constraint) namjerno čekaju hosting odluku — nije
-propust, nego svjestan redoslijed. 5 stavki (backup+restore, privacy
-notice, breach runbook, retention dokument, politika produkcijskih
-podataka) su nezavisne od hostinga i izvodljive odmah. Plan: napraviti
-`DENT-IMPROVE-016` task contract skraćen na tih 5 stavki, sa preostale 3
-eksplicitno označene kao odgođene (ne blocking findings, nego dokumentovan
-scope cut) — gate za PUNU produkcijsku spremnost čeka hosting odluku na
-kraju projekta, ali ovaj skraćeni gate ipak ima vrijednost odmah. Ovo je
-tipično Claude-only zadatak (compliance/auditing i pisanje dokumenata, ne
-implementacija po Pi/Crush obrascu), slično REF-FINAL prihvatnom auditu
+odluku do kraja projekta, i potvrdio da web/privacy.html već postoji sa
+tačnim petogodišnjim rokom čuvanja):** pravni osnov obrade i retention
+medicinske dokumentacije su riješeni kao poslovna odluka. 3 stavke
+(HTTPS, processor evidencija, EXCLUDE constraint) namjerno čekaju hosting
+odluku — nije propust, nego svjestan redoslijed. Od preostalih 5 stavki,
+**privacy notice je već DONE** (`web/privacy.html`, otkriveno tek sada —
+razlog da se ovaj gate radi kao pravi audit, ne samo popis šta fali).
+Ostaju tačno 4 stavke za `DENT-IMPROVE-016`: backup+restore (PostgreSQL),
+breach runbook, retention dokument (formalizuje petogodišnje pravilo iz
+privacy.html), politika produkcijskih podataka van AI/dev dumpova. Plan:
+napraviti `DENT-IMPROVE-016` task contract skraćen na tih 4 stavke +
+formalnu verifikaciju privacy notice-a (ne pisanje, samo audit protiv
+CLAUDE.md/v3.1 zahtjeva), sa preostale 3 hosting-zavisne stavke
+eksplicitno označene kao odgođene (ne blocking findings, nego
+dokumentovan scope cut). Ovo je tipično Claude-only zadatak
+(compliance/auditing i pisanje dokumenata, ne implementacija po
+Pi/Crush obrascu), slično REF-FINAL prihvatnom auditu
 ranije u projektu.
