@@ -2,8 +2,8 @@
 task_id: DENT-IMPROVE-016
 risk: HIGH
 implementer: claude
-reviewers: [codex, crush]
-status: "NOT STARTED"
+reviewers: [codex]
+status: "CODEX PASS (7. i finalna runda) — F1-F5 svi trajno zatvoreni, 12 adversarnih regresionih testova. Ceka Radovanov human approval prije merge-a. Vidi 2026-08-29-DENT-IMPROVE-016-review-codex.md (sekcija 'Sedma ciljana re-verifikacija') i 2026-08-29-DENT-IMPROVE-016-release-gate.md."
 created_at: 2026-08-29
 depends_on: DENT-IMPROVE-012, DENT-IMPROVE-013, DENT-IMPROVE-014, DENT-IMPROVE-014B, DENT-IMPROVE-014C, DENT-IMPROVE-015
 ---
@@ -193,9 +193,10 @@ backend/**                          (osim ako implementer utvrdi da je stvarno p
 
 ## Review
 
-Codex (Reviewer 1, obavezan, v3.1 princip #7) + Crush (Reviewer 2,
-nezavisna sesija — implementer je Claude). Human approval prije merge-a.
-Codex posebno provjerava: (a) da li restore test stvarno verifikuje
+Codex (jedini reviewer — pravilo od 29.8.2026, vidi
+`docs/dentaland-agentski-razvoj.md` "Uloge"; implementer je Claude, pa
+Claude ne može biti reviewer istog zadatka). Human approval prije
+merge-a. Codex posebno provjerava: (a) da li restore test stvarno verifikuje
 integritet podataka a ne samo "fajl postoji", (b) da li su svi novi
 dokumenti na srpskom/bosanskom latinicom, (c) da retention/breach
 dokumenti ne izmišljaju pravne rokove van onoga što je već potvrđeno
