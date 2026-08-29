@@ -79,16 +79,60 @@ Otkriveno tokom regresionog testiranja (`pytest tests/ -q` sa
 Zabilježeno u `.agent/CURRENT_STATE.md` (commit `a373882`), predložen
 budući `DENT-IMPROVE-017`. Ne blokira ovaj task.
 
-## Verifikacija
+## Fix runda 1 (Codex REJECT, 29.8.2026) — F1-F4
+
+Codex review (`2026-08-29-DENT-IMPROVE-016-review-codex.md`) je vratio
+**REJECT** sa 4 blocking findinga. Sva četiri popravljena, sa novim
+regresionim testovima koji reprodukuju TAČNO Codexov adversarni scenario
+(ne samo "sad je zeleno"):
+
+- **F1 (HIGH, restore verifikacija ne dokazuje integritet):**
+  `_verify_postgres_db` sada provjerava SVIH 8 `CORE_TABLES` (ne samo
+  `appointments`) i vraća manifest broja redova po tabeli umjesto da
+  odbacuje rezultat. Novi testovi: `test_verify_odbija_nepotpunu_semu`
+  (direktna reprodukcija Codexovog adversarnog scenarija — baza sa samo
+  praznom `appointments(id integer)` sad ispravno baca
+  `RestoreVerificationError`) i
+  `test_restore_test_manifest_odgovara_izvornoj_bazi` (manifest broj
+  doktora u restore-ovanoj bazi mora TAČNO odgovarati broju u izvornoj).
+- **F2 (HIGH, deterministički naziv privremene baze):**
+  `_throwaway_db_name` sada dodaje `secrets.token_hex(8)` nasumičan sufiks
+  po pozivu — nikad isto ime dva puta, pa je `DROP IF EXISTS` u cleanup-u
+  bezbjedan (ime je garantovano kreirano/nepostojeće u OVOM pozivu, ne
+  potencijalno tuđa baza). `restore_test` vraća stvarno korišteno ime
+  (`RestoreTestResult.throwaway_db_name`) umjesto da ga pozivalac
+  pretpostavlja.
+- **F3 (MEDIUM, cleanup preskočen na post-create failure):** poziv
+  `_create_throwaway_database(...)` premješten UNUTAR istog `try/finally`
+  koji radi `_drop_throwaway_database(...)` — sad pokriva i pad tačno
+  nakon uspješnog `CREATE DATABASE`. Novi test
+  `test_restore_test_cisti_i_kad_pukne_odmah_nakon_create` (monkeypatch
+  `_run_pg_restore` da baci odmah nakon create) potvrđuje da privremena
+  baza ipak nestane.
+- **F4 (MEDIUM, lozinka u argv):** `_url_without_password` (koristi
+  `URL.create()` bez password argumenta — NE `set(password=None)`, koji
+  je SQLAlchemy sentinel za "ne mijenjaj" i tiho ne bi ništa uklonio,
+  otkriveno tokom fixa) + `_pg_subprocess_env` prosljeđuje lozinku kroz
+  `PGPASSWORD` env varijablu. Novi test
+  `test_run_pg_dump_ne_stavlja_lozinku_u_argv` potvrđuje da lozinka nije
+  u argv-u i da je stvarno u env-u.
+
+Usput otkriven i popravljen DODATNI bug (nije bio dio Codexovih nalaza):
+`_pg_subprocess_env` je prvobitno gradio subprocess environment iz
+pozivaočevog `env` override mapinga (namijenjenog SAMO za
+`DENTALAND_PG_BIN_DIR`/config lookup), umjesto iz stvarnog `os.environ`
+— u CLI testu sa namjerno minimalnim `env` dictom (samo `DATABASE_URL` +
+`DENTALAND_DATA_DIR`) ovo je subprocess-u oduzelo `PATH`/`SYSTEMROOT`,
+pa je `pg_dump` pucao na DNS resoluciji za "localhost". Ispravljeno da
+`_pg_subprocess_env` uvijek koristi puni `os.environ` kao bazu.
+
+## Verifikacija (nakon fix runde 1)
 
 - `pytest tests/test_backup_postgres.py -v` (sa `DATABASE_URL_TEST`) →
-  **6 passed**.
-- `pytest tests/ -q` (bez `DATABASE_URL_TEST`, SQLite-only baseline) →
-  **429 passed, 8 skipped** (6 novih backup testova + postojeća 2 se
-  preskaču bez env varijable — nepromijenjen baseline).
-- `pytest tests/ -q` (sa `DATABASE_URL_TEST`) → **435 passed, 2 failed**
-  — dva failure-a su OUT_OF_SCOPE_FINDING gore, potvrđeno identično na
-  `main` prije ovog taska.
+  **10 passed** (6 originalnih + 4 nova regresiona testa za F1-F4).
+- `pytest tests/ -q` (sa `DATABASE_URL_TEST`) → **439 passed, 2 failed**
+  — ista dva pre-postojeća OUT_OF_SCOPE_FINDING failure-a kao ranije, ne
+  nova.
 - `ruff check src/dentaland desktop backend tests scripts/agent_sensors.py`
   → **All checks passed**.
 - `mypy src/dentaland desktop backend` → **Success: no issues found in
@@ -101,8 +145,8 @@ budući `DENT-IMPROVE-017`. Ne blokira ovaj task.
 verdict: PASS_WITH_NOTES
 blocking_findings: []
 evidence:
-  - src/dentaland/backup_postgres.py
-  - tests/test_backup_postgres.py (6 passed)
+  - src/dentaland/backup_postgres.py (F1-F4 popravljeni, fix runda 1)
+  - tests/test_backup_postgres.py (10 passed, uklj. 4 regresiona testa za F1-F4)
   - docs/dentaland-postgres-backup-operativni-vodic.md
   - docs/dentaland-breach-runbook.md
   - docs/dentaland-retention-politika.md
@@ -117,5 +161,6 @@ open_risks:
 
 ## Sljedeće
 
-Codex (Reviewer 1) pa Crush (Reviewer 2), zatim Radovanovo human
-approval prije merge-a.
+Codex ponavlja ciljanu verifikaciju F1-F4 (novo pravilo od 29.8.2026 —
+jedan reviewer, ne dva, vidi `docs/dentaland-agentski-razvoj.md`). Nakon
+PASS-a ide Radovanovo human approval prije merge-a.

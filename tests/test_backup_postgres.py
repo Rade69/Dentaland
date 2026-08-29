@@ -28,6 +28,11 @@ from dentaland.backup_postgres import (
     LAST_BACKUP_FILENAME,
     RESTORE_TEST_DB_SUFFIX,
     PostgresBackupConfig,
+    RestoreVerificationError,
+    _create_throwaway_database,
+    _drop_throwaway_database,
+    _run_pg_dump,
+    _verify_postgres_db,
     build_config,
     create_backup,
     main,
@@ -96,18 +101,94 @@ def test_run_pa_restore_test_uspijeva_i_ne_ostavlja_privremenu_bazu(
     assert enc_path.name.endswith(BACKUP_SUFFIX)
     assert not (config.local_dir / "backup-tmp.dump").exists()
 
-    restored_path = restore_test(config)
+    result = restore_test(config)
 
-    assert restored_path == enc_path
+    assert result.backup_path == enc_path
     assert not (config.local_dir / "restore-test.dump").exists()
+    # Ime je jedinstveno po pozivu (Codex F2), ne isto svaki put.
+    assert result.throwaway_db_name.startswith(
+        make_url(config.database_url).database + RESTORE_TEST_DB_SUFFIX
+    )
 
     # Privremena test baza je stvarno obrisana, ne samo "izgleda ok".
-    throwaway_name = make_url(config.database_url).database + RESTORE_TEST_DB_SUFFIX
-    throwaway_url = make_url(config.database_url).set(database=throwaway_name).render_as_string(
-        hide_password=False
+    throwaway_url = (
+        make_url(config.database_url)
+        .set(database=result.throwaway_db_name)
+        .render_as_string(hide_password=False)
     )
     with pytest.raises(psycopg2.OperationalError):
         conn = psycopg2.connect(throwaway_url)
+        conn.close()
+
+
+def test_restore_test_manifest_odgovara_izvornoj_bazi(
+    config: PostgresBackupConfig,
+    pg_session_factory: sessionmaker[Session],
+) -> None:
+    """Regresija za Codex F1 — manifest mora pokazati STVARAN broj redova
+    restore-ovane baze, ne samo da je proces uspio."""
+    with pg_session_factory() as session:
+        source_doctor_count = session.query(Doctor).count()
+
+    create_backup(config)
+    result = restore_test(config)
+
+    assert result.table_counts["doctors"] == source_doctor_count
+    assert source_doctor_count >= 1  # sanity - fixture je stvarno seedovala marker doktora
+    assert set(result.table_counts) >= {"doctors", "appointments", "users", "audit_events"}
+
+
+def test_verify_odbija_nepotpunu_semu(config: PostgresBackupConfig) -> None:
+    """Adversarna regresija za Codex F1: baza sa SAMO praznom ``appointments``
+    tabelom (bez ostatka Dentaland šeme) mora pasti verifikaciju, ne proći
+    kao 'restore uspio'."""
+    fake_name = f"{make_url(config.database_url).database}_fake_incomplete_schema_check"
+    _create_throwaway_database(config.database_url, fake_name)
+    fake_url = (
+        make_url(config.database_url).set(database=fake_name).render_as_string(hide_password=False)
+    )
+    try:
+        conn = psycopg2.connect(fake_url)
+        conn.autocommit = True
+        try:
+            with conn.cursor() as cur:
+                cur.execute("CREATE TABLE appointments (id integer)")
+        finally:
+            conn.close()
+
+        with pytest.raises(RestoreVerificationError):
+            _verify_postgres_db(fake_url)
+    finally:
+        _drop_throwaway_database(config.database_url, fake_name)
+
+
+def test_restore_test_cisti_i_kad_pukne_odmah_nakon_create(
+    config: PostgresBackupConfig,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regresija za Codex F3: ako nešto pukne ODMAH nakon uspješnog
+    CREATE DATABASE (prije restore/verify), privremena baza i dalje mora
+    biti obrisana — ne smije preživjeti izuzetak na toj granici."""
+    create_backup(config)
+
+    fixed_name = f"{make_url(config.database_url).database}{RESTORE_TEST_DB_SUFFIX}_f3_regresija"
+    monkeypatch.setattr(
+        "dentaland.backup_postgres._throwaway_db_name", lambda database_url: fixed_name
+    )
+
+    def _boom(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("simulirani pad odmah nakon CREATE DATABASE")
+
+    monkeypatch.setattr("dentaland.backup_postgres._run_pg_restore", _boom)
+
+    with pytest.raises(RuntimeError, match="simulirani pad"):
+        restore_test(config)
+
+    fixed_url = (
+        make_url(config.database_url).set(database=fixed_name).render_as_string(hide_password=False)
+    )
+    with pytest.raises(psycopg2.OperationalError):
+        conn = psycopg2.connect(fixed_url)
         conn.close()
 
 
@@ -135,6 +216,36 @@ def test_rotacija_zadrzava_samo_daily_keep(config: PostgresBackupConfig) -> None
 
     files = sorted(config.cloud_dir.glob(f"{BACKUP_PREFIX}*{BACKUP_SUFFIX}"))
     assert len(files) == 1  # isto ime svaki put (isti dan) -> overwrite, ne akumulacija
+
+
+def test_run_pg_dump_ne_stavlja_lozinku_u_argv(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Regresija za Codex F4: lozinka ide kroz PGPASSWORD env, ne argv."""
+    password = "TajnaLozinkaZaTest123"  # nije stvarna lozinka, samo fixture
+    url = f"postgresql://neko:{password}@localhost:5433/dentaland_test"
+    captured: dict[str, object] = {}
+
+    def _fake_run(cmd: list[str], capture_output: bool, text: bool, env: dict[str, str]):
+        captured["cmd"] = cmd
+        captured["env"] = env
+
+        class _Result:
+            returncode = 0
+            stderr = ""
+
+        return _Result()
+
+    monkeypatch.setattr("dentaland.backup_postgres.subprocess.run", _fake_run)
+
+    _run_pg_dump("pg_dump", url, tmp_path / "out.dump")
+
+    cmd = captured["cmd"]
+    assert isinstance(cmd, list)
+    assert password not in " ".join(cmd)
+    env = captured["env"]
+    assert isinstance(env, dict)
+    assert env.get("PGPASSWORD") == password
 
 
 def test_build_config_bez_database_url_baca_gresku() -> None:

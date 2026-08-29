@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import secrets
 import shutil
 import subprocess
 import sys
@@ -35,7 +36,7 @@ from pathlib import Path
 import psycopg2  # type: ignore[import-untyped]
 from cryptography.fernet import Fernet, InvalidToken
 from psycopg2 import sql  # type: ignore[import-untyped]
-from sqlalchemy.engine import make_url
+from sqlalchemy.engine import URL, make_url
 
 from dentaland import paths
 from dentaland.backup import BackupError, ensure_key, load_key
@@ -46,6 +47,22 @@ LAST_BACKUP_FILENAME = "last_backup.txt"
 KEY_FILENAME = "backup_postgres.key"
 RESTORE_TEST_DB_SUFFIX = "_restore_check"
 STALE_AFTER = timedelta(hours=25)
+
+# Tabele koje moraju postojati i biti čitljive u restore-ovanoj bazi da bi se
+# restore smatrao integritetski ispravnim (DENT-IMPROVE-014 audit_events
+# uključen — cijela trenutna Dentaland šema, ne samo appointments). Vidi
+# Codex review F1 (2026-08-29) — provjera SAMO appointments je prihvatala
+# adversarnu bazu sa proizvoljnom praznom tabelom istog imena.
+CORE_TABLES = (
+    "doctors",
+    "services",
+    "working_hours",
+    "time_off",
+    "appointments",
+    "users",
+    "sessions",
+    "audit_events",
+)
 
 ENV_DATABASE_URL = "DATABASE_URL"
 ENV_PG_BIN_DIR = "DENTALAND_PG_BIN_DIR"
@@ -70,6 +87,20 @@ class PostgresBackupConfig:
     cloud_dir: Path
     key_path: Path
     daily_keep: int = 30
+
+
+@dataclass(frozen=True)
+class RestoreTestResult:
+    """Rezultat ``restore_test`` — dokaz šta je stvarno provjereno.
+
+    ``table_counts`` je manifest broja redova po tabeli u PRIVREMENOJ bazi
+    u trenutku provjere (prije nego što je obrisana) — konkretan dokaz da
+    su podaci stvarno restore-ovani, ne samo da je proces vratio exit 0.
+    """
+
+    backup_path: Path
+    table_counts: dict[str, int]
+    throwaway_db_name: str
 
 
 def build_config(env: Mapping[str, str] | None = None) -> PostgresBackupConfig:
@@ -128,6 +159,45 @@ def _decrypt(enc_path: Path, plain_path: Path, key: bytes) -> None:
     plain_path.write_bytes(data)
 
 
+def _url_without_password(database_url: str) -> str:
+    """URL bez lozinke — bezbjedan za argv (proces command-line je vidljiv
+    kroz procesnu inspekciju/task manager). Lozinka ide kroz ``PGPASSWORD``
+    env varijablu umjesto toga (vidi ``_pg_subprocess_env``).
+
+    ``URL.set(password=None)`` je NAMJERNO izbjegnut — ``None`` tu znači
+    "ne mijenjaj", ne "obriši" (SQLAlchemy sentinel), pa bi tiho ostavio
+    lozinku u stringu. ``URL.create()`` bez ``password`` argumenta daje
+    čist ``user@host`` (bez dvotačke) — jednoznačno za libpq (prazna
+    lozinka "user:@host" bi značila doslovno praznu lozinku, ne "koristi
+    PGPASSWORD").
+    """
+    url = make_url(database_url)
+    return URL.create(
+        drivername=url.drivername,
+        username=url.username,
+        host=url.host,
+        port=url.port,
+        database=url.database,
+        query=url.query,
+    ).render_as_string(hide_password=False)
+
+
+def _pg_subprocess_env(database_url: str) -> dict[str, str]:
+    """Environment za pg_dump/pg_restore subprocess.
+
+    UVIJEK puni ``os.environ`` (ne bilo koji ``env`` override mapping) —
+    subprocess-u trebaju PATH/SYSTEMROOT i sl. da uopšte radi (npr. DNS
+    resolution na Windowsu puca bez njih); override mape koje pozivaoci
+    koriste za DENTALAND_* konfiguraciju NISU zamjena za pravi OS
+    environment. Dodaje ``PGPASSWORD`` da lozinka ne mora u argv.
+    """
+    base = dict(os.environ)
+    password = make_url(database_url).password
+    if password:
+        base["PGPASSWORD"] = password
+    return base
+
+
 def _database_name(database_url: str) -> str:
     # Ne ispisivati database_url u poruci - moze sadrzati lozinku.
     name = make_url(database_url).database
@@ -164,10 +234,12 @@ def _write_last_backup(cloud_dir: Path, when: datetime) -> None:
 
 
 def _run_pg_dump(pg_dump_bin: str, database_url: str, dest_path: Path) -> None:
+    url = _url_without_password(database_url)
     result = subprocess.run(
-        [pg_dump_bin, "--format=custom", f"--file={dest_path}", database_url],
+        [pg_dump_bin, "--format=custom", f"--file={dest_path}", url],
         capture_output=True,
         text=True,
+        env=_pg_subprocess_env(database_url),
     )
     if result.returncode != 0:
         raise BackupError(f"pg_dump nije uspio (exit {result.returncode}): {result.stderr.strip()}")
@@ -175,9 +247,16 @@ def _run_pg_dump(pg_dump_bin: str, database_url: str, dest_path: Path) -> None:
 
 def _run_pg_restore(pg_restore_bin: str, target_url: str, dump_path: Path) -> None:
     result = subprocess.run(
-        [pg_restore_bin, "--clean", "--if-exists", f"--dbname={target_url}", str(dump_path)],
+        [
+            pg_restore_bin,
+            "--clean",
+            "--if-exists",
+            f"--dbname={_url_without_password(target_url)}",
+            str(dump_path),
+        ],
         capture_output=True,
         text=True,
+        env=_pg_subprocess_env(target_url),
     )
     if result.returncode != 0:
         raise BackupError(
@@ -186,7 +265,16 @@ def _run_pg_restore(pg_restore_bin: str, target_url: str, dump_path: Path) -> No
 
 
 def _throwaway_db_name(database_url: str) -> str:
-    return _database_name(database_url) + RESTORE_TEST_DB_SUFFIX
+    """Jedinstveno ime po pozivu — NIKAD deterministički samo iz izvorne baze.
+
+    Codex review F2 (2026-08-29): determinističko ime + bezuslovan DROP
+    IF EXISTS prije kreiranja bi mogao obrisati postojeću, nepovezanu bazu
+    sa istim imenom. Nasumičan sufiks čini svaki poziv bezbjedno jedinstven
+    — DROP IF EXISTS u cleanup-u je siguran jer je ovo ime garantovano
+    kreirano (ili nikad nije postojalo) u OVOM pozivu.
+    """
+    token = secrets.token_hex(8)
+    return f"{_database_name(database_url)}{RESTORE_TEST_DB_SUFFIX}_{token}"
 
 
 def _throwaway_url(database_url: str, throwaway_name: str) -> str:
@@ -218,18 +306,32 @@ def _drop_throwaway_database(admin_url: str, throwaway_name: str) -> None:
         conn.close()
 
 
-def _verify_postgres_db(database_url: str) -> None:
-    """Potvrdi da je restore-ovana baza čitljiva i ima očekivanu šemu."""
+def _verify_postgres_db(database_url: str) -> dict[str, int]:
+    """Potvrdi da restore-ovana baza ima KOMPLETNU očekivanu šemu i vrati
+    manifest broja redova po tabeli (dokaz integriteta, ne samo "readable").
+
+    Codex review F1 (2026-08-29): ranija verzija je provjeravala samo
+    ``appointments`` bez pamćenja rezultata — adversarna baza sa
+    proizvoljnom praznom tabelom istog imena je prolazila. Provjera svih
+    ``CORE_TABLES`` hvata i taj slučaj (nepotpuna/lažna šema puca na prvoj
+    tabeli koje nema) i daje pozivaocu konkretne brojeve za dalju provjeru.
+    """
     try:
         conn = psycopg2.connect(database_url)
     except psycopg2.OperationalError as exc:
         raise RestoreVerificationError(f"Restore-test baza nije dostupna: {exc}") from exc
     try:
+        counts: dict[str, int] = {}
         with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM appointments")
-            cur.fetchone()
+            for table in CORE_TABLES:
+                cur.execute(sql.SQL("SELECT COUNT(*) FROM {}").format(sql.Identifier(table)))
+                row = cur.fetchone()
+                counts[table] = row[0]
+        return counts
     except psycopg2.Error as exc:
-        raise RestoreVerificationError(f"Restore-test baza nije čitljiva: {exc}") from exc
+        raise RestoreVerificationError(
+            f"Restore-test baza nije čitljiva/kompletna: {exc}"
+        ) from exc
     finally:
         conn.close()
 
@@ -259,12 +361,19 @@ def create_backup(
     return enc_path
 
 
-def restore_test(config: PostgresBackupConfig, env: Mapping[str, str] | None = None) -> Path:
+def restore_test(
+    config: PostgresBackupConfig, env: Mapping[str, str] | None = None
+) -> RestoreTestResult:
     """Dekriptuj najnoviji backup, restore u PRIVREMENU bazu, verifikuj, obriši je.
 
     Nikad ne dira ``config.database_url`` bazu samu — koristi se samo kao
     admin konekcija za ``CREATE``/``DROP DATABASE`` privremene test baze.
-    Vraća putanju backupa koji je testiran.
+    Ime privremene baze je jedinstveno po pozivu (``_throwaway_db_name``),
+    pa je cleanup u ``finally`` ispod bezbjedan bez obzira GDJE tačno
+    unutar bloka nešto pukne — uključujući odmah nakon ``CREATE DATABASE``
+    (Codex review F3, 2026-08-29: ranija verzija je imala kreiranje IZVAN
+    try/finally koji radi cleanup, pa je izuzetak tu ostavljao bazu iza
+    sebe).
     """
     enc_path = _latest_backup(config.cloud_dir)
     if enc_path is None:
@@ -277,15 +386,17 @@ def restore_test(config: PostgresBackupConfig, env: Mapping[str, str] | None = N
     throwaway_url = _throwaway_url(config.database_url, throwaway_name)
     try:
         _decrypt(enc_path, dump_tmp, key)
-        _create_throwaway_database(config.database_url, throwaway_name)
         try:
+            _create_throwaway_database(config.database_url, throwaway_name)
             _run_pg_restore(pg_restore_bin, throwaway_url, dump_tmp)
-            _verify_postgres_db(throwaway_url)
+            table_counts = _verify_postgres_db(throwaway_url)
         finally:
             _drop_throwaway_database(config.database_url, throwaway_name)
     finally:
         dump_tmp.unlink(missing_ok=True)
-    return enc_path
+    return RestoreTestResult(
+        backup_path=enc_path, table_counts=table_counts, throwaway_db_name=throwaway_name
+    )
 
 
 # --- CLI sloj (po uzoru na dentaland.backup_cli) ---------------------------
@@ -305,14 +416,16 @@ def _cmd_run(env: Mapping[str, str]) -> int:
 def _cmd_restore_test(env: Mapping[str, str]) -> int:
     try:
         config = build_config(env)
-        enc_path = restore_test(config, env)
+        result = restore_test(config, env)
     except Exception as exc:  # CLI granica — svaki failure je non-zero exit.
         print(f"Restore-test nije uspio: {exc}", file=sys.stderr)
         return 1
+    counts = ", ".join(f"{table}={n}" for table, n in result.table_counts.items())
     print(
         f"Restore-test uspješan (restore-ovano, verifikovano, "
-        f"privremena baza obrisana): {enc_path}"
+        f"privremena baza obrisana): {result.backup_path}"
     )
+    print(f"Broj redova po tabeli u testiranoj bazi: {counts}")
     return 0
 
 
