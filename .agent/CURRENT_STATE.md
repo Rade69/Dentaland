@@ -505,3 +505,27 @@ dokumentovan scope cut). Ovo je tipično Claude-only zadatak
 (compliance/auditing i pisanje dokumenata, ne implementacija po
 Pi/Crush obrascu), slično REF-FINAL prihvatnom auditu
 ranije u projektu.
+
+**Novi OUT_OF_SCOPE_FINDING, otkriven 29.8.2026 tokom implementacije
+`DENT-IMPROVE-016`** (van njegovog `allowed_paths`, prijavljen ne
+popravljen — predložen budući `DENT-IMPROVE-017`):
+
+1. `tests/test_postgres_migration.py::test_confirm_preklapanje_vraca_409_nad_postgres`
+   puca (401 umjesto 409) na `main`, kad je `DATABASE_URL_TEST`
+   postavljen. Uzrok: SQLite verzija ovog testa je ažurirana za RBAC
+   kredencijale kad je `DENT-IMPROVE-013` mergovan, Postgres-mirror
+   verzija nije. Fajl se izvršava SAMO uz `DATABASE_URL_TEST`, pa je
+   regresija prošla neopaženo — niko nije rutinski pokretao pun suite sa
+   tom varijablom nakon RBAC merge-a.
+2. Lokalna Postgres instanca (port 5433) ima zastarjel `alembic_version`
+   pečat — stoji na `d4e5f6a7b8c9` (DENT-022), stvaran head je
+   `f6a7b8c9d0e1` (DENT-IMPROVE-014). Tabele (`users`/`sessions`/`audit_events`)
+   ipak postoje jer ih je `Base.metadata.create_all()` u test fixture-ima
+   kreirao mimo alembic-a. Migracije za DENT-IMPROVE-013/014 tako **nikad
+   nisu stvarno primijenjene kroz `alembic upgrade head`** protiv ove
+   instance, samo zaobiđene — nepoznato da li bi čist `alembic upgrade
+   head` sad prošao bez greške (tabele već postoje).
+
+Ne blokira `DENT-IMPROVE-016` (backup radi protiv postojećih tabela,
+nezavisno od alembic pečata). Potvrđeno da postoji identično i na `main`
+prije ovog taska (nije regresija uvedena sada).
