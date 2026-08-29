@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-016
 risk: HIGH
 implementer: claude
 reviewers: [codex]
-status: "FIX RUNDA 6 GOTOVA — Codex REJECT sest puta ukupno. Trajno zatvoreno: F1, F2, F4, F5. F3 popravljen pet puta - poslednja rupa bila je da cleanup grana (conn.close() best-effort prije DROP) hvata samo Exception, ne BaseException - KeyboardInterrupt/SystemExit iz samog close() poziva bi spriječio DROP. Fix: contextlib.suppress(Exception) -> contextlib.suppress(BaseException), jednolinijska izmjena. Kombinovan adversarni test (KeyboardInterrupt tokom CREATE + SystemExit tokom cleanup close) potvrdjuje DROP se ipak izvrsava i originalni izuzetak propagira. 12 adversarnih regresionih testova ukupno. Ceka Codex re-review, pa human approval. Vidi 2026-08-29-DENT-IMPROVE-016-release-gate.md."
+status: "CODEX PASS (7. i finalna runda) — F1-F5 svi trajno zatvoreni, 12 adversarnih regresionih testova. Ceka Radovanov human approval prije merge-a. Vidi 2026-08-29-DENT-IMPROVE-016-review-codex.md (sekcija 'Sedma ciljana re-verifikacija') i 2026-08-29-DENT-IMPROVE-016-release-gate.md."
 created_at: 2026-08-29
 depends_on: DENT-IMPROVE-012, DENT-IMPROVE-013, DENT-IMPROVE-014, DENT-IMPROVE-014B, DENT-IMPROVE-014C, DENT-IMPROVE-015
 ---
