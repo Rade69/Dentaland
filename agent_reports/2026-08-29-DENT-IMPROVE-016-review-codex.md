@@ -2,17 +2,18 @@
 task_id: DENT-IMPROVE-016
 reviewer: codex
 review_type: independent_security_privacy_release_gate_review
-verdict: REJECT
+verdict: PASS
 scope: PASS
-acceptance: FAIL
-blocking_findings:
-  - F3: "BaseException tokom cleanup conn.close zamjenjuje originalni prekid i sprječava DROP privremene baze"
+acceptance: PASS
+blocking_findings: []
 reviewed_commit: 9b20d22db9415b469718177fbe284e4109ba2147
 rereviewed_commit: dc9e00882c98a48245052f98a13c970af3248308
 rereviewed_round2_commit: 613436474ba6ab2e887778bcdfbb0dadba9293ba
 rereviewed_round3_commit: 34c661c726ee72d7f15af65ec13cf06d66cce813
 rereviewed_round4_commit: 9eae6b32d0905fb6c867cbad9f760fc9101fdd22
 rereviewed_round5_commit: 5c28877b2a8176247c8ae94be91178bd5b02a598
+rereviewed_round6_commit: dcedfc81cf5be21d1cacd8963ace12bfe794e524
+integration_verified_commit: 8f536eb5580526b33b1b41d91053adf5d575e0ea
 reviewed_at: 2026-08-29
 ---
 
@@ -679,3 +680,102 @@ hosting/HTTPS/`EXCLUDE` scope.
 **SLJEDEĆE:** garantovati DROP kroz `finally` čak i kad cleanup close digne
 `BaseException`, uz tačan kombinovani regresioni test. Zatim Codex re-review i
 Radovanov human approval.
+
+## Sedma ciljana re-verifikacija — Fix runda 6 (`dcedfc8`)
+
+### Verdikt
+
+**PASS.** F3 je zatvoren. Nema preostalih blocking nalaza u pregledanom
+scope-u; F1–F5 su svi zatvoreni.
+
+### F3 — ZATVOREN
+
+Cleanup grana sada koristi `contextlib.suppress(BaseException)` oko
+best-effort zatvaranja stare admin konekcije. Zato drugi prekid iz
+`conn.close()` više ne može spriječiti naredni `_drop_throwaway_database`, a
+goli `raise` poslije DROP-a zadržava originalni izuzetak iz CREATE faze.
+
+Novi regresioni test je genuin: izvršava stvarni `CREATE DATABASE`, zatim
+baca `KeyboardInterrupt`; cleanup `close()` zatvara realnu konekciju i potom
+baca `SystemExit`. Test potvrđuje da se propagira originalni
+`KeyboardInterrupt` i da privremena baza više ne postoji.
+
+Reviewer je ponovio strožu varijantu u kojoj cleanup `close()` baca
+`SystemExit` PRIJE stvarnog zatvaranja konekcije. Rezultat:
+
+```text
+ORIGINAL_PROPAGATED=KeyboardInterrupt
+UNCLOSED_ADMIN_STILL_DROP_SUCCEEDED=True
+```
+
+Dakle DROP više ne zavisi ni od toga da li je best-effort close djelimično
+uspio. Nije bilo potrebe za ručnim cleanupom jer baza nije ostala.
+
+Drugi `try/finally` oko `conn.close(); yield` i dalje garantuje DROP za sve
+Python izuzetke iz close-a ili tijela context managera. Jedini preostali
+lifecycle rizik je da sam PostgreSQL/DROP bude nedostupan; to je spoljašnji
+operativni kvar, ne popravljiv programski handoff propust i nije razlog za
+REJECT.
+
+### Ostali nalazi
+
+F1, F2, F4 i F5 ostaju zatvoreni. Nije potvrđen novi defect u pregledanom
+diffu.
+
+### Svježa verifikacija
+
+- `pytest tests/test_backup_postgres.py -q` sa `DATABASE_URL_TEST` →
+  **18 passed**.
+- Puni suite sa `DATABASE_URL_TEST` → **447 passed, 2 failed**; ista dva
+  prethodno potvrđena out-of-scope RBAC/Alembic failure-a.
+- Ruff → **All checks passed**.
+- Mypy → **no issues found in 55 source files**.
+- Agent sensors → **0 blocking findings**.
+
+### Handoff
+
+**CILJ:** potpuno zatvoriti F3 i završiti HIGH-risk backup release gate.
+
+**URAĐENO:** PASS — F1–F5 su zatvoreni i nema blocking nalaza.
+
+**NE DIRATI:** dva poznata PostgreSQL suite failure-a i odgođeni
+hosting/HTTPS/`EXCLUDE` scope; oni nisu dio ovog taska.
+
+**SLJEDEĆE:** Radovanov human approval. Reviewerov PASS nije human approval i
+ne autorizuje merge/deploy sam po sebi.
+
+## Integracijska potvrda nakon merge-a sa `main` (`8f536eb`)
+
+### Verdikt
+
+**PASS ostaje.** Merge sa `main` nije promijenio
+`src/dentaland/backup_postgres.py` niti `tests/test_backup_postgres.py`.
+Integracijski diff sadrži samo `.agent/CURRENT_STATE.md`, procesni dokument i
+CI checkout `fetch-depth: 0` popravku.
+
+F3 kod i kombinovani regresioni test su byte-identični PASS commitu
+`dcedfc8`. Prethodna nezavisna stroža proba ostaje važeća; na merge stanju su
+ponovo pokrenuti ciljani i puni gejtovi.
+
+### Svježa verifikacija na `8f536eb`
+
+- `pytest tests/test_backup_postgres.py -q` sa `DATABASE_URL_TEST` →
+  **18 passed**.
+- Puni suite sa `DATABASE_URL_TEST` → **447 passed, 2 failed**; ista dva
+  prethodno potvrđena out-of-scope RBAC/Alembic failure-a.
+- Ruff → **All checks passed**.
+- Mypy → **no issues found in 55 source files**.
+- Agent sensors → **0 blocking findings**.
+- GitHub Actions CI → prema dostavljenom branch evidence-u zelen; lokalno je
+  potvrđeno da je jedina CI izmjena `actions/checkout` sa `fetch-depth: 0`.
+
+### Handoff
+
+**CILJ:** potvrditi da merge CI popravke nije regresirao odobreni backup fix.
+
+**URAĐENO:** PASS ostaje; nema blocking nalaza.
+
+**NE DIRATI:** dva poznata PostgreSQL suite failure-a i odgođeni
+hosting/HTTPS/`EXCLUDE` scope.
+
+**SLJEDEĆE:** Radovanov human approval; reviewer ne autorizuje merge/deploy.
