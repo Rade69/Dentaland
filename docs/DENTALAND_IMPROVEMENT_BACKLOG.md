@@ -59,7 +59,7 @@ Za svaki task važe postojeća Dentaland pravila:
 13. ~~`DENT-IMPROVE-013` — autentifikacija + RBAC~~ — DONE, 27.8.2026 (merge `da67027`; Argon2id, RECEPTION-only RBAC, Codex F1 fix runda — vidi `agent_reports/2026-08-27-DENT-IMPROVE-013-auth-rbac.md` za detalje)
 14. ~~`DENT-IMPROVE-014` — audit log~~ — DONE, 28.8.2026 (jezgro + `DENT-IMPROVE-014B` login audit + `DENT-IMPROVE-014C` appointment audit, sva tri mergovana — vidi `.agent/CURRENT_STATE.md`)
 15. ~~`DENT-IMPROVE-015` — rate limiting (4 backend endpointa)~~ — DONE, 28.8.2026 (implementer Pi; NAPOMENA: ovaj broj je ID-kolizija sa originalnim planom, vidi stavku 16)
-16. `DENT-IMPROVE-016` (originalno pogrešno numerisan kao 015) — produkcijski security/privacy release gate — **jedini preostali, nikad urađen Prioritet C task, vidi sekciju 16 ispod za pun checklist**
+16. ~~`DENT-IMPROVE-016` (originalno pogrešno numerisan kao 015) — produkcijski security/privacy release gate~~ — DONE (skraćen obim), merged `06b8009`, 29.8.2026 (PostgreSQL backup+restore + 4 compliance dokumenta + audit `web/privacy.html`; implementer Claude, Codex PASS nakon 7 review rundi; HTTPS/processor evidencija/`EXCLUDE` constraint namjerno van obima — vidi sekciju 16 ispod i `.agent/CURRENT_STATE.md`)
 
 ---
 

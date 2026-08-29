@@ -484,74 +484,49 @@ pretpostaviti da zeleni lokalni pytest znači zelen CI.
 
 ## Next known work
 
-REF-00..16 paket je DONE. Preostaje tačno JEDAN poznat Prioritet C task:
-**`DENT-IMPROVE-016`** (originalno pogrešno numerisan kao 015 —
-kolizija, vidi gore) — "Produkcijski security/privacy release gate",
-HIGH risk, checklist-verifikacija (ne nova implementacija) prije javnog
-online bookinga. Nikad urađen ni pod jednim ID-jem. Task contract još
-NIJE napisan.
+**`DENT-IMPROVE-016` DONE, merged `06b8009`, 29.8.2026.** Skraćeni
+produkcijski security/privacy release gate (originalno pogrešno
+numerisan kao 015 — kolizija, vidi gore). PostgreSQL backup+restore
+(`src/dentaland/backup_postgres.py`, `pg_dump`/`pg_restore`, Fernet
+enkripcija, atomsko jednofajlno objavljivanje), 4 nova compliance
+dokumenta (breach runbook, retention politika — pet godina, politika
+produkcijskih podataka, Postgres backup vodič), audit `web/privacy.html`
+(kompletan, bez izmjena). Implementer Claude, reviewer Codex — **7 REJECT
+rundi** prije čistog PASS-a (F1-F5, svi stvarni: sadržajni
+integritet/snapshot race, ownership/kolizija privremene baze, cleanup
+lifecycle uklj. `BaseException` handling, lozinka u argv, atomsko
+objavljivanje backup para) — vidi
+`agent_reports/2026-08-29-DENT-IMPROVE-016-release-gate.md` i
+`2026-08-29-DENT-IMPROVE-016-review-codex.md` za pun trag. Radovanovo
+human approval potvrđeno, post-merge integration gate PASS.
 
-**Status svake stavke iz checklist-a (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`
-sekcija 16), provjeren 29.8.2026 — nije formalan gate-run, samo orijentacija
-prije pisanja kontrakta:**
+**Namjerno van obima, čeka Radovanovu hosting odluku (odgođeno do kraja
+projekta):** HTTPS, processor evidencija/kontrolor-obrađivač ugovor,
+`EXCLUDE` constraint (PostgreSQL concurrency protection). Ovo je jedino
+što dijeli Dentaland od punog production-readiness gate-a (13/13 stavki
+iz `docs/DENTALAND_IMPROVEMENT_BACKLOG.md` sekcije 16) — 10 od 13 je
+sad DONE.
 
-| Stavka | Status | Napomena |
-|---|---|---|
-| auth | DONE | DENT-IMPROVE-013 |
-| RBAC | DONE | DENT-IMPROVE-013 |
-| audit | DONE | DENT-IMPROVE-014/014B/014C |
-| rate limiting | DONE | DENT-IMPROVE-015 (6/6 javnih endpointa) |
-| token sigurnost | VJEROVATNO DONE, nije formalno auditovano ovim gate-om | `secrets.token_urlsafe`/`compare_digest` postoje u `auth.py`/`models.py`/`notifications.py` — treba potvrditi hash-storage + expires_at + one-time semantiku eksplicitno uz CLAUDE.md zahtjev |
-| minimalna javna forma | VJEROVATNO DONE, nije formalno auditovano | DENT-IMPROVE-011 E2E postoji, ali "minimalnost" polja nije eksplicitno provjerena kroz ovaj gate |
-| HTTPS | ODGOĐENO do hosting odluke | fizički zahtijeva stvaran server — ne može se raditi prije nego što VPS/hosting bude izabran |
-| backup + restore (PostgreSQL) | NIJE URAĐENO, ali izvodljivo ODMAH | SQLite backup postoji (DENT-004/DENT-IMPROVE-007, `docs/dentaland-backup-operativni-vodic.md`), ali `pg_dump` + testiran restore ne postoji — može se odraditi na postojećoj LOKALNOJ Dentaland Postgres instanci (port 5433), ne mora čekati produkcijski server |
-| privacy notice | DONE (otkriveno 29.8.2026) | `web/privacy.html`, napisao Radovan lično, commit `16d0a17` 17.8.2026 — kompletan (kontrolor, svrha, pravni osnov, prava, Agencija za zaštitu ličnih podataka BiH, retention). Nije prošao kroz agent review proces, ali sadržajno je gotov — verifikovan ovim gate-om, ne pisan ispočetka |
-| breach runbook | NIJE URAĐENO, izvodljivo ODMAH | dokument ne postoji, nezavisan je od hostinga |
-| retention dokument | NIJE FORMALIZOVANO, izvodljivo ODMAH | Riješeno 29.8.2026: medicinska dokumentacija ostaje na papiru van sistema, pitanje rokova čuvanja MEDICINSKE dokumentacije time nije primjenjivo na Dentaland. Booking podaci već imaju pravilo — **pet godina** od posljednjeg unosa (potvrđeno 29.8.2026, usklađeno sa `web/privacy.html`, NE 12 mjeseci kako je pogrešno pisalo u CLAUDE.md prije ove ispravke), samo treba formalni dokument koji to zapiše |
-| processor evidenciju | ODGOĐENO do hosting odluke | CLAUDE.md "Otvorena pitanja" — izbor hosting/cloud procesora i kontrolor/obrađivač ugovor nisu razriješeni; Radovan 29.8.2026 eksplicitno odgodio hosting odluku do kraja projekta (trenutno nema pristup/info o hostingu zvaničnog sajta) |
-| produkcijski podaci van AI/dev dumpova | NIJE FORMALIZOVANO | politika/proces, nezavisan je od hostinga, izvodljivo odmah |
-| PostgreSQL concurrency protection (EXCLUDE constraint) | ODGOĐENO do hosting odluke | namjerno izostavljeno iz DENT-IMPROVE-012 obima; čeka istu hosting/procesor odluku |
-
-**Zaključak (ažurirano 29.8.2026 — Radovan eksplicitno odgodio hosting
-odluku do kraja projekta, i potvrdio da web/privacy.html već postoji sa
-tačnim petogodišnjim rokom čuvanja):** pravni osnov obrade i retention
-medicinske dokumentacije su riješeni kao poslovna odluka. 3 stavke
-(HTTPS, processor evidencija, EXCLUDE constraint) namjerno čekaju hosting
-odluku — nije propust, nego svjestan redoslijed. Od preostalih 5 stavki,
-**privacy notice je već DONE** (`web/privacy.html`, otkriveno tek sada —
-razlog da se ovaj gate radi kao pravi audit, ne samo popis šta fali).
-Ostaju tačno 4 stavke za `DENT-IMPROVE-016`: backup+restore (PostgreSQL),
-breach runbook, retention dokument (formalizuje petogodišnje pravilo iz
-privacy.html), politika produkcijskih podataka van AI/dev dumpova. Plan:
-napraviti `DENT-IMPROVE-016` task contract skraćen na tih 4 stavke +
-formalnu verifikaciju privacy notice-a (ne pisanje, samo audit protiv
-CLAUDE.md/v3.1 zahtjeva), sa preostale 3 hosting-zavisne stavke
-eksplicitno označene kao odgođene (ne blocking findings, nego
-dokumentovan scope cut). Ovo je tipično Claude-only zadatak
-(compliance/auditing i pisanje dokumenata, ne implementacija po
-Pi/Crush obrascu), slično REF-FINAL prihvatnom auditu
-ranije u projektu.
-
-**Novi OUT_OF_SCOPE_FINDING, otkriven 29.8.2026 tokom implementacije
-`DENT-IMPROVE-016`** (van njegovog `allowed_paths`, prijavljen ne
-popravljen — predložen budući `DENT-IMPROVE-017`):
+**Predložen, još nenapisan `DENT-IMPROVE-017`** (OUT_OF_SCOPE_FINDING
+otkriven tokom `DENT-IMPROVE-016`, van njegovog `allowed_paths`,
+prijavljen ne popravljen):
 
 1. `tests/test_postgres_migration.py::test_confirm_preklapanje_vraca_409_nad_postgres`
    puca (401 umjesto 409) na `main`, kad je `DATABASE_URL_TEST`
-   postavljen. Uzrok: SQLite verzija ovog testa je ažurirana za RBAC
-   kredencijale kad je `DENT-IMPROVE-013` mergovan, Postgres-mirror
-   verzija nije. Fajl se izvršava SAMO uz `DATABASE_URL_TEST`, pa je
-   regresija prošla neopaženo — niko nije rutinski pokretao pun suite sa
-   tom varijablom nakon RBAC merge-a.
+   postavljen — Postgres-mirror test nije ažuriran za RBAC kredencijale
+   kad je `DENT-IMPROVE-013` mergovan. Fajl se izvršava SAMO uz
+   `DATABASE_URL_TEST`, pa je prošlo neopaženo.
 2. Lokalna Postgres instanca (port 5433) ima zastarjel `alembic_version`
-   pečat — stoji na `d4e5f6a7b8c9` (DENT-022), stvaran head je
-   `f6a7b8c9d0e1` (DENT-IMPROVE-014). Tabele (`users`/`sessions`/`audit_events`)
-   ipak postoje jer ih je `Base.metadata.create_all()` u test fixture-ima
-   kreirao mimo alembic-a. Migracije za DENT-IMPROVE-013/014 tako **nikad
-   nisu stvarno primijenjene kroz `alembic upgrade head`** protiv ove
-   instance, samo zaobiđene — nepoznato da li bi čist `alembic upgrade
-   head` sad prošao bez greške (tabele već postoje).
+   pečat (`d4e5f6a7b8c9`, DENT-022, stvaran head `f6a7b8c9d0e1`,
+   DENT-IMPROVE-014) — tabele postoje jer ih je
+   `Base.metadata.create_all()` u test fixture-ima kreirao mimo
+   alembic-a, migracije DENT-IMPROVE-013/014 nikad stvarno primijenjene
+   kroz `alembic upgrade head` protiv ove instance.
 
-Ne blokira `DENT-IMPROVE-016` (backup radi protiv postojećih tabela,
-nezavisno od alembic pečata). Potvrđeno da postoji identično i na `main`
-prije ovog taska (nije regresija uvedena sada).
+Ne blokira ništa trenutno (backup radi protiv postojećih tabela).
+Potvrđeno da postoji identično na `main` otprije, nije nova regresija.
+
+**Odvojen, nepovezan nalaz — riješen:** GitHub Actions CI je bio crven na
+SVAKOM pushu na `main` tri dana (od DENT-IMPROVE-010, 26.8.2026, plitak
+checkout) — popravljeno `3d76051`, potvrđeno zeleno, vidi "Riješen
+incident" sekciju iznad.
