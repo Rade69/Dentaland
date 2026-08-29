@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-016
 risk: HIGH
 implementer: claude
 reviewers: [codex]
-status: "FIX RUNDA 5 GOTOVA — Codex REJECT pet puta ukupno. Trajno zatvoreno: F1 (snapshot race), F2 (ownership/kolizija), F4 (password u argv, oba oblika), F5 (atomsko jednofajlno objavljivanje). F3 popravljen cetiri puta - konacno rjesenje: _temporary_database context manager hvata BaseException (ne samo Exception) u CREATE fazi, pa KeyboardInterrupt/SystemExit odmah nakon uspjesnog server-side CREATE-a vise ne zaobilazi cleanup. 11 adversarnih regresionih testova ukupno. Ceka Codex re-review, pa human approval. Vidi 2026-08-29-DENT-IMPROVE-016-release-gate.md."
+status: "FIX RUNDA 6 GOTOVA — Codex REJECT sest puta ukupno. Trajno zatvoreno: F1, F2, F4, F5. F3 popravljen pet puta - poslednja rupa bila je da cleanup grana (conn.close() best-effort prije DROP) hvata samo Exception, ne BaseException - KeyboardInterrupt/SystemExit iz samog close() poziva bi spriječio DROP. Fix: contextlib.suppress(Exception) -> contextlib.suppress(BaseException), jednolinijska izmjena. Kombinovan adversarni test (KeyboardInterrupt tokom CREATE + SystemExit tokom cleanup close) potvrdjuje DROP se ipak izvrsava i originalni izuzetak propagira. 12 adversarnih regresionih testova ukupno. Ceka Codex re-review, pa human approval. Vidi 2026-08-29-DENT-IMPROVE-016-release-gate.md."
 created_at: 2026-08-29
 depends_on: DENT-IMPROVE-012, DENT-IMPROVE-013, DENT-IMPROVE-014, DENT-IMPROVE-014B, DENT-IMPROVE-014C, DENT-IMPROVE-015
 ---

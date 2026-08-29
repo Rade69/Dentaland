@@ -406,6 +406,13 @@ def _temporary_database(admin_url: str, throwaway_name: str) -> Iterator[None]:
     ``cur.execute`` poziv vrati) bi zaobišao cleanup u potpunosti. Uvijek
     se ponovo baca (``raise`` bez argumenta) — nikad ne guta signal, samo
     interponuje cleanup prije normalnog propagiranja.
+
+    Best-effort ``conn.close()`` unutar te cleanup grane takođe hvata
+    ``BaseException``, ne samo ``Exception`` (Codex F3 round 6): da
+    zatvaranje STARE admin konekcije samo digne ``KeyboardInterrupt``/
+    ``SystemExit``, tok nikad ne bi stigao do ``_drop_throwaway_database``
+    poziva ispod — DROP mora biti dostižan bez obzira šta ``close()``
+    uradi.
     """
     conn = psycopg2.connect(admin_url)
     conn.autocommit = True
@@ -419,7 +426,7 @@ def _temporary_database(admin_url: str, throwaway_name: str) -> Iterator[None]:
             "odustajem umjesto da je obrišem, nije naša da je brišemo."
         ) from exc
     except BaseException:
-        with contextlib.suppress(Exception):  # best-effort, ne smije sakriti pravi uzrok
+        with contextlib.suppress(BaseException):  # best-effort, ne smije spriječiti DROP ispod
             conn.close()
         _drop_throwaway_database(admin_url, throwaway_name)
         raise

@@ -6,12 +6,13 @@ verdict: REJECT
 scope: PASS
 acceptance: FAIL
 blocking_findings:
-  - F3: "KeyboardInterrupt tokom CREATE execute handoffa prolazi mimo except Exception i ostavlja privremenu bazu"
+  - F3: "BaseException tokom cleanup conn.close zamjenjuje originalni prekid i sprječava DROP privremene baze"
 reviewed_commit: 9b20d22db9415b469718177fbe284e4109ba2147
 rereviewed_commit: dc9e00882c98a48245052f98a13c970af3248308
 rereviewed_round2_commit: 613436474ba6ab2e887778bcdfbb0dadba9293ba
 rereviewed_round3_commit: 34c661c726ee72d7f15af65ec13cf06d66cce813
 rereviewed_round4_commit: 9eae6b32d0905fb6c867cbad9f760fc9101fdd22
+rereviewed_round5_commit: 5c28877b2a8176247c8ae94be91178bd5b02a598
 reviewed_at: 2026-08-29
 ---
 
@@ -596,3 +597,85 @@ zatvoreni.
 
 **SLJEDEĆE:** proširiti CREATE ownership cleanup na `BaseException` prozor i
 dodati tačan regresioni test. Nakon Codex PASS-a ide Radovanov human approval.
+
+## Šesta ciljana re-verifikacija — Fix runda 5 (`5c28877`)
+
+### Verdikt
+
+**REJECT ostaje.** Originalni `KeyboardInterrupt` poslije server-side CREATE-a
+sada jeste uhvaćen, ali cleanup grana još ima uži `BaseException` prozor u
+samom `conn.close()` pozivu koji se izvršava prije DROP-a.
+
+### F3 — JOŠ NIJE POTPUNO ZATVOREN: cleanup close može spriječiti DROP
+
+Promjena `except Exception` → `except BaseException` zatvara prethodni tačan
+repro. Novi test je genuin: stvarni `CREATE DATABASE` se izvrši, proxy zatim
+baci `KeyboardInterrupt`, produkcijska grana pozove cleanup i baza nestane.
+Ciljani fajl daje **17 passed**.
+
+Međutim, unutar te grane redoslijed je:
+
+```python
+with contextlib.suppress(Exception):
+    conn.close()
+_drop_throwaway_database(...)
+raise
+```
+
+`suppress(Exception)` opet ne pokriva `KeyboardInterrupt`/`SystemExit`. Ako
+cleanup `conn.close()` digne `BaseException`, tok nikad ne stiže do DROP-a,
+a novi prekid zamijeni originalni uzrok.
+
+Adversarna proba je izvršila stvarni CREATE, zatim bacila
+`KeyboardInterrupt`, a proxy `close()` je tokom cleanup-a bacio `SystemExit`:
+
+```text
+PROPAGATED=SystemExit
+CLOSE_BASEEXCEPTION_LEFT_DB=True
+MANUAL_CLEANUP_COMPLETED=True
+```
+
+Jedinstveno imenovana baza je poslije provjere ručno uklonjena. Ovo je tačno
+jedan od užih prozora koje je re-review prompt tražio da se provjere.
+
+**Minimal correction:** cleanup mora pokušati DROP čak i ako zatvaranje stare
+admin konekcije digne `BaseException`. Najjednostavnije je DROP staviti u
+`finally` oko close-a i sačuvati/ponovo propagirati originalni prekid; ili
+best-effort close tretirati tako da nijedan njegov izlaz ne preskoči DROP.
+Regresioni test treba kombinovati post-CREATE `KeyboardInterrupt` sa
+`BaseException` iz cleanup `close()` i potvrditi da baza ne postoji.
+
+Drugi `try/finally` oko `conn.close(); yield` ispravno poziva DROP i kada
+`conn.close()` digne `BaseException`; tu nisam potvrdio dodatni defect. Kao i
+svaki DB cleanup, sam DROP može propasti zbog nedostupnog servera, ali to nije
+isti programski handoff propust niti se može apsolutno garantovati kod
+eksternog DB kvara.
+
+### Ostali nalazi
+
+F1, F2, F4 i F5 ostaju zatvoreni. Nisam potvrdio novu regresiju u njihovom
+scope-u.
+
+### Svježa verifikacija
+
+- `pytest tests/test_backup_postgres.py -q` sa `DATABASE_URL_TEST` →
+  **17 passed**.
+- Puni suite sa `DATABASE_URL_TEST` → **446 passed, 2 failed**; ista dva
+  potvrđena out-of-scope RBAC/Alembic failure-a.
+- Ruff → **All checks passed**.
+- Mypy → **no issues found in 55 source files**.
+- Agent sensors → **0 blocking findings**.
+
+### Handoff
+
+**CILJ:** potpuno zatvoriti F3 `BaseException` cleanup lifecycle.
+
+**URAĐENO:** prethodni CREATE-execute prekid je zatvoren, ali cleanup-close
+prekid još ostavlja bazu; verdict ostaje REJECT.
+
+**NE DIRATI:** F1/F2/F4/F5, dva poznata PostgreSQL suite failure-a i
+hosting/HTTPS/`EXCLUDE` scope.
+
+**SLJEDEĆE:** garantovati DROP kroz `finally` čak i kad cleanup close digne
+`BaseException`, uz tačan kombinovani regresioni test. Zatim Codex re-review i
+Radovanov human approval.

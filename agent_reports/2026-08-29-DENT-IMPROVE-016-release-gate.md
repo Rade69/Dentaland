@@ -339,6 +339,46 @@ obliku:
   55 source files**.
 - `python scripts/agent_sensors.py --all` → **0 blocking findings**.
 
+## Fix runda 6 (Codex REJECT šesti put, 29.8.2026) — F3, close-unutar-cleanup
+
+Codexova šesta re-verifikacija je potvrdila da je prethodni
+`KeyboardInterrupt`-tokom-CREATE-a scenario zatvoren, ali pokazala da
+sama cleanup grana ima još uži prozor:
+
+- **F3 (`CLOSE_BASEEXCEPTION_LEFT_DB=True`):** `with
+  contextlib.suppress(Exception): conn.close()` unutar cleanup grane i
+  dalje ne hvata `BaseException` — ako `conn.close()` (zatvaranje STARE
+  admin konekcije, best-effort korak PRIJE `_drop_throwaway_database`)
+  sam digne `KeyboardInterrupt`/`SystemExit`, tok nikad ne stigne do
+  DROP poziva ispod. **Fix:** `contextlib.suppress(Exception)` →
+  `contextlib.suppress(BaseException)` — jednolinijska izmjena. DROP je
+  sad dostižan bez obzira šta `close()` uradi. Novi adversarni test
+  `test_temporary_database_drop_radi_i_kad_cleanup_close_baci_baseexception`
+  kombinuje TAČNO Codexov scenario: `KeyboardInterrupt` tokom CREATE-a
+  I `SystemExit` tokom cleanup `close()`-a — potvrđuje da DROP ipak
+  biva pozvan I da ORIGINALNI `KeyboardInterrupt` propagira (ne
+  `SystemExit` iz close-a, koji je suppress-ovan kako i treba).
+
+Codex je eksplicitno potvrdio da je drugi `try/finally` (oko `conn.close();
+yield` — normalni životni vijek nakon uspješnog CREATE-a) već ispravno
+pozivao DROP i kad `conn.close()` baci `BaseException`; taj dio nije
+mijenjan. Preostali rizik da sam `_drop_throwaway_database` poziv
+propadne (npr. server nedostupan) je eksplicitno prihvaćen kao
+nemoguć-da-se-apsolutno-garantuje spoljašnji kvar, ne programski
+handoff propust — Codex to potvrđuje u svom nalazu.
+
+## Verifikacija (nakon fix runde 6)
+
+- `pytest tests/test_backup_postgres.py -v` (sa `DATABASE_URL_TEST`) →
+  **18 passed** (17 iz runde 5 + 1 nov kombinovan adversarni test).
+- `pytest tests/ -q` (sa `DATABASE_URL_TEST`) → **447 passed, 2 failed**
+  — ista dva pre-postojeća OUT_OF_SCOPE_FINDING failure-a, nepromijenjena.
+- `ruff check src/dentaland desktop backend tests scripts/agent_sensors.py`
+  → **All checks passed**.
+- `mypy src/dentaland desktop backend` → **Success: no issues found in
+  55 source files**.
+- `python scripts/agent_sensors.py --all` → **0 blocking findings**.
+
 ## Required output
 
 ```yaml
@@ -346,7 +386,7 @@ verdict: PASS_WITH_NOTES
 blocking_findings: []
 evidence:
   - src/dentaland/backup_postgres.py (F1-F5 popravljeni kroz pet rundi - snapshot race, BaseException-safe unified cleanup context manager, atomsko jednofajlno objavljivanje)
-  - tests/test_backup_postgres.py (17 passed, uklj. 11 adversarnih regresionih testova za F1/F2/F3/F4/F5 kroz svih pet rundi)
+  - tests/test_backup_postgres.py (18 passed, uklj. 12 adversarnih regresionih testova za F1/F2/F3/F4/F5 kroz svih šest rundi)
   - docs/dentaland-postgres-backup-operativni-vodic.md
   - docs/dentaland-breach-runbook.md
   - docs/dentaland-retention-politika.md

@@ -432,6 +432,78 @@ def test_temporary_database_samocisti_kad_keyboardinterrupt_odmah_nakon_create(
         conn.close()
 
 
+def test_temporary_database_drop_radi_i_kad_cleanup_close_baci_baseexception(
+    config: PostgresBackupConfig,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Adversarna regresija za Codex F3 round 6
+    (CLOSE_BASEEXCEPTION_LEFT_DB): ``KeyboardInterrupt`` tokom CREATE-a I
+    ``SystemExit`` tokom cleanup ``conn.close()`` — DROP mora ipak biti
+    pozvan, i ORIGINALNI ``KeyboardInterrupt`` mora propagirati (ne
+    ``SystemExit`` iz close-a)."""
+    throwaway_name = f"{make_url(config.database_url).database}{RESTORE_TEST_DB_SUFFIX}_f3r6"
+
+    class _DoubleFlakyCursorProxy:
+        def __init__(self, real_cursor: object) -> None:
+            self._real = real_cursor
+
+        def __enter__(self) -> _DoubleFlakyCursorProxy:
+            self._real.__enter__()  # type: ignore[attr-defined]
+            return self
+
+        def __exit__(self, *exc_info: object) -> None:
+            self._real.__exit__(*exc_info)  # type: ignore[attr-defined]
+
+        def execute(self, *args: object, **kwargs: object) -> None:
+            self._real.execute(*args, **kwargs)  # type: ignore[attr-defined]
+            raise KeyboardInterrupt
+
+    class _DoubleFlakyConnProxy:
+        def __init__(self, real_conn: object) -> None:
+            self._real = real_conn
+
+        def cursor(self, *args: object, **kwargs: object) -> object:
+            return _DoubleFlakyCursorProxy(self._real.cursor(*args, **kwargs))  # type: ignore[attr-defined]
+
+        @property
+        def autocommit(self) -> bool:
+            return self._real.autocommit  # type: ignore[attr-defined]
+
+        @autocommit.setter
+        def autocommit(self, value: bool) -> None:
+            self._real.autocommit = value  # type: ignore[attr-defined]
+
+        def close(self) -> None:
+            self._real.close()  # type: ignore[attr-defined]
+            raise SystemExit
+
+    real_connect = bp.psycopg2.connect
+    call_count = {"n": 0}
+
+    def _connect_prva_konekcija_je_dvostruko_flaky(*args: object, **kwargs: object) -> object:
+        call_count["n"] += 1
+        real_conn = real_connect(*args, **kwargs)
+        if call_count["n"] == 1:  # prva konekcija = ona unutar _temporary_database
+            return _DoubleFlakyConnProxy(real_conn)
+        return real_conn
+
+    monkeypatch.setattr(bp.psycopg2, "connect", _connect_prva_konekcija_je_dvostruko_flaky)
+
+    with pytest.raises(KeyboardInterrupt), bp._temporary_database(
+        config.database_url, throwaway_name
+    ):
+        pass  # ne bi trebalo doci dovde
+
+    throwaway_url = (
+        make_url(config.database_url)
+        .set(database=throwaway_name)
+        .render_as_string(hide_password=False)
+    )
+    with pytest.raises(psycopg2.OperationalError):
+        conn = psycopg2.connect(throwaway_url)
+        conn.close()
+
+
 @pytest.mark.parametrize(
     "url_template",
     [
