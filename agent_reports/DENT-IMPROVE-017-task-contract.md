@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-017
 risk: HIGH
 implementer: claude
 reviewers: [codex]
-status: "NOT STARTED"
+status: "IMPLEMENTED — oba testa prolaze (449 passed, 0 failed sa DATABASE_URL_TEST), alembic_version pecat tacan na obje lokalne baze. Ceka Codex review, pa human approval. Vidi 2026-08-29-DENT-IMPROVE-017-postgres-fixes.md."
 created_at: 2026-08-29
 depends_on: DENT-IMPROVE-012, DENT-IMPROVE-013, DENT-IMPROVE-014
 ---

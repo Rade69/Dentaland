@@ -34,12 +34,23 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 from backend.main import app, get_session_factory, limiter
-from dentaland.models import Appointment, AppointmentStatus, Base, Doctor, Service
+from dentaland.models import (
+    Appointment,
+    AppointmentStatus,
+    AuditEvent,
+    Base,
+    Doctor,
+    Service,
+    User,
+    UserRole,
+)
+from dentaland.models import Session as UserSessionModel
+from dentaland.services.auth import hash_password
 
 DATABASE_URL_TEST = os.environ.get("DATABASE_URL_TEST")
 
@@ -57,6 +68,8 @@ _DOCTOR_NAME = f"Test Doktor {_MARKER}"
 _SERVICE_NAME = f"Test Usluga {_MARKER}"
 _EXISTING_PATIENT_NAME = f"Test Pacijent Postojeci {_MARKER}"
 _NEW_PATIENT_NAME = f"Test Pacijent Novi {_MARKER}"
+_RECEPTION_USERNAME = f"sestra-test-{_MARKER}"
+_RECEPTION_PASSWORD = "test-lozinka-123"  # nije stvarna lozinka, samo test fixture
 
 
 def _cleanup(session: Session) -> None:
@@ -67,6 +80,12 @@ def _cleanup(session: Session) -> None:
     )
     session.execute(delete(Doctor).where(Doctor.ime == _DOCTOR_NAME))
     session.execute(delete(Service).where(Service.naziv == _SERVICE_NAME))
+    # Sesija i audit zapis moraju prije korisnika (FK) - login kreira i
+    # Session red i LOGIN_SUCCESS AuditEvent, oba vezana za User.id.
+    user_ids = select(User.id).where(User.username == _RECEPTION_USERNAME)
+    session.execute(delete(UserSessionModel).where(UserSessionModel.user_id.in_(user_ids)))
+    session.execute(delete(AuditEvent).where(AuditEvent.actor_user_id.in_(user_ids)))
+    session.execute(delete(User).where(User.username == _RECEPTION_USERNAME))
     session.commit()
 
 
@@ -99,7 +118,11 @@ def client(pg_session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
     # test_backend.py (forbidden path/van scope-a ovog taska).
     limiter.reset()
     app.dependency_overrides[get_session_factory] = lambda: pg_session_factory
-    with TestClient(app) as test_client:
+    # `base_url="https://testserver"` je NEOPHODAN, ne kozmetički — session
+    # cookie u `backend/main.py` ima `secure=True` (DENT-IMPROVE-013), pa
+    # TestClient ne vraća/šalje ga preko plain-http baznog URL-a. Isti
+    # obrazac kao `client` fixture u `tests/test_backend.py`.
+    with TestClient(app, base_url="https://testserver") as test_client:
         yield test_client
     app.dependency_overrides.clear()
 
@@ -114,10 +137,33 @@ def doctor_and_service(pg_session_factory: sessionmaker[Session]) -> tuple[int, 
         return doctor.id, service.id
 
 
+@pytest.fixture()
+def pg_reception_session(client: TestClient, pg_session_factory: sessionmaker[Session]) -> None:
+    """DENT-IMPROVE-017 — Postgres pandan `reception_session` fixture-u iz
+    `tests/test_backend.py`. `/confirm` zahtijeva `RECEPTION` ulogu od
+    DENT-IMPROVE-013 nadalje; ovaj Postgres-mirror test to nikad nije
+    dobio, pa je dobijao 401 umjesto 409."""
+    with pg_session_factory() as session:
+        session.add(
+            User(
+                username=_RECEPTION_USERNAME,
+                password_hash=hash_password(_RECEPTION_PASSWORD),
+                role=UserRole.RECEPTION,
+            )
+        )
+        session.commit()
+    response = client.post(
+        "/api/auth/login",
+        json={"username": _RECEPTION_USERNAME, "password": _RECEPTION_PASSWORD},
+    )
+    assert response.status_code == 200
+
+
 def test_confirm_preklapanje_vraca_409_nad_postgres(
     client: TestClient,
     pg_session_factory: sessionmaker[Session],
     doctor_and_service: tuple[int, int],
+    pg_reception_session: None,
 ) -> None:
     """Isti scenario kao `test_confirm_preklapanje_vraca_409`
     (tests/test_backend.py), ali sa engine-om koji gada
