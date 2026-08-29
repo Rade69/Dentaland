@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-016
 risk: HIGH
 implementer: claude
 reviewers: [codex, crush]
-status: "NOT STARTED"
+status: "IMPLEMENTED — ceka Codex (Reviewer 1) + Crush (Reviewer 2) review, pa human approval. Verdict: PASS_WITH_NOTES (vidi 2026-08-29-DENT-IMPROVE-016-release-gate.md)."
 created_at: 2026-08-29
 depends_on: DENT-IMPROVE-012, DENT-IMPROVE-013, DENT-IMPROVE-014, DENT-IMPROVE-014B, DENT-IMPROVE-014C, DENT-IMPROVE-015
 ---
