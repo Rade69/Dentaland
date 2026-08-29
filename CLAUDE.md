@@ -116,4 +116,8 @@ Faza 1: PySide6 desktop → httpx/QNetworkAccessManager → FastAPI → PostgreS
 
 ## Otvorena pitanja (trenutno stanje)
 
-Vidi kraj `docs/dentaland-razvojni-plan-v3.1.md` sekcije "Šta i dalje ostaje otvoreno" — trenutno: tačan pravni osnov po svrsi obrade, rokovi čuvanja medicinske dokumentacije (propisi RS, ne izmišljati), kontrolor/obrađivač ugovor, izbor hosting/cloud procesora, da li `service_id` mora ostati uz identitet pacijenta u bazi. Nijedan HIGH-risk zadatak vezan za `EXCLUDE` constraint, token, RBAC ili formu pristanka ne počinje dok se ovo ne razriješi.
+Vidi kraj `docs/dentaland-razvojni-plan-v3.1.md` sekcije "Šta i dalje ostaje otvoreno" za pun kontekst.
+
+**Djelimično razriješeno (Radovan, 29.8.2026, poslovna odluka — nije nezavisna pravna provjera):** pravni osnov obrade booking podataka = obavještenje/pristanak na javnoj formi za zakazivanje; medicinska dokumentacija (istorija bolesti, planovi liječenja) ostaje isključivo u papirnoj formi kod ordinacije i nikad ne ulazi u Dentaland bazu — pitanje rokova čuvanja MEDICINSKE dokumentacije time nije primjenjivo na ovaj sistem. Booking podaci (ime/telefon/vrijeme termina) i dalje idu na VPS po planiranoj Fazi 1 arhitekturi — ovo NIJE promjena arhitekture.
+
+**I dalje otvoreno, blokira HIGH-risk `EXCLUDE` constraint rad:** kontrolor/obrađivač ugovor, izbor hosting/cloud procesora, da li `service_id` mora ostati uz identitet pacijenta u bazi. Token i RBAC rad se u međuvremenu odvijao (DENT-IMPROVE-013, DENT-IMPROVE-014B) jer nije direktno zavisio od preostalih otvorenih tačaka — samo `EXCLUDE` constraint (PostgreSQL concurrency protection) ostaje eksplicitno blokiran dok se hosting/procesor pitanje ne razriješi.

@@ -458,10 +458,10 @@ Funkcionalnosti se i dalje ne planiraju unaprijed bez stvarne potrebe. Prije sva
 
 ## Šta i dalje ostaje otvoreno — odluke prije produkcije
 
-1. **Tačan pravni osnov po svakoj svrsi obrade** — posebno odnos booking podataka i zdravstvenih podataka prema propisima RS; potvrditi sa pravnikom.
-2. **Rokovi čuvanja medicinske dokumentacije** — ne određivati napamet; provjeriti važeće zdravstvene propise Republike Srpske.
-3. **Kontrolor/obrađivač ugovor** — potvrditi pravni subjekt ordinacije i da li developer u praksi ima pristup produkcionim podacima.
-4. **Cloud/hosting lokacija i procesori** — odabrati konkretne providere i provjeriti ugovorne/transfer uslove prije produkcije.
+1. **Tačan pravni osnov po svakoj svrsi obrade** — DJELIMIČNO RIJEŠENO (Radovan, 29.8.2026): pravni osnov za booking podatke (ime/telefon/vrijeme termina) je obavještenje/pristanak na javnoj formi za zakazivanje. **Nije potvrđeno sa pravnikom** — ovo je Radovanova poslovna odluka, ne nezavisna pravna provjera; ostaje na toj osnovi dok se ne pokaže suprotno.
+2. **Rokovi čuvanja medicinske dokumentacije** — RIJEŠENO kao "nije primjenjivo na Dentaland sistem" (Radovan, 29.8.2026): prava medicinska dokumentacija (istorija bolesti, planovi liječenja) ostaje isključivo u papirnoj formi kod ordinacije, nikad ne ulazi u bazu. Sistem čuva samo booking podatke (ime/email/telefon/vrijeme termina), za koje rok čuvanja već postoji — 12 mjeseci, automatsko anonimiziranje (vidi CLAUDE.md "Sigurnost i privatnost").
+3. **Kontrolor/obrađivač ugovor** — I DALJE OTVORENO — potvrditi pravni subjekt ordinacije i da li developer u praksi ima pristup produkcionim podacima.
+4. **Cloud/hosting lokacija i procesori** — I DALJE OTVORENO — odabrati konkretne providere i provjeriti ugovorne/transfer uslove prije produkcije. Booking podaci (ime/telefon/vrijeme termina, ne medicinska dokumentacija) IDU na VPS po Fazi 1 arhitekturi (CLAUDE.md) — potvrđeno 29.8.2026, nije promjena arhitekture — pa procesor ugovor sa hosting providerom ostaje neophodan.
 5. **Emergency override** — zaključano na "zaobiđi business pravila, ne overlap". Promjena toga zahtijeva novi resource model.
 6. **Da li se `service_id` mora čuvati uz identitet u booking bazi** — ako ordinacija može poslovno raditi sa neutralnom kategorijom/trajanjem, dodatno smanjuje osjetljivost; ako ne može, tretirati kombinaciju pacijent+usluga kao LEVEL 2.
 7. **2FA za zaposlene** — nije blokada za lokalni MVP, ali ponovo procijeniti prije javnog internet deploymenta.
