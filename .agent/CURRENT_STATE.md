@@ -477,29 +477,26 @@ prije pisanja kontrakta:**
 | rate limiting | DONE | DENT-IMPROVE-015 (6/6 javnih endpointa) |
 | token sigurnost | VJEROVATNO DONE, nije formalno auditovano ovim gate-om | `secrets.token_urlsafe`/`compare_digest` postoje u `auth.py`/`models.py`/`notifications.py` — treba potvrditi hash-storage + expires_at + one-time semantiku eksplicitno uz CLAUDE.md zahtjev |
 | minimalna javna forma | VJEROVATNO DONE, nije formalno auditovano | DENT-IMPROVE-011 E2E postoji, ali "minimalnost" polja nije eksplicitno provjerena kroz ovaj gate |
-| HTTPS | NIJE URAĐENO | nema VPS/domain deploymenta — Faza 1 infra nije počela |
-| backup + restore (PostgreSQL) | NIJE URAĐENO za Postgres | SQLite backup postoji (DENT-004/DENT-IMPROVE-007, `docs/dentaland-backup-operativni-vodic.md`), ali `pg_dump` + testiran restore za novu Postgres instancu ne postoji nigdje u repou |
-| privacy notice | NIJE URAĐENO | dokument ne postoji |
-| breach runbook | NIJE URAĐENO | dokument ne postoji |
-| retention dokument | VIŠE NIJE BLOKIRANO, nije formalizovano | Riješeno 29.8.2026: medicinska dokumentacija ostaje na papiru van sistema, pitanje rokova čuvanja MEDICINSKE dokumentacije time nije primjenjivo na Dentaland. Booking podaci već imaju pravilo (12 mjeseci, anonimizacija — CLAUDE.md "Sigurnost i privatnost"), samo treba formalni dokument da to zapiše |
-| processor evidenciju | I DALJE BLOKIRANO | CLAUDE.md "Otvorena pitanja" — izbor hosting/cloud procesora i kontrolor/obrađivač ugovor nisu razriješeni; booking podaci potvrđeno IDU na VPS (29.8.2026), pa je procesor ugovor stvarno potreban, ne teoretski |
-| produkcijski podaci van AI/dev dumpova | NIJE FORMALIZOVANO | politika/proces, nije nigdje pisana |
-| PostgreSQL concurrency protection (EXCLUDE constraint) | I DALJE EKSPLICITNO ODGOĐENO | namjerno izostavljeno iz DENT-IMPROVE-012 obima; i dalje čeka hosting/procesor odluku (CLAUDE.md ažuriran 29.8.2026) |
+| HTTPS | ODGOĐENO do hosting odluke | fizički zahtijeva stvaran server — ne može se raditi prije nego što VPS/hosting bude izabran |
+| backup + restore (PostgreSQL) | NIJE URAĐENO, ali izvodljivo ODMAH | SQLite backup postoji (DENT-004/DENT-IMPROVE-007, `docs/dentaland-backup-operativni-vodic.md`), ali `pg_dump` + testiran restore ne postoji — može se odraditi na postojećoj LOKALNOJ Dentaland Postgres instanci (port 5433), ne mora čekati produkcijski server |
+| privacy notice | NIJE URAĐENO, izvodljivo ODMAH | dokument ne postoji, nezavisan je od hostinga |
+| breach runbook | NIJE URAĐENO, izvodljivo ODMAH | dokument ne postoji, nezavisan je od hostinga |
+| retention dokument | NIJE FORMALIZOVANO, izvodljivo ODMAH | Riješeno 29.8.2026: medicinska dokumentacija ostaje na papiru van sistema, pitanje rokova čuvanja MEDICINSKE dokumentacije time nije primjenjivo na Dentaland. Booking podaci već imaju pravilo (12 mjeseci, anonimizacija — CLAUDE.md "Sigurnost i privatnost"), samo treba formalni dokument da to zapiše |
+| processor evidenciju | ODGOĐENO do hosting odluke | CLAUDE.md "Otvorena pitanja" — izbor hosting/cloud procesora i kontrolor/obrađivač ugovor nisu razriješeni; Radovan 29.8.2026 eksplicitno odgodio hosting odluku do kraja projekta (trenutno nema pristup/info o hostingu zvaničnog sajta) |
+| produkcijski podaci van AI/dev dumpova | NIJE FORMALIZOVANO | politika/proces, nezavisan je od hostinga, izvodljivo odmah |
+| PostgreSQL concurrency protection (EXCLUDE constraint) | ODGOĐENO do hosting odluke | namjerno izostavljeno iz DENT-IMPROVE-012 obima; čeka istu hosting/procesor odluku |
 
-**Zaključak (ažurirano 29.8.2026 nakon Radovanovog razjašnjenja pravnog
-pitanja):** pravni osnov obrade i pitanje retention-a medicinske
-dokumentacije su riješeni kao poslovna odluka (nije nezavisna pravna
-provjera — vidi CLAUDE.md "Otvorena pitanja"). I dalje stoji: realan prvi
-pokušaj ovog gate-a NE MOŽE dati čist `PASS` — 2 stavke (processor
-evidencija, EXCLUDE constraint) ostaju blokirane izborom hosting
-providera, koji nije napravljen. 4 stavke (HTTPS, Postgres
-backup/restore, privacy notice, breach runbook, retention dokument) su
-sada SVE tehnički izvodljive odmah, bez čekanja na bilo šta. Radovanova
-odluka: (a) pisati task contract za `DENT-IMPROVE-016` sada, sa gate
-rezultatom `PASS_WITH_NOTES` + eksplicitno dokumentovanim
-`blocking_findings` za preostale 2 hosting-zavisne stavke, ili (b) prvo
-raditi na tehnički-izvodljivim stavkama pojedinačno kao manje taskove
-(uklj. odabir hostinga, čime bi se i preostale 2 stavke otključale), gate
-na kraju. Ovo je tipično Claude-only zadatak (compliance/auditing, ne
+**Zaključak (ažurirano 29.8.2026 — Radovan eksplicitno odgodio hosting
+odluku do kraja projekta):** pravni osnov obrade i retention medicinske
+dokumentacije su riješeni kao poslovna odluka. 3 stavke (HTTPS, processor
+evidencija, EXCLUDE constraint) namjerno čekaju hosting odluku — nije
+propust, nego svjestan redoslijed. 5 stavki (backup+restore, privacy
+notice, breach runbook, retention dokument, politika produkcijskih
+podataka) su nezavisne od hostinga i izvodljive odmah. Plan: napraviti
+`DENT-IMPROVE-016` task contract skraćen na tih 5 stavki, sa preostale 3
+eksplicitno označene kao odgođene (ne blocking findings, nego dokumentovan
+scope cut) — gate za PUNU produkcijsku spremnost čeka hosting odluku na
+kraju projekta, ali ovaj skraćeni gate ipak ima vrijednost odmah. Ovo je
+tipično Claude-only zadatak (compliance/auditing i pisanje dokumenata, ne
 implementacija po Pi/Crush obrascu), slično REF-FINAL prihvatnom auditu
 ranije u projektu.
