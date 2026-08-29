@@ -507,24 +507,29 @@ projekta):** HTTPS, processor evidencija/kontrolor-obrađivač ugovor,
 iz `docs/DENTALAND_IMPROVEMENT_BACKLOG.md` sekcije 16) — 10 od 13 je
 sad DONE.
 
-**Predložen, još nenapisan `DENT-IMPROVE-017`** (OUT_OF_SCOPE_FINDING
-otkriven tokom `DENT-IMPROVE-016`, van njegovog `allowed_paths`,
-prijavljen ne popravljen):
+**`DENT-IMPROVE-017` DONE, merged `bc20eb3`, 29.8.2026.** Zatvorio oba
+nalaza (OUT_OF_SCOPE_FINDING iz `DENT-IMPROVE-016`) — "nema dugova"
+politika:
 
 1. `tests/test_postgres_migration.py::test_confirm_preklapanje_vraca_409_nad_postgres`
-   puca (401 umjesto 409) na `main`, kad je `DATABASE_URL_TEST`
-   postavljen — Postgres-mirror test nije ažuriran za RBAC kredencijale
-   kad je `DENT-IMPROVE-013` mergovan. Fajl se izvršava SAMO uz
-   `DATABASE_URL_TEST`, pa je prošlo neopaženo.
-2. Lokalna Postgres instanca (port 5433) ima zastarjel `alembic_version`
-   pečat (`d4e5f6a7b8c9`, DENT-022, stvaran head `f6a7b8c9d0e1`,
-   DENT-IMPROVE-014) — tabele postoje jer ih je
-   `Base.metadata.create_all()` u test fixture-ima kreirao mimo
-   alembic-a, migracije DENT-IMPROVE-013/014 nikad stvarno primijenjene
-   kroz `alembic upgrade head` protiv ove instance.
+   — dodat `pg_reception_session` fixture (isti obrazac kao
+   `test_backend.py`) + `base_url="https://testserver"` na `client`
+   fixture (`secure=True` cookie problem, dodatni prethodno neprepoznat
+   dio uzroka). Usput otkriven i popravljen pravi FK cleanup bug —
+   brisanje test korisnika je pucalo na `sessions`/`audit_events` foreign
+   key, cleanup sad briše oba prije `User` reda.
+2. Lokalna Postgres instanca (port 5433) — `dentaland_dev`/`dentaland_test`
+   drop-ovane i rekreirane (provjereno prazne/sintetičke prije brisanja),
+   pa stvaran `alembic upgrade head` pokrenut od nule na obje — svih 6
+   migracija primijenjeno čisto, `alembic current` sad ispisuje tačan
+   head na obje baze umjesto ranijeg zastarjelog pečata.
 
-Ne blokira ništa trenutno (backup radi protiv postojećih tabela).
-Potvrđeno da postoji identično na `main` otprije, nije nova regresija.
+Implementer Claude, Codex PASS_WITH_NOTES na prvi pokušaj (bez blocking
+nalaza — u odnosu na 7 REJECT rundi za `DENT-IMPROVE-016`). Puni suite sa
+`DATABASE_URL_TEST`: **449 passed, 0 failed** — prvi put ove sesije da je
+kompletno čisto (nema više poznatih pre-postojećih failure-a). Vidi
+`agent_reports/2026-08-29-DENT-IMPROVE-017-postgres-fixes.md` i
+`2026-08-29-DENT-IMPROVE-017-review-codex.md`.
 
 **Odvojen, nepovezan nalaz — riješen:** GitHub Actions CI je bio crven na
 SVAKOM pushu na `main` tri dana (od DENT-IMPROVE-010, 26.8.2026, plitak
