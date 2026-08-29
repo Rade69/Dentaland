@@ -44,7 +44,7 @@ sugerisalo — vidi v3.1 plan).
 |---|---|---|
 | **LOW** | Tekst, labele, vizuelne korekcije, izolovan UI bez logike | `Implementer → verifikacija → 1 reviewer → merge`. Human approval opcion nakon što prvih desetak LOW zadataka prođe bez REJECT-a. |
 | **MEDIUM** | Controller izmjene, neosjetljiva servisna logika, `api_client/` sloj, email/reminder workflow, backup mehanizam | `Implementer → verifikacija → 1 reviewer → human approval → merge` |
-| **HIGH** | Šema i migracije, `EXCLUDE` constraint, autentifikacija, token generisanje, javni API endpointi, razdvajanje osjetljivih podataka (M1), Viber webhook + signature verifikacija | `Implementer → verifikacija → Reviewer 1 → Reviewer 2 → human approval → merge` |
+| **HIGH** | Šema i migracije, `EXCLUDE` constraint, autentifikacija, token generisanje, javni API endpointi, razdvajanje osjetljivih podataka (M1), Viber webhook + signature verifikacija | `Implementer → verifikacija → 1 reviewer → human approval → merge` (vidi "Uloge" niže — od 29.8.2026 jedan nezavisan reviewer, ne dva) |
 
 Task Contract nosi `risk: LOW|MEDIUM|HIGH` polje — operativna oznaka za taj
 konkretan zadatak.
@@ -54,37 +54,35 @@ konkretan zadatak.
 ## Uloge
 
 Ko je Implementer se mijenja sa risk nivoom zadatka — agenti su fiksni po
-alatu, ali njihova uloga na datom zadatku zavisi od rizika:
+alatu, ali njihova uloga na datom zadatku zavisi od rizika.
 
-| Risk | Implementer | Reviewer 1 | Reviewer 2 |
-|---|---|---|---|
-| LOW | Crush / Pi | Claude | — |
-| MEDIUM | Crush / Pi | Claude | — |
-| HIGH | **Claude** | Crush ili Pi | Pi ili Crush (onaj koji nije Reviewer 1) |
+**Pravilo od 29.8.2026 (Radovanova odluka, zamjenjuje raniju "dok je
+Codex nedostupan" tabelu ispod nje — brzina/tokeni bili su razlog):**
+reviewer pool je uvijek **Claude ili Codex, jedan od njih** (nikad oba na
+istom zadatku) — Crush više nije reviewer ni na jednom risk nivou, samo
+implementer na LOW/MEDIUM. Ovo je svjestan kompromis: HIGH zadaci gube
+dvostruku nezavisnu provjeru (ranije Codex + Crush/Pi) u zamjenu za brži
+tok — prihvaćeno eksplicitno, ne previd.
 
-Tabela iznad prikazuje raspodjelu dok je Codex nedostupan. **Trajno
-pravilo** (kad je Codex dostupan): Codex je opcion Implementer na
-LOW/MEDIUM frontend/GUI poslu, i obavezan Reviewer 1 na HIGH zadacima (uz
-Crush ili Pi kao Reviewer 2) — ne oba, Crush/Pi popunjavaju oba
-Reviewer-mjesta na HIGH SAMO dok je Codex nedostupan. Kad se Codex vrati,
-ova tabela se vraća na tu raspodjelu — nije trajna promjena procesa, samo
-privremena adaptacija na dostupnost agenta.
+| Risk | Implementer | Reviewer |
+|---|---|---|
+| LOW | Pi ili Crush | Claude ili Codex (jedan) |
+| MEDIUM | Pi ili Crush | Claude ili Codex (jedan) |
+| HIGH | Claude ili Codex — **šema/migracije (`models.py`, `migrations/**`, `EXCLUDE` constraint) i dalje isključivo Claude** | onaj od {Claude, Codex} koji nije implementirao |
 
-Dostupnost pojedinog agenta u datom trenutku (npr. privremena odsutnost,
-isticanje kredita, tačan datum) je kratkotrajna informacija koja se
-mijenja nezavisno od ovog procesnog dokumenta. **Provjeri
-`.agent/CURRENT_STATE.md` za trenutni status prije pretpostavke** — ne
-pretpostavljati da je gornja tabela trenutno na snazi bez te provjere.
+Ako je Codex privremeno nedostupan (provjeri `.agent/CURRENT_STATE.md`),
+Crush ili Pi (ko god nije implementer na tom zadatku) privremeno
+popunjava reviewer mjesto — izuzetak, ne trajna promjena ove tabele.
 
 **Trajno pravilo za handoff nedovršenog zadatka:** Ako je Codex usred
 nedovršenog zadatka kad kredit istekne, taj zadatak se ili završava kroz
 drugog agenta (novi Task Contract, ne nastavak u istom kontekstu) ili
 čeka Radovanovu odluku — ne pretpostavljati automatski.
 
-- **Claude implementira HIGH-risk zadatke direktno** — najstabilnija ruka
-  na najkritičnijem poslu.
-- **Crush i Pi su Implementeri na LOW/MEDIUM.** Na HIGH zadacima, oba
-  (Crush i Pi) rade kao nezavisni Reviewer 1/2.
+- **Claude implementira šemu/migracije direktno** — najstabilnija ruka na
+  najkritičnijem, najteže-povratnom poslu (ostatak HIGH posla može i
+  Codex implementirati).
+- **Crush i Pi su Implementeri na LOW/MEDIUM**, nikad reviewer.
 - **Radovan** — zadnja riječ prije merge-a; rješava neslaganje reviewera;
   jedina instanca koja odlučuje poslovna/pravna pitanja.
 
@@ -113,7 +111,7 @@ acceptance:
   - poređenje ide kroz hmac.compare_digest, ne ==
 verification: [pytest tests/test_tokens.py, ruff check backend/services/tokens.py]
 review:
-  reviewers: 2
+  reviewers: 1
   required: [security, architecture, scope]
 ```
 
