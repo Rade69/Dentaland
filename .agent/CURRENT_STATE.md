@@ -1,6 +1,6 @@
 # Current State
 
-Last updated: 2026-08-25
+Last updated: 2026-08-29
 
 Ovaj fajl drži KRATKOTRAJNE informacije — stvari koje realno mogu zastarjeti
 za nekoliko dana/sedmica. Trajna pravila ostaju u `CLAUDE.md`/`AGENTS.md`/
@@ -350,10 +350,16 @@ grafu. Codex + Claude PASS bez rezervi — oba nezavisno provjerila da
 `main` nije dirao nijedan od 4 REF-16 fajla otkako je grana odvojena
 (bezbjedan merge bez rebase-a).
 
-**Ovim je cijeli Prioritet C backlog
+**Ovim je skoro cijeli Prioritet C backlog
 (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`) funkcionalno završen** —
 DENT-IMPROVE-010 do 015 (uklj. 014B/014C podzadatke) i REF-16 su svi
-DONE. Nema poznatog otvorenog Prioritet C stavka.
+DONE. **Izuzetak (otkriven 29.8.2026): druga ID kolizija.** Backlogov
+originalni `DENT-IMPROVE-015` NIJE rate limiting task koji je upravo
+mergovan pod tim brojem — originalni 015 je "Produkcijski
+security/privacy release gate" (HIGH, C6), nikad urađen ni pod jednim
+ID-jem. Backlog dokument ispravljen (commit `a59d02c`): taj task sada
+nosi broj `DENT-IMPROVE-016`. Vidi "Next known work" ispod za detalje i
+status svake stavke checklist-a.
 
 **`DENT-IMPROVE-015` DONE, merged `ee52587`, 28.8.2026.** Rate limiting
 na preostala 4 backend endpointa (`logout` 10/min, `get_pending_requests`
@@ -452,8 +458,43 @@ ažurirati na prazan skup (sitan follow-up, ne nov task).
 
 ## Next known work
 
-REF-00..16 paket i cijeli `DENT-IMPROVE-010..015` Prioritet C backlog
-(uklj. `014B`/`014C` podzadatke) su svi DONE (vidi sekcije gore za
-detalje). **Nema poznatog otvorenog taska.** Radovanova odluka šta je
-sljedeći prioritet — Faza 1 priprema dalje (javno online zakazivanje,
-CLAUDE.md fazni plan), ili nešto drugo van dosadašnjeg backloga.
+REF-00..16 paket je DONE. Preostaje tačno JEDAN poznat Prioritet C task:
+**`DENT-IMPROVE-016`** (originalno pogrešno numerisan kao 015 —
+kolizija, vidi gore) — "Produkcijski security/privacy release gate",
+HIGH risk, checklist-verifikacija (ne nova implementacija) prije javnog
+online bookinga. Nikad urađen ni pod jednim ID-jem. Task contract još
+NIJE napisan.
+
+**Status svake stavke iz checklist-a (`docs/DENTALAND_IMPROVEMENT_BACKLOG.md`
+sekcija 16), provjeren 29.8.2026 — nije formalan gate-run, samo orijentacija
+prije pisanja kontrakta:**
+
+| Stavka | Status | Napomena |
+|---|---|---|
+| auth | DONE | DENT-IMPROVE-013 |
+| RBAC | DONE | DENT-IMPROVE-013 |
+| audit | DONE | DENT-IMPROVE-014/014B/014C |
+| rate limiting | DONE | DENT-IMPROVE-015 (6/6 javnih endpointa) |
+| token sigurnost | VJEROVATNO DONE, nije formalno auditovano ovim gate-om | `secrets.token_urlsafe`/`compare_digest` postoje u `auth.py`/`models.py`/`notifications.py` — treba potvrditi hash-storage + expires_at + one-time semantiku eksplicitno uz CLAUDE.md zahtjev |
+| minimalna javna forma | VJEROVATNO DONE, nije formalno auditovano | DENT-IMPROVE-011 E2E postoji, ali "minimalnost" polja nije eksplicitno provjerena kroz ovaj gate |
+| HTTPS | NIJE URAĐENO | nema VPS/domain deploymenta — Faza 1 infra nije počela |
+| backup + restore (PostgreSQL) | NIJE URAĐENO za Postgres | SQLite backup postoji (DENT-004/DENT-IMPROVE-007, `docs/dentaland-backup-operativni-vodic.md`), ali `pg_dump` + testiran restore za novu Postgres instancu ne postoji nigdje u repou |
+| privacy notice | NIJE URAĐENO | dokument ne postoji |
+| breach runbook | NIJE URAĐENO | dokument ne postoji |
+| retention dokument | BLOKIRANO | CLAUDE.md "Otvorena pitanja" — rokovi čuvanja medicinske dokumentacije (propisi RS) nisu razriješeni |
+| processor evidenciju | BLOKIRANO | CLAUDE.md "Otvorena pitanja" — izbor hosting/cloud procesora nije razriješen |
+| produkcijski podaci van AI/dev dumpova | NIJE FORMALIZOVANO | politika/proces, nije nigdje pisana |
+| PostgreSQL concurrency protection (EXCLUDE constraint) | EKSPLICITNO ODGOĐENO | namjerno izostavljeno iz DENT-IMPROVE-012 obima zbog istog nerazriješenog pravnog pitanja |
+
+**Zaključak:** realan prvi pokušaj ovog gate-a NE MOŽE dati čist `PASS` —
+3 stavke su tvrdo blokirane istim nerazriješenim pravnim pitanjima iz
+CLAUDE.md "Otvorena pitanja", 3 dodatne (HTTPS, Postgres backup/restore,
+privacy notice + breach runbook) su tehnički izvodljive SAD, bez čekanja
+na pravno razrješenje. Radovanova odluka: (a) pisati task contract za
+`DENT-IMPROVE-016` sada, sa gate rezultatom `REJECT` ili
+`PASS_WITH_NOTES` + eksplicitno dokumentovanim `blocking_findings` za 3
+pravno-blokirane stavke (dokumentuje realno stanje, ne blokira ostatak
+projekta), ili (b) prvo raditi na tehnički-izvodljivim stavkama
+pojedinačno kao manji taskovi, gate na kraju. Ovo je tipično Claude-only
+zadatak (compliance/auditing, ne implementacija po Pi/Crush obrascu),
+slično REF-FINAL prihvatnom auditu ranije u projektu.
