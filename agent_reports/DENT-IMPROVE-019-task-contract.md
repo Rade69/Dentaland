@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-019
 risk: HIGH
 implementer: claude
 reviewers: [codex]
-status: "NOT STARTED"
+status: "IMPLEMENTED, evidence spreman, ceka Codex review. Vidi agent_reports/2026-08-30-DENT-IMPROVE-019-implementation.md"
 created_at: 2026-08-30
 depends_on: none
 ---
@@ -142,19 +142,20 @@ koja je sakrila ovaj bug ne može sakriti regresiju.
 
 ## Acceptance criteria
 
-- [ ] `TZDateTime` koristi `DateTime(timezone=True)`, `process_result_value`
+- [x] `TZDateTime` koristi `DateTime(timezone=True)`, `process_result_value`
       normalizuje na UTC i za tz-aware ulaz
-- [ ] Migracija mijenja SVE `TZDateTime` kolone na `timestamptz`,
+- [x] Migracija mijenja SVE `TZDateTime` kolone na `timestamptz`,
       testirana `alembic upgrade head` na praznoj Postgres bazi
-      (i lokalno, i po mogućnosti provjereno na test VPS-u)
-- [ ] Regresioni test dokazano PADA sa starim kodom, PROLAZI sa fixom
+      (lokalno; test VPS ostavljen za merge trenutak, vidi evidence)
+- [x] Regresioni test dokazano PADA sa starim kodom, PROLAZI sa fixom
       (isto kao DENT-IMPROVE-013 metodologija)
-- [ ] Test eksplicitno mijenja sesijsku TimeZone na ne-UTC prije
+- [x] Test eksplicitno mijenja sesijsku TimeZone na ne-UTC prije
       provjere round-trip-a
-- [ ] `pytest tests/ -q` (i bez i sa `DATABASE_URL_TEST`), `ruff`,
+- [x] `pytest tests/ -q` (i bez i sa `DATABASE_URL_TEST`), `ruff`,
       `mypy`, `agent_sensors.py --all` čisti
-- [ ] Evidence eksplicitno navodi da li je test VPS Postgres baza
+- [x] Evidence eksplicitno navodi da li je test VPS Postgres baza
       (test podaci) stvarno migrirana i provjerena, ili samo lokalno
+      (SAMO lokalno — vidi evidence napomenu)
 
 ## Review
 
