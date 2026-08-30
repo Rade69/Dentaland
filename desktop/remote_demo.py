@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from desktop.api_client import AuthenticationFailedError, ConnectionFailedError, DentalandApiClient
+from desktop.api_client import ApiClientError, DentalandApiClient
 from desktop.remote_store import RemoteRequestsStore
 from desktop.views.dialogs.base_dialog import BaseDialog
 from desktop.views.requests_panel import DashboardPanels
@@ -66,10 +66,7 @@ class LoginDialog(BaseDialog):
             return
         try:
             self._client.login(username, password)
-        except AuthenticationFailedError as exc:
-            self.show_error(str(exc))
-            return
-        except ConnectionFailedError as exc:
+        except ApiClientError as exc:
             self.show_error(str(exc))
             return
         self.accept()

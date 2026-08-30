@@ -10,6 +10,9 @@ from desktop.api_client.client import (
     AuthenticationFailedError,
     ConnectionFailedError,
     DentalandApiClient,
+    PermissionDeniedError,
+    RateLimitedError,
+    ServerError,
 )
 
 __all__ = [
@@ -17,4 +20,7 @@ __all__ = [
     "AuthenticationFailedError",
     "ConnectionFailedError",
     "DentalandApiClient",
+    "PermissionDeniedError",
+    "RateLimitedError",
+    "ServerError",
 ]

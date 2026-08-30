@@ -3,8 +3,60 @@ task_id: DENT-IMPROVE-020
 risk: MEDIUM
 implementer: claude
 reviewers: [codex]
-status: "Implementacija gotova, uzivo testirano protiv test VPS-a, ceka Codex review"
+status: "Fix runda 1 (Codex F1) zavrsena, ceka ponovni Codex review"
 created_at: 2026-08-30
+---
+
+## Fix runda 1 (Codex review, `2026-08-30-DENT-IMPROVE-020-review-codex.md`, verdict REJECT)
+
+**F1 (MEDIUM, blocking) — popravljeno.** `_request` je prevodio SAMO
+connect/timeout greške i 401 — svaka druga HTTP greška (403, 429, 5xx,
+i implicitno svaki neobrađen status) je prolazila kroz pojedinačne
+`response.raise_for_status()` pozive u metodama, pa je curila kao sirov
+`httpx.HTTPStatusError` prema GUI sloju. Codex je to nezavisno dokazao
+mock 500 odgovorom na `get_doctors`.
+
+**Fix**: `_request` sad centralno mapira SVAKI ne-2xx status (osim onih
+koje pozivalac eksplicitno traži preko novog `expect` parametra — 404/409
+na `confirm_pending`, 404 na `reject_pending`) u tipiziran izuzetak:
+`AuthenticationFailedError` (401), `PermissionDeniedError` (403, nova),
+`RateLimitedError` (429, nova), `ServerError` (5xx, nova),
+`ApiClientError` (bilo koji drugi neočekivan status). Svi `raise_for_status()`
+pozivi uklonjeni iz pojedinačnih metoda — sad postoji TAČNO jedno mjesto
+gdje se status kod tumači.
+
+**Dodatno otkriveno i popravljeno tokom fixa** (Codexova napomena "GUI
+može pasti tracebackom"): `DashboardPanels`/`RequestController`
+(dijeljeni sa lokalnom aplikacijom, i dalje nepromijenjeni) ne znaju
+ništa o `ApiClientError` — pozivi `doctors()`/`service_choices()`/
+`reject_pending()` uopšte nisu bili zaštićeni try/except-om na tim
+mjestima. Cijeli novi error-handling sloj je dodat ISKLJUČIVO u
+`desktop/remote_store.py` (ne dirajući dijeljeni kod): `pending_requests`/
+`doctors`/`service_choices` hvataju `ApiClientError`, prikažu
+`QMessageBox` i vrate praznu listu; `confirm_pending` propušta
+`OverlapError` nepromijenjen (već hvatan) a svaku drugu grešku prevodi u
+`ValueError` (već hvatan); `reject_pending` (nema NIKAKVU zaštitu iznad
+u dijeljenom kodu) hvata i prikazuje `QMessageBox` sam, ne baca dalje.
+
+**Novi testovi**: `tests/test_desktop_api_client.py` dobio parametrizovan
+set (`_STATUS_CASES` = 401/403/429/500/502/418) primijenjen na SVIH pet
+metoda (`login`, `get_pending_requests`, `get_doctors`,
+`get_service_choices`, `confirm_pending`, `reject_pending`) + testovi za
+ostale `httpx.HTTPError` podklase i ne-JSON tijelo greške (proxy/gateway
+502 sa HTML tijelom). Nov `tests/test_remote_store.py` (11 testova)
+potvrđuje da error-handling sloj stvarno radi (mock klijent, provjera da
+se `QMessageBox.warning` poziva i da se ništa ne baca gdje ne smije).
+
+Verifikacija nakon fixa: `pytest tests/ -q` → **512 passed** (real
+Postgres), `ruff`/`mypy src backend desktop` čisti, `agent_sensors.py --all`
+→ 0 blocking findings, `git diff --stat` na sva četiri dijeljena fajla
+(`app.py`, `main_window.py`, `request_controller.py`, `requests_panel.py`)
+→ i dalje prazan izlaz (ništa dirano). Dodatna slučajna live potvrda:
+klijent pozvan uživo protiv VPS-a (koji je trenutno na `main`, bez novih
+endpointa) — `GET /api/doctors` je vratio 404, i novi kod ga je ispravno
+pretvorio u čitljiv `ApiClientError` umjesto pada (login i dalje radi
+ispravno).
+
 ---
 
 # DENT-IMPROVE-020 — Desktop daljinski demo (Novi zahtjevi) — evidence

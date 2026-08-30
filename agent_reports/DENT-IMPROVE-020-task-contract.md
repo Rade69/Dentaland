@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-020
 risk: MEDIUM
 implementer: claude
 reviewers: [codex]
-status: "IMPLEMENTED, uzivo testirano protiv test VPS-a, ceka Codex review. Vidi agent_reports/2026-08-30-DENT-IMPROVE-020-implementation.md"
+status: "Fix runda 1 zavrsena (Codex F1 - HTTP error contract), ceka ponovni Codex review. Vidi agent_reports/2026-08-30-DENT-IMPROVE-020-implementation.md"
 created_at: 2026-08-30
 depends_on: DENT-IMPROVE-013 (RBAC/login), DENT-IMPROVE-007 (pending requests)
 ---
