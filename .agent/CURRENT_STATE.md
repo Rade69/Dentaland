@@ -601,8 +601,71 @@ odluku (uz `EXCLUDE` constraint i processor evidenciju) sad ima realan
 tehnički dokaz da radi. Ne mijenja status preostale dvije stavke niti
 finalnu produkcijsku hosting odluku.
 
-**Sljedeći mogući koraci (nije još urađeno):** deploy Dentaland backend
-(FastAPI + PostgreSQL) na server, reverse proxy (nginx) povezan sa ovim
-sertifikatom, test punog booking flow-a uživo preko HTTPS-a, test Viber
-webhook registracije sa ovom domenom, test `EXCLUDE` constraint pod
-stvarnim mrežnim uslovima.
+### Backend deployment na test VPS — DONE, potvrđeno end-to-end (29.8.2026)
+
+Isti dan, nastavak gornjeg. Cijeli Faza 1 lanac (HTTPS → nginx → FastAPI
+→ PostgreSQL → RBAC) je stvarno proradio zajedno na ovom serveru — prvi
+put u projektu, ne više samo plan.
+
+**PostgreSQL:**
+- Instaliran PostgreSQL 16 (`apt-get install postgresql postgresql-contrib`).
+- Nova, odvojena baza/nalog: rola `dentaland_app` (CREATEDB), baza
+  `dentaland_vpstest` (ime namjerno signalizira "test", ne produkcija).
+  Sluša samo na `127.0.0.1` — port 5432 NIJE otvoren u `ufw`, nema
+  spoljnog pristupa bazi.
+- Migracije: pravi `alembic upgrade head` (isto pravilo kao
+  `DENT-IMPROVE-017`) — svih 6 migracija primijenjeno čisto na praznoj
+  bazi.
+
+**Aplikacija:**
+- Repo kloniran u `/opt/dentaland` (`git clone --depth 1`, javan GitHub
+  repo, bez potrebe za kredencijalima). Trenutno na commit-u `c1bd372`.
+- Python venv (`/opt/dentaland/venv`), instalirane SAMO backend
+  zavisnosti (FastAPI/SQLAlchemy/alembic/psycopg2/argon2/slowapi/uvicorn)
+  — bez `PySide6`/desktop zavisnosti, server je headless.
+- `systemd` servis `dentaland-backend` (`/etc/systemd/system/dentaland-backend.service`):
+  `uvicorn backend.main:app` na `127.0.0.1:8000`, `User=danga`,
+  `Restart=on-failure`, omogućen (`enable --now`) — preživljava reboot.
+  `DATABASE_URL` je u service fajlu (na disku servera, root-only
+  čitljiv fajl, nikad u repou).
+
+**nginx (reverse proxy):**
+- Nov site config `/etc/nginx/sites-available/dentaland` (simlink u
+  `sites-enabled/`) — **ne dira** postojeće `default`/`ffplayout`
+  konfiguracije (port 80/8080).
+- `listen 443 ssl` sa sertifikatom instaliranim preko `acme.sh
+  --install-cert` na stabilnu lokaciju (`/etc/dentaland/ssl/`, sa
+  `--reloadcmd "systemctl reload nginx"` za automatsko obnavljanje).
+- `root /opt/dentaland/web` servira statičnu booking formu direktno;
+  `location /api/` proxy-uje na `127.0.0.1:8000`.
+- `sub_filter` injektuje `window.DENTALAND_API_BASE = window.location.origin;`
+  prije `app.js` učitavanja — rješava isti-origin API poziv BEZ diranja
+  committovanog `web/index.html` (test-deployment-specifično, ostaje
+  samo u nginx konfiguraciji na serveru).
+
+**Verifikacija (izvana, preko pravog interneta, ne samo sa servera):**
+- `https://169-58-208-91.nip.io/` → HTTP 200 (booking forma).
+- `GET /api/booking-requests` bez prijave → HTTP 401 (RBAC ispravno
+  odbija).
+- `POST /api/booking-requests` sa sintetičkim podacima
+  (`"ime": "Test VPS Deployment"`) → HTTP 201, zapis stvarno upisan u
+  `dentaland_vpstest` bazu (id=1, status PENDING) — ostavljen u bazi
+  kao dokaz, jasno markiran, sintetički (vidi
+  `docs/dentaland-politika-produkcijski-podaci.md`).
+- Sertifikat nezavisno provjeren (`openssl s_client`): `subject=CN=169-58-208-91.nip.io`,
+  `issuer=Let's Encrypt`, važi do 28.11.2026.
+
+**Šta NIJE urađeno (namjerno, van obima ove test runde):**
+- Nema automatizovanog deployment skripta u repou — sve urađeno ručno,
+  interaktivno, uz Radovanovo direktno učešće (kredencijali, VNC
+  pristup) — nije prošlo kroz formalni Task Contract proces jer nije
+  mijenjalo nijedan fajl u repou (samo stanje servera). Ako se ovo
+  ponavlja/formalizuje, vrijedi razmotriti pisanje pravog deployment
+  vodiča/skripte u `docs/`.
+- Email/SMTP nije podešen na serveru — `notifications.py` best-effort
+  tiho preskače slanje bez `DENTALAND_SMTP_HOST`, pa to nije blokiralo
+  test.
+- Viber webhook testiranje — sledeći korak, sad tehnički moguć (prava
+  HTTPS domena postoji).
+- `EXCLUDE` constraint — i dalje eksplicitno odgođen (CLAUDE.md
+  "Otvorena pitanja"), ne testiran ovom rundom.
