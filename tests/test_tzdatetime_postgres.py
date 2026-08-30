@@ -69,10 +69,41 @@ def test_sesija_je_stvarno_ne_utc(engine: Engine) -> None:
     assert tz == _NON_UTC_SESSION_TZ
 
 
-def test_migracija_postavlja_timestamptz_kolonu() -> None:
-    """alembic upgrade head (stvaran, ne create_all) mora ostaviti
-    appointments.start_time kao timestamptz, ne timestamp bez zone."""
+# Sve TZDateTime kolone na cijelom lancu migracija -- MORA se poklapati
+# sa `_TZDATETIME_COLUMNS` u `g7h8i9j0k1l2_tzdatetime_timestamptz.py`.
+# Namjerno duplirano (ne dinamički import migracije) -- eksplicitna
+# lista ovdje je i sama regresiona zaštita: Codex F1 (30.8.2026) je bio
+# tačno to da su dvije DENT-IMPROVE-018 Telegram kolone nedostajale u
+# migraciji; ako se ubuduće doda TZDateTime kolona pa zaboravi u
+# migraciji, ovaj test to hvata (asertacija na broj kolona ispod).
+_ALL_TZDATETIME_COLUMNS: list[tuple[str, str]] = [
+    ("time_off", "od_datetime"),
+    ("time_off", "do_datetime"),
+    ("appointments", "start_time"),
+    ("appointments", "end_time"),
+    ("appointments", "confirmed_at"),
+    ("appointments", "arrived_at"),
+    ("appointments", "reminder_sent_at"),
+    ("appointments", "created_at"),
+    ("appointments", "updated_at"),
+    ("appointments", "telegram_link_token_expires_at"),
+    ("appointments", "telegram_subscribed_at"),
+    ("users", "created_at"),
+    ("sessions", "expires_at"),
+    ("sessions", "created_at"),
+    ("sessions", "revoked_at"),
+    ("audit_events", "occurred_at"),
+]
+
+
+def test_migracija_postavlja_timestamptz_na_svih_16_kolona() -> None:
+    """alembic upgrade head (stvaran, ne create_all) mora ostaviti SVAKU
+    TZDateTime kolonu kao timestamptz, ne timestamp bez zone -- Codex F1
+    (30.8.2026): originalna verzija je provjeravala samo 2 od 16 kolona i
+    propustila da uhvati da dvije DENT-IMPROVE-018 Telegram kolone
+    (dodane paralelnom granom) nisu bile pokrivene."""
     assert DATABASE_URL_TEST is not None
+    assert len(_ALL_TZDATETIME_COLUMNS) == 16
     config = Config("alembic.ini")
     config.set_main_option("sqlalchemy.url", DATABASE_URL_TEST)
     command.upgrade(config, "head")
@@ -80,13 +111,14 @@ def test_migracija_postavlja_timestamptz_kolonu() -> None:
     inspect_engine = create_engine(DATABASE_URL_TEST)
     try:
         inspector = inspect(inspect_engine)
-        columns = {c["name"]: c for c in inspector.get_columns("appointments")}
-        start_time_type = columns["start_time"]["type"]
-        created_at_type = columns["created_at"]["type"]
-        assert isinstance(start_time_type, DateTime)
-        assert isinstance(created_at_type, DateTime)
-        assert start_time_type.timezone is True
-        assert created_at_type.timezone is True
+        columns_by_table = {
+            table: {c["name"]: c for c in inspector.get_columns(table)}
+            for table in {t for t, _ in _ALL_TZDATETIME_COLUMNS}
+        }
+        for table, column in _ALL_TZDATETIME_COLUMNS:
+            col_type = columns_by_table[table][column]["type"]
+            assert isinstance(col_type, DateTime), f"{table}.{column} nije DateTime tip"
+            assert col_type.timezone is True, f"{table}.{column} nije timestamptz"
     finally:
         inspect_engine.dispose()
 

@@ -3,8 +3,52 @@ task_id: DENT-IMPROVE-019
 risk: HIGH
 implementer: claude
 reviewers: [codex]
-status: "Implementacija gotova, evidence spreman, ceka Codex review + human approval"
+status: "Fix runda 1 (Codex F1) zavrsena, ceka ponovni Codex review"
 created_at: 2026-08-30
+---
+
+## Fix runda 1 (Codex review, `2026-08-30-DENT-IMPROVE-019-review-codex.md`, verdict REJECT)
+
+**F1 (HIGH, blocking) — popravljeno.** Migracija `g7h8i9j0k1l2` je
+prvobitno granala direktno iz `f6a7b8c9d0e1` (paralelno sa
+DENT-IMPROVE-018, koje takođe grana iz istog roditelja) — dva sibling
+migracijska head-a. Codex je pokazao da ni jedan redoslijed merge-a ne
+bi pouzdano pretvorio `appointments.telegram_link_token_expires_at`/
+`telegram_subscribed_at` (DENT-IMPROVE-018 migracija ih kreira kao
+`sa.DateTime()` BEZ `timezone=True`) u `timestamptz`: da je 019 mergovan
+prvi, 018 bi ih kasnije dodao pogrešnog tipa; da je 018 mergovan prvi,
+019 (original) ih uopšte ne bi alterovao jer ih moja `_TZDATETIME_COLUMNS`
+lista nije poznavala (grana je pisana protiv `main`-a, prije nego što je
+DENT-IMPROVE-018 uopšte postojao).
+
+**Fix**: `git merge origin/task/DENT-IMPROVE-018-telegram-bot` u ovu
+granu (čist auto-merge, bez konflikata) — linearizuje lanac
+(`f6a7b8c9d0e1 → a7b8c9d0e1f2 (018) → g7h8i9j0k1l2 (019)`, potvrđeno
+`alembic heads` = tačno jedan head). Migracija ažurirana:
+`down_revision` sad `a7b8c9d0e1f2`, obje Telegram kolone dodane u
+`_TZDATETIME_COLUMNS` (14 → 16 ukupno). Test
+`test_migracija_postavlja_timestamptz_kolonu` (provjeravao SAMO 2 od 16
+kolona) zamijenjen sa `test_migracija_postavlja_timestamptz_na_svih_16_kolona`
+— eksplicitna lista svih 16 (namjerno duplirana iz migracije, ne
+dinamički import — sama duplikacija je regresiona zaštita: ako se doda
+nova TZDateTime kolona pa zaboravi u migraciji, ovaj test to hvata).
+
+Verifikacija nakon fixa: `alembic heads` → tačno jedan head (`g7h8i9j0k1l2`).
+`pytest tests/ -q` bez `DATABASE_URL_TEST`: **453 passed, 24 skipped**.
+Sa real Postgres (`DATABASE_URL`+`DATABASE_URL_TEST`): **477 passed, 0
+failed** (jedan raniji run je imao 2 lažna pada zbog stanja dijeljene
+test baze između paralelnih worktree-ova tokom merge tranzicije —
+ponovljen run čist, oba testa i pojedinačno i u punom suite-u prolaze
+dosljedno). `ruff`/`mypy src backend desktop` čisti, `agent_sensors.py
+--all` → 0 blocking findings.
+
+**Napomena o koordinaciji**: ova grana sad SADRŽI DENT-IMPROVE-018-ov
+kod (telegram.py, webhook, itd.) kao dio istorije, zbog merge-a. Kad se
+merguje u `main`, DENT-IMPROVE-018 mora biti već mergovan prvi (ili će
+merge ove grane efektivno donijeti 018-ov kod sa sobom) — ovo je
+namjerna, dokumentovana posljedica linearizacije koju je Codex tražio,
+ne slučajno širenje obima.
+
 ---
 
 # DENT-IMPROVE-019 — TZDateTime timestamptz fix — evidence

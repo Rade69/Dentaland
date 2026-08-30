@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-019
 risk: HIGH
 implementer: claude
 reviewers: [codex]
-status: "IMPLEMENTED, evidence spreman, ceka Codex review. Vidi agent_reports/2026-08-30-DENT-IMPROVE-019-implementation.md"
+status: "Fix runda 1 zavrsena (Codex F1 - migracija sad pokriva svih 16 TZDateTime kolona, linearizovan lanac sa DENT-IMPROVE-018), ceka ponovni Codex review. Vidi agent_reports/2026-08-30-DENT-IMPROVE-019-implementation.md"
 created_at: 2026-08-30
 depends_on: none
 ---

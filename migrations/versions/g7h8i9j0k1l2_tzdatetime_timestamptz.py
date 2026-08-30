@@ -25,8 +25,19 @@ podataka za oporavak (hosting/produkcijska odluka je i dalje odgođena,
 vidi CLAUDE.md "Otvorena pitanja" — nijedan Postgres server sa stvarnim
 pacijentskim podacima još ne postoji).
 
+**Codex review fix (30.8.2026, F1/HIGH)**: ovaj lanac je prvobitno
+granao direktno iz ``f6a7b8c9d0e1`` (paralelno sa DENT-IMPROVE-018),
+što je značilo da ni jedan redoslijed merge-a ne bi pouzdano pretvorio
+``appointments.telegram_link_token_expires_at``/``telegram_subscribed_at``
+(DENT-IMPROVE-018 migracija ih kreira kao ``sa.DateTime()`` BEZ
+``timezone=True``) — ako 019 ide prvi, 018 ih kasnije doda pogrešnog
+tipa; ako 018 ide prvi, 019 ih (u originalnoj verziji) uopšte nije
+alterovao. Popravljeno: grana DENT-IMPROVE-018 mergovana u ovu granu
+(linearan lanac, ``down_revision`` sad pokazuje na 018-ovu migraciju),
+obje Telegram kolone dodane u listu ispod.
+
 Revision ID: g7h8i9j0k1l2
-Revises: f6a7b8c9d0e1
+Revises: a7b8c9d0e1f2
 Create Date: 2026-08-30
 """
 
@@ -36,14 +47,14 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "g7h8i9j0k1l2"
-down_revision: str | None = "f6a7b8c9d0e1"
+down_revision: str | None = "a7b8c9d0e1f2"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-# (tabela, kolona) za sve TZDateTime kolone koje postoje na ovom lancu
-# migracija (glavna grana — DENT-IMPROVE-018 telegram_* kolone se
-# dodaju posebnom migracijom i nasljeđuju ispravan tip direktno kroz
-# ažurirani TZDateTime, ne trebaju ovdje).
+# (tabela, kolona) za SVE TZDateTime kolone na ovom lancu migracija,
+# uključujući DENT-IMPROVE-018 Telegram kolone (vidi napomenu iznad —
+# 018-ova migracija ih kreira BEZ timezone=True, moraju biti alterovane
+# ovdje, ne postoji druga prilika).
 _TZDATETIME_COLUMNS: list[tuple[str, str]] = [
     ("time_off", "od_datetime"),
     ("time_off", "do_datetime"),
@@ -54,6 +65,8 @@ _TZDATETIME_COLUMNS: list[tuple[str, str]] = [
     ("appointments", "reminder_sent_at"),
     ("appointments", "created_at"),
     ("appointments", "updated_at"),
+    ("appointments", "telegram_link_token_expires_at"),
+    ("appointments", "telegram_subscribed_at"),
     ("users", "created_at"),
     ("sessions", "expires_at"),
     ("sessions", "created_at"),
