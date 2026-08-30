@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -11,6 +12,8 @@ from PySide6.QtWidgets import QApplication
 from dentaland import paths
 from dentaland.services import AppointmentService
 from desktop.views.main_window import MainWindow
+
+ENV_REMOTE_DATABASE_URL = "DENTALAND_DATABASE_URL"
 
 
 def current_week_start() -> date:
@@ -34,9 +37,19 @@ def _resolve_db_path() -> Path:
 
 def main() -> int:
     app = QApplication(sys.argv)
-    db_path = _resolve_db_path()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    service = AppointmentService.from_sqlite(str(db_path))
+    remote_url = os.environ.get(ENV_REMOTE_DATABASE_URL)
+    if remote_url:
+        # NAMJERNO odvojena putanja od podrazumijevane lokalne SQLite
+        # upotrebe — Ljubina stvarna upotreba (bez ove env varijable)
+        # ostaje potpuno nepromijenjena. Vidi CLAUDE.md/CURRENT_STATE.md
+        # za kontekst: privremen most za testiranje protiv test VPS-a
+        # preko SSH tunela, ne finalna Faza 1 arhitektura (ta ide preko
+        # HTTP API-ja + RBAC, vidi desktop/remote_demo.py).
+        service = AppointmentService.from_database_url(remote_url)
+    else:
+        db_path = _resolve_db_path()
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        service = AppointmentService.from_sqlite(str(db_path))
     window = MainWindow(service)
     # Maksimizovan prozor koristi radnu površinu iznad Windows taskbara.
     window.showMaximized()

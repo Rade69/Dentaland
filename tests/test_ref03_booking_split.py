@@ -45,7 +45,13 @@ def _appointment_service_methods() -> list[ast.FunctionDef]:
 # Metode koje NISU delegacije nego facade infrastruktura — izuzete iz
 # allowlist provjere. Sve ostalo (javne delegacije + bilo koje privatne)
 # mora da prođe allowlist.
-_FACADE_EXEMPT_METHODS = {"__init__", "from_sqlite", "set_doctor", "_require_doctor"}
+_FACADE_EXEMPT_METHODS = {
+    "__init__",
+    "from_sqlite",
+    "from_database_url",
+    "set_doctor",
+    "_require_doctor",
+}
 
 # Allowlist: root imena na koje facade smije delegirati.
 _FACADE_ALLOWED_MODULES = {"appointments", "availability", "settings"}

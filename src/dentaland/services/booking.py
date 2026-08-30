@@ -58,6 +58,22 @@ class AppointmentService:
             first = session.scalar(select(Doctor).order_by(Doctor.id))
         return cls(session_factory, doctor_id=first.id if first is not None else None)
 
+    @classmethod
+    def from_database_url(cls, url: str) -> AppointmentService:
+        """Kreira servis nad POSTOJEĆOM bazom preko proizvoljnog SQLAlchemy
+        URL-a (npr. Postgres na udaljenom serveru, preko SSH tunela).
+
+        Za razliku od ``from_sqlite``: NE zove ``Base.metadata.create_all``
+        (šema se pretpostavlja već migrirana preko alembic-a — ovo je za
+        povezivanje na postojeću bazu, ne kreiranje nove) niti
+        ``ensure_seed_data`` (ne upisuje ništa u tuđu/udaljenu bazu samo
+        zato što se otvara viewer)."""
+        engine = create_engine(url)
+        session_factory = sessionmaker(engine, expire_on_commit=False)
+        with session_factory() as session:
+            first = session.scalar(select(Doctor).order_by(Doctor.id))
+        return cls(session_factory, doctor_id=first.id if first is not None else None)
+
     def set_doctor(self, doctor_id: int) -> None:
         self.doctor_id = doctor_id
 
