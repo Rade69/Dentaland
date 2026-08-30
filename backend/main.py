@@ -38,6 +38,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from backend.reminder_scheduler import run_reminder_scheduler
 from dentaland.models import Base
+from dentaland.services.appointments import service_options
 from dentaland.services.auth import (
     AuthenticatedUser,
     AuthenticationError,
@@ -55,6 +56,7 @@ from dentaland.services.requests import (
     list_pending,
     reject_request,
 )
+from dentaland.services.settings import doctors as list_active_doctors
 from dentaland.services.telegram import (
     consume_telegram_link_token,
     format_subscribed_message,
@@ -193,6 +195,18 @@ class ConfirmIn(BaseModel):
     doctor_id: int
     service_id: int
     start_time: datetime
+
+
+class DoctorOut(BaseModel):
+    id: int
+    ime: str
+
+
+class ServiceOut(BaseModel):
+    id: int
+    naziv: str
+    trajanje_min: int
+    buffer_min: int
 
 
 class LoginIn(BaseModel):
@@ -374,3 +388,30 @@ async def telegram_webhook(
                 send_message(str(chat_id), format_subscribed_message(start_time))
 
     return {"ok": True}
+
+
+@app.get("/api/doctors", response_model=list[DoctorOut])
+@limiter.limit("30/minute")
+def get_doctors(
+    request: Request,
+    session_factory: SessionFactoryDep,
+    _current_user: RequireReceptionDep,
+) -> list[DoctorOut]:
+    """Aktivni doktori (DENT-IMPROVE-020) — za desktop remote demo
+    dropdown pri potvrdi zahtjeva, isti obrazac kao ostali staff-only
+    endpointi."""
+    return [DoctorOut(id=d.id, ime=d.ime) for d in list_active_doctors(session_factory)]
+
+
+@app.get("/api/services", response_model=list[ServiceOut])
+@limiter.limit("30/minute")
+def get_services(
+    request: Request,
+    session_factory: SessionFactoryDep,
+    _current_user: RequireReceptionDep,
+) -> list[ServiceOut]:
+    """Usluge sa trajanjem/bufferom (DENT-IMPROVE-020)."""
+    return [
+        ServiceOut(id=s.id, naziv=s.naziv, trajanje_min=s.trajanje_min, buffer_min=s.buffer_min)
+        for s in service_options(session_factory)
+    ]

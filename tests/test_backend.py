@@ -247,6 +247,57 @@ def test_reject_nepostojeceg_vraca_404(client: TestClient, reception_session: No
     assert response.status_code == 404
 
 
+# ---- GET /api/doctors, GET /api/services (DENT-IMPROVE-020) ----
+
+
+def test_get_doctors_bez_prijave_vraca_401(client: TestClient) -> None:
+    response = client.get("/api/doctors")
+    assert response.status_code == 401
+
+
+def test_get_doctors_vraca_samo_aktivne(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    reception_session: None,
+) -> None:
+    with session_factory() as session:
+        session.add_all(
+            [
+                Doctor(ime="Aktivan Doktor", aktivan=True),
+                Doctor(ime="Neaktivan Doktor", aktivan=False),
+            ]
+        )
+        session.commit()
+
+    response = client.get("/api/doctors")
+    assert response.status_code == 200
+    names = {d["ime"] for d in response.json()}
+    assert names == {"Aktivan Doktor"}
+
+
+def test_get_services_bez_prijave_vraca_401(client: TestClient) -> None:
+    response = client.get("/api/services")
+    assert response.status_code == 401
+
+
+def test_get_services_vraca_trajanje_i_buffer(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+    reception_session: None,
+) -> None:
+    with session_factory() as session:
+        session.add(Service(naziv="Kontrola", trajanje_min=30, buffer_min=5))
+        session.commit()
+
+    response = client.get("/api/services")
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["naziv"] == "Kontrola"
+    assert body[0]["trajanje_min"] == 30
+    assert body[0]["buffer_min"] == 5
+
+
 def test_rate_limit_na_submit_endpointu(client: TestClient) -> None:
     payload = {"ime": "Ana", "telefon": "061", "requested_date": "2026-08-20"}
     statuses = [client.post("/api/booking-requests", json=payload).status_code for _ in range(11)]
