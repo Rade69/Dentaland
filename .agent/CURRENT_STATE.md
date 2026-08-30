@@ -665,7 +665,10 @@ put u projektu, ne više samo plan.
 - Email/SMTP nije podešen na serveru — `notifications.py` best-effort
   tiho preskače slanje bez `DENTALAND_SMTP_HOST`, pa to nije blokiralo
   test.
-- Viber webhook testiranje — sledeći korak, sad tehnički moguć (prava
-  HTTPS domena postoji).
+- Viber webhook testiranje — **na pauzi** (Radovan, 30.8.2026), vidi
+  CLAUDE.md "Šta se namjerno ne gradi unaprijed" — otkrivena moguća
+  ~€100/mjesec fiksna cijena po botu (neverifikovan izvor) je dovela u
+  pitanje raniju "jeftinija alternativa" pretpostavku. Tehnički sad
+  moguće (prava HTTPS domena postoji) kad/ako se nastavi.
 - `EXCLUDE` constraint — i dalje eksplicitno odgođen (CLAUDE.md
   "Otvorena pitanja"), ne testiran ovom rundom.

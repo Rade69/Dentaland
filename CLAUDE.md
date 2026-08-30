@@ -94,6 +94,7 @@ Faza 1: PySide6 desktop → httpx/QNetworkAccessManager → FastAPI → PostgreS
 
 - Plugin sistem/arhitektura za proširenje — nema drugog klijenta na osnovu kojeg bi se dizajnirale tačke proširenja.
 - Twilio SMS — preskup za obim jedne ordinacije; Viber (Faza 2) je jeftinija alternativa u BiH.
+- **Viber bot — rad zaustavljen na pauzi (Radovan, 30.8.2026).** Pretpostavka "jeftinija alternativa" iznad je dovedena u pitanje: prema neverifikovanim agregatorima (ne direktno sa Viber/Rakuten stranice), Viber Business chatbot ima ~€100/mjesec fiksnu naknadu po botu plus ~€0.0025 po poslatoj poruci koju bot inicira — za mali obim jedne ordinacije to može biti neproporcionalan trošak, možda skuplje od SMS-a po niskom volumenu. Arhitektonska odluka (Viber polja na `appointments`, bez novog "pacijent" entiteta) je usput donesena i ostaje važeća AKO se rad nastavi, ali implementacija nije počela. Prije nastavka: potvrditi tačnu cijenu direktno sa zvaničnog izvora (ne agregatora).
 - Instant rezervacija (Model B) — oduzima kontrolu osoblju prerano (vidi napomenu uz "Model zakazivanja" na vrhu fajla).
 - Javni server na Ljubinom ličnom računaru — poništava sigurnosnu prednost desktop pristupa.
 - Multi-tenancy — tek kad postoji drugi stvarni klijent, na osnovu stvarne razlike, ne unaprijed nagađane.
