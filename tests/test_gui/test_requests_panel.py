@@ -64,21 +64,46 @@ def _labels(box) -> str:
     return "\n".join(label.text() for label in box.findChildren(QLabel))
 
 
+def _card_title(box) -> str:
+    label = box.findChild(QLabel, "dashboardCardTitle")
+    assert label is not None
+    count = box.findChild(QLabel, "dashboardCardCount")
+    assert count is not None
+    return f"{label.text()} ({count.text()})"
+
+
 def test_paneli_ne_mijesaju_zahtjeve_i_termine(qtbot) -> None:
     panels = DashboardPanels(DashboardStore())
     qtbot.addWidget(panels)
 
-    assert panels.pending_box.title() == "Novi zahtjevi (1)"
+    assert _card_title(panels.pending_box) == "Novi zahtjevi (1)"
     assert "Jelena Kovač" in _labels(panels.pending_box)
     assert "Kontrola" not in _labels(panels.pending_box)
 
-    assert panels.awaiting_box.title() == "Čekaju potvrdu (1)"
+    assert _card_title(panels.awaiting_box) == "Čekaju potvrdu (1)"
     assert "Marko Bošnjak" in _labels(panels.awaiting_box)
     assert "Kontrola" in _labels(panels.awaiting_box)
 
-    assert panels.cancelled_box.title() == "Otkazani danas (1)"
+    assert _card_title(panels.cancelled_box) == "Otkazani danas (1)"
     assert "Ivana M." in _labels(panels.cancelled_box)
     assert "Pregled" in _labels(panels.cancelled_box)
+
+
+def test_dashboard_sazetak_ima_vizuelno_razlicite_kartice(qtbot) -> None:
+    panels = DashboardPanels(DashboardStore())
+    qtbot.addWidget(panels)
+
+    section = panels.findChild(QLabel, "dashboardSectionTitle")
+    assert section is not None
+    assert section.text() == "DANAS – Sažetak"
+    assert panels.pending_box.property("tone") == "info"
+    assert panels.awaiting_box.property("tone") == "warning"
+    assert panels.cancelled_box.property("tone") == "danger"
+    for box in (panels.pending_box, panels.awaiting_box, panels.cancelled_box):
+        icon = box.findChild(QLabel, "dashboardCardIcon")
+        assert icon is not None
+        assert icon.pixmap() is not None
+        assert not icon.pixmap().isNull()
 
 
 def test_cekaju_potvrdu_ima_potvrdi_i_odbaci_a_otkazani_nemaju(qtbot) -> None:
@@ -99,7 +124,7 @@ def test_klik_na_potvrdi_zove_mark_confirmed_i_uklanja_stavku(qtbot) -> None:
     qtbot.wait(10)  # dovrši deleteLater() od stare stavke (deferred delete event)
 
     assert store.confirmed_ids == [7]
-    assert panels.awaiting_box.title() == "Čekaju potvrdu (0)"
+    assert _card_title(panels.awaiting_box) == "Čekaju potvrdu (0)"
     assert "Marko Bošnjak" not in _labels(panels.awaiting_box)
 
 
@@ -112,7 +137,7 @@ def test_klik_na_odbaci_zove_cancel_i_uklanja_stavku(qtbot) -> None:
     qtbot.wait(10)
 
     assert store.cancelled_ids == [7]
-    assert panels.awaiting_box.title() == "Čekaju potvrdu (0)"
+    assert _card_title(panels.awaiting_box) == "Čekaju potvrdu (0)"
     assert "Marko Bošnjak" not in _labels(panels.awaiting_box)
 
 

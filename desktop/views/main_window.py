@@ -282,11 +282,12 @@ class MainWindow(QMainWindow):
         self.status_legend = QLabel()
         self.status_legend.setObjectName("statusLegend")
         self.status_legend.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_legend.setWordWrap(False)
         self.status_legend.setSizePolicy(
             QSizePolicy.Policy.Preferred,
             QSizePolicy.Policy.Fixed,
         )
-        self.status_legend.setFixedHeight(48)
+        self.status_legend.setFixedHeight(52)
         calendar_column.addWidget(self.status_legend)
         content.addLayout(calendar_column, 1)
 
@@ -316,9 +317,16 @@ class MainWindow(QMainWindow):
             avatar.setPixmap(_circular_doctor_pixmap(doctor.ime))
             row_layout.addWidget(avatar)
 
+            doctor_text = QVBoxLayout()
+            doctor_text.setContentsMargins(0, 0, 0, 0)
+            doctor_text.setSpacing(1)
             name = QLabel(f"Dr {doctor.ime}")
             name.setObjectName("doctorLegendName")
-            row_layout.addWidget(name, 1)
+            meta = QLabel("Termina danas")
+            meta.setObjectName("doctorLegendMeta")
+            doctor_text.addWidget(name)
+            doctor_text.addWidget(meta)
+            row_layout.addLayout(doctor_text, 1)
 
             badge = QLabel("0")
             badge.setObjectName("doctorLegendBadge")
@@ -388,10 +396,12 @@ class MainWindow(QMainWindow):
         self._schedule_controller.refresh()
 
     def _set_status_counts(self, counts: dict[str, int]) -> None:
-        legend_html = "&nbsp;".join(
-            f"<span style='color:{STATUS_META[key][1]}; font-size:10px; "
+        legend_html = "&#8195;".join(
+            f"<span style='white-space:nowrap'>"
+            f"<span style='color:{STATUS_META[key][1]}; font-size:12px; "
             f"font-weight:700'>{STATUS_META[key][0]}</span>&nbsp;"
-            f"<span style='font-size:10px'>{STATUS_META[key][2]} ({counts[key]})</span>"
+            f"<span style='font-size:12px; font-weight:600'>"
+            f"{STATUS_META[key][2]} ({counts[key]})</span></span>"
             for key in STATUS_ORDER
         )
         self.status_legend.setText(legend_html)

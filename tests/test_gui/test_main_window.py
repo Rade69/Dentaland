@@ -134,7 +134,7 @@ def test_status_legenda_odvojeno_broji_no_show_i_cancelled(
     assert "Otkazan (1)" in text
 
 
-def test_status_legend_html_je_kompaktan_bez_overflow_regresije(
+def test_status_legend_je_citljiva_i_u_jednom_redu(
     qtbot, appointment_service, week_start
 ) -> None:
     win = MainWindow(appointment_service, week_start)
@@ -144,10 +144,11 @@ def test_status_legend_html_je_kompaktan_bez_overflow_regresije(
     # Deterministička provjera uzroka horizontalnog overflow-a — nezavisna
     # od Qt layout timinga (u pytest-qt/offscreen width() i sizeHint()
     # konvergiraju, pa geometrijsko poređenje daje lažan PASS na buggy kodu):
-    # font je smanjen (ne 14px) i separator nije 4x &nbsp;.
-    assert "font-size:10px" in html
+    # Čitljiv font, ali bez prelamanja u dva reda.
+    assert "font-size:12px" in html
     assert "font-size:14px" not in html
     assert "&nbsp;&nbsp;&nbsp;&nbsp;" not in html
+    assert not win.status_legend.wordWrap()
     # NO_SHOW i CANCELLED nisu spojeni nazad
     assert "Otkazan" in html
     assert "Nije došao" in html

@@ -52,8 +52,9 @@ QMainWindow { border: 0; }
     color: #ffffff;
     font-weight: 700;
 }
+#schedulePage { background-color: #ffffff; }
 #topHeader { border-bottom: 1px solid #e1e9ef; }
-#pageTitle { font-size: 18px; font-weight: 700; }
+#pageTitle { font-size: 19px; font-weight: 700; }
 #pageSubtitle { color: #31578a; font-size: 12px; }
 #rangeLabel {
     border: 1px solid #cad8e2;
@@ -66,7 +67,8 @@ QMainWindow { border: 0; }
     background-color: #078f96;
     color: #ffffff;
     border: 1px solid #078f96;
-    min-width: 110px;
+    min-width: 116px;
+    min-height: 38px;
 }
 QPushButton {
     background-color: #ffffff;
@@ -99,11 +101,12 @@ QPushButton[nav="true"][quick="true"] { min-height: 36px; }
 #viewSegment { min-width: 55px; }
 #printButton { min-width: 85px; font-weight: 600; }
 #statusLegend {
-    background-color: #f4fafb;
-    border: 1px solid #c9dce3;
-    border-radius: 8px;
-    font-size: 12px;
+    background-color: #f7fbfc;
+    border: 1px solid #cfe0e6;
+    border-radius: 9px;
+    font-size: 13px;
     font-weight: 600;
+    padding: 0 10px;
 }
 QGroupBox {
     background-color: #ffffff;
@@ -124,14 +127,54 @@ QGroupBox::title {
 #doctorLegend {
     background-color: #ffffff;
     border: 1px solid #d9e3ea;
-    border-radius: 9px;
+    border-radius: 10px;
 }
 #doctorLegendTitle { font-size: 14px; font-weight: 700; }
 #doctorLegendRow { background-color: #ffffff; }
-#doctorLegendName { font-weight: 600; }
+#doctorLegendName { font-size: 13px; font-weight: 700; }
+#doctorLegendMeta { color: #31578a; font-size: 11px; }
 #dashboardPanels, #dashboardPanelContent { background-color: #ffffff; }
-#dashboardBox { font-size: 12px; }
+#dashboardSectionTitle {
+    font-size: 13px;
+    font-weight: 700;
+    padding: 4px 2px 1px 2px;
+}
+#dashboardBox {
+    font-size: 12px;
+    border-radius: 9px;
+    margin-top: 14px;
+    padding-top: 12px;
+}
+#dashboardBox[tone="info"] {
+    background-color: #f0fafb;
+    border-color: #bfe5e8;
+}
+#dashboardBox[tone="warning"] {
+    background-color: #fff9ed;
+    border-color: #f2d99d;
+}
+#dashboardBox[tone="danger"] {
+    background-color: #fff2f4;
+    border-color: #f3c4cd;
+}
+#dashboardBox[tone="info"] QLabel { background-color: #f0fafb; }
+#dashboardBox[tone="warning"] QLabel { background-color: #fff9ed; }
+#dashboardBox[tone="danger"] QLabel { background-color: #fff2f4; }
 #dashboardBox QLabel { font-size: 11px; font-weight: 400; }
+#dashboardCardHeader { background-color: transparent; }
+#dashboardCardIcon { background-color: transparent; }
+#dashboardCardTitle {
+    background-color: transparent;
+    color: #10213d;
+    font-size: 12px;
+    font-weight: 700;
+}
+#dashboardCardCount {
+    background-color: transparent;
+    min-width: 25px;
+    font-size: 20px;
+    font-weight: 700;
+}
 #dashboardListItem {
     border-bottom: 1px solid #edf1f4;
     padding: 3px 1px 7px 1px;

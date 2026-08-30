@@ -19,6 +19,7 @@ from dentaland.services.requests import OverlapError  # noqa: F401  # re-eksport
 from dentaland.timezone import SARAJEVO
 from desktop.controllers.appointment_controller import AppointmentController
 from desktop.controllers.request_controller import RequestController
+from desktop.views.sidebar import svg_icon
 
 
 class DashboardPanels(QScrollArea):
@@ -45,9 +46,14 @@ class DashboardPanels(QScrollArea):
         self.pending_box = QGroupBox()
         self.awaiting_box = QGroupBox()
         self.cancelled_box = QGroupBox()
-        for box in (self.pending_box, self.awaiting_box, self.cancelled_box):
+        for box, tone in (
+            (self.pending_box, "info"),
+            (self.awaiting_box, "warning"),
+            (self.cancelled_box, "danger"),
+        ):
             box.setObjectName("dashboardBox")
-        today_title = QLabel("DANAS")
+            box.setProperty("tone", tone)
+        today_title = QLabel("DANAS – Sažetak")
         today_title.setObjectName("dashboardSectionTitle")
         self.content_layout.addWidget(today_title)
         self.content_layout.addWidget(self.pending_box)
@@ -87,8 +93,9 @@ class DashboardPanels(QScrollArea):
         return old
 
     def _fill_pending(self, rows: list) -> None:
-        self.pending_box.setTitle(f"Novi zahtjevi ({len(rows)})")
+        self.pending_box.setTitle("")
         layout = self._replace_layout(self.pending_box)
+        self._add_card_header(layout, "Novi zahtjevi", len(rows), "calendar", "#078f96")
         if not rows:
             layout.addWidget(QLabel("Sve je obrađeno."))
             return
@@ -112,8 +119,12 @@ class DashboardPanels(QScrollArea):
     def _fill_appointments(
         self, box: QGroupBox, title: str, rows: list, *, confirmable: bool = False
     ) -> None:
-        box.setTitle(f"{title} ({len(rows)})")
+        box.setTitle("")
         layout = self._replace_layout(box)
+        if box is self.awaiting_box:
+            self._add_card_header(layout, title, len(rows), "clock", "#d39400")
+        else:
+            self._add_card_header(layout, title, len(rows), "hourglass", "#ef334f")
         if not rows:
             layout.addWidget(QLabel("Nema stavki"))
             return
@@ -143,6 +154,39 @@ class DashboardPanels(QScrollArea):
                 )
                 row_layout.addWidget(cancel)
             layout.addWidget(row)
+
+    @staticmethod
+    def _add_card_header(
+        layout: QVBoxLayout,
+        title: str,
+        count: int,
+        icon_name: str,
+        color: str,
+    ) -> None:
+        header = QWidget()
+        header.setObjectName("dashboardCardHeader")
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(0, 0, 0, 2)
+        header_layout.setSpacing(8)
+
+        icon = QLabel()
+        icon.setObjectName("dashboardCardIcon")
+        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon.setFixedSize(30, 30)
+        icon.setPixmap(svg_icon(icon_name, color, 23).pixmap(23, 23))
+
+        name = QLabel(title)
+        name.setObjectName("dashboardCardTitle")
+        number = QLabel(str(count))
+        number.setObjectName("dashboardCardCount")
+        number.setProperty("toneColor", color)
+        number.setStyleSheet(f"color: {color};")
+        number.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        header_layout.addWidget(icon)
+        header_layout.addWidget(name, 1)
+        header_layout.addWidget(number)
+        layout.addWidget(header)
 
     def _confirm_scheduled(self, appt_id: int) -> None:
         self._appointment_controller.handle_appointment_action(appt_id, "confirm")

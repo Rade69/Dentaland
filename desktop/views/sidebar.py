@@ -36,6 +36,10 @@ _ICON_PATHS = {
     ),
     "search": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
     "clock": '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    "hourglass": (
+        '<path d="M6 2h12M6 22h12M7 2c0 5 1.5 7 5 10-3.5 3-5 5-5 10"/>'
+        '<path d="M17 2c0 5-1.5 7-5 10 3.5 3 5 5 5 10"/>'
+    ),
     "plus": '<path d="M12 5v14M5 12h14"/>',
     "printer": (
         '<path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5'
