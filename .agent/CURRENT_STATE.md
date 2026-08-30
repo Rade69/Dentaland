@@ -456,7 +456,42 @@ ažurirati na prazan skup (sitan follow-up, ne nov task).
   drugoj mašini) ostaje Radovanova provjera — implementacija/review su
   samo simulirali to lokalno na istoj mašini.
 
-## Otkriven bug: TZDateTime pogrešno vrijeme na Postgresu — DENT-IMPROVE-019, OTVOREN (30.8.2026)
+## DENT-IMPROVE-018/019/020 — SVI MERGED u main (30.8.2026)
+
+Tri taska iz istog dana, mergovana redom (018 → 019 → 020, jer 019
+granom sadrži 018 kao pretka nakon linearizacije migracija):
+
+| Task | Šta | Codex verdikt | Merge |
+|---|---|---|---|
+| DENT-IMPROVE-018 | Telegram bot podsjetnici (jezgro) — opt-in token, webhook, email wiring | PASS (nakon fix runde F1-F3: webhook parsing prije secret provjere, token curenje u logu, race condition kod potrošnje tokena) | `55eabd2` |
+| DENT-IMPROVE-019 | TZDateTime → stvarno `timestamptz` (vidi nalaz ispod) | PASS (nakon dvije fix runde: 16/16 kolona, linearizovan lanac sa 018) | `2a2c1a1` |
+| DENT-IMPROVE-020 | Desktop daljinski demo — panel "Novi zahtjevi" preko HTTP API-ja, odvojen od `app.py`/`MainWindow` | PASS_WITH_NOTES (nakon fix runde: centralizovano HTTP error mapiranje) | `1d5e2a4` |
+
+**Post-merge integration gate (sva tri, kumulativno)**: `pytest tests/ -q`
+bez `DATABASE_URL_TEST` → 520 passed, 26 skipped; sa real Postgres → 546
+passed, 0 failed. `ruff`/`mypy src backend desktop` čisti,
+`agent_sensors.py --all` → 0 blocking findings. `git diff --stat` na
+`desktop/app.py`/`desktop/views/main_window.py` (DENT-IMPROVE-020
+zahtjev) → prazan, potvrđeno netaknuti. GitHub Actions CI zelen na sva
+tri merge commit-a (`gh run list --branch main`).
+
+**Merge konflikti** (očekivano — DENT-IMPROVE-020 je granao prije 018):
+`backend/main.py` i `.env.example` — oba trivijalna spajanja dva
+odvojena bloka (novi endpointi/uvozi jedne grane + druge), ručno
+riješeno, bez izmjene logike bilo koje strane.
+
+**Šta ostaje otvoreno nakon ovog merge-a**:
+- Test VPS (`dentaland_vpstest`) NIJE ažuriran na novi `main` — i dalje
+  vrti stariji kod sa privremenih task-grana testova. Ažurirati kad
+  (ako) Radovan želi ponovo demonstrirati puni tok na VPS-u.
+- DENT-IMPROVE-020 non-blocking napomena (Codex): `reject_pending` na
+  mrežnu/server grešku ne razlikuje granu ishoda eksplicitnim `False`
+  rezultatom — kozmetičko, nije praćeno kao task.
+- Desktop remote demo (`desktop/remote_demo.py`) ostaje NAMJERNO uzak
+  (samo panel zahtjeva) — raspored/kalendar/radno vrijeme daljinski
+  nisu građeni (eksplicitna Radovanova odluka, vidi Task Contract).
+
+## Otkriven bug: TZDateTime pogrešno vrijeme na Postgresu — DENT-IMPROVE-019, ZATVOREN/MERGED (30.8.2026)
 
 Slučajno otkriveno tokom DENT-IMPROVE-018 (Telegram bot) end-to-end
 testiranja na test VPS-u: potvrđen termin za 11:00 UTC je u bazi
@@ -480,14 +515,10 @@ odgođena (CLAUDE.md "Otvorena pitanja") — nijedan Postgres server sa
 stvarnim pacijentskim podacima još ne postoji, pa bug nije mogao
 oštetiti stvarne podatke.
 
-**Status**: fix implementiran na `task/DENT-IMPROVE-019-timestamptz-fix`
-(HIGH risk, Claude implementer/schema pravilo, Codex reviewer) — pun
-Task Contract + evidence u `agent_reports/DENT-IMPROVE-019-*`. NIJE JOŠ
-mergovan u `main`, čeka Codex review + human approval. Test VPS-a
-(`dentaland_vpstest`) NIJE JOŠ migriran — planirano za merge trenutak.
-DENT-IMPROVE-018 i DENT-IMPROVE-019 grane obje granaju iz istog
-migracijskog head-a (`f6a7b8c9d0e1`) — koji god se prvi mergira, drugi
-treba rebase svoje migracije prije svog merge-a.
+**Status**: fix mergovan u `main` (`2a2c1a1`, 30.8.2026, vidi tabelu
+iznad) — Codex PASS nakon dvije fix runde, Radovan odobrio. Test VPS-a
+(`dentaland_vpstest`) i dalje NIJE migriran na novi `main` — ostaje za
+kasnije ako se ponovo demonstrira puni tok tamo.
 
 ## Riješen incident: GitHub Actions CI bio crven 3 dana (otkriveno i popravljeno 29.8.2026)
 
