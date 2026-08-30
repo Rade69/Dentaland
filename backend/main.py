@@ -331,9 +331,8 @@ def reject(
 
 @app.post("/api/telegram/webhook", status_code=200)
 @limiter.limit("60/minute")
-def telegram_webhook(
+async def telegram_webhook(
     request: Request,
-    payload: dict,
     session_factory: SessionFactoryDep,
 ) -> dict[str, bool]:
     """Telegram Bot API webhook (DENT-IMPROVE-018).
@@ -343,9 +342,22 @@ def telegram_webhook(
     limit je dodatni sloj (CLAUDE.md: "rate limiting na svakom javnom
     endpointu"). Uvijek vraća ``200`` na prepoznat ali nerelevantan update
     (Telegram ponavlja slanje ako ne dobije brz uspješan odgovor).
+
+    ``payload`` se NAMJERNO čita ručno (``await request.json()``) TEK
+    NAKON secret provjere, ne kao FastAPI/Pydantic parametar — takav
+    parametar bi tijelo parsirao PRIJE ulaska u funkciju (Codex review
+    F1, 30.8.2026: nevažeći secret + neispravan JSON je davao 422 umjesto
+    obaveznog 403, curi informaciju prije autentifikacije).
     """
     if not verify_webhook_secret(request.headers.get("X-Telegram-Bot-Api-Secret-Token")):
         raise HTTPException(status_code=403, detail="neispravan webhook secret")
+
+    try:
+        payload = await request.json()
+    except ValueError:
+        return {"ok": True}
+    if not isinstance(payload, dict):
+        return {"ok": True}
 
     message = payload.get("message") or {}
     text = message.get("text") or ""

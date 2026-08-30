@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
@@ -93,6 +94,46 @@ def test_send_message_greska_ne_baca() -> None:
     env = {telegram.ENV_BOT_TOKEN: "test-token"}
     with patch("dentaland.services.telegram.httpx.post", side_effect=OSError("konekcija pala")):
         telegram.send_message("123", "poruka", env=env)
+
+
+def test_send_message_http_greska_ne_loguje_bot_token(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Codex review F2 (30.8.2026): httpx.HTTPStatusError string
+    reprezentacija sadrži cijeli URL (uključujući bot token u putanji
+    /bot<token>/sendMessage) — logovanje `exc` direktno bi upisalo token
+    u log. Mora se logovati SAMO status kod, nikad `str(exc)`."""
+    env = {telegram.ENV_BOT_TOKEN: "SUPER-TAJNI-TOKEN-123"}
+    mock_request = httpx.Request(
+        "POST", "https://api.telegram.org/botSUPER-TAJNI-TOKEN-123/sendMessage"
+    )
+    mock_response = httpx.Response(404, request=mock_request)
+    error = httpx.HTTPStatusError("404 error", request=mock_request, response=mock_response)
+
+    with patch("dentaland.services.telegram.httpx.post", side_effect=error), caplog.at_level(
+        "WARNING"
+    ):
+        telegram.send_message("123", "poruka", env=env)
+
+    assert "SUPER-TAJNI-TOKEN-123" not in caplog.text
+
+
+def test_send_message_ostala_greska_ne_loguje_bot_token(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Isto i za ne-HTTP greške (npr. httpx.ConnectError) — token je i
+    tu dio URL-a koji bi neke httpx greške uključile u str(exc)."""
+    env = {telegram.ENV_BOT_TOKEN: "SUPER-TAJNI-TOKEN-123"}
+    error = httpx.ConnectError(
+        "konekcija odbijena ka https://api.telegram.org/botSUPER-TAJNI-TOKEN-123/sendMessage"
+    )
+
+    with patch("dentaland.services.telegram.httpx.post", side_effect=error), caplog.at_level(
+        "WARNING"
+    ):
+        telegram.send_message("123", "poruka", env=env)
+
+    assert "SUPER-TAJNI-TOKEN-123" not in caplog.text
 
 
 # ---- format_subscribed_message (minimizacija) ----
@@ -235,6 +276,43 @@ def test_webhook_pogresan_secret_header_vraca_403(
         headers={"X-Telegram-Bot-Api-Secret-Token": "pogresna"},
     )
     assert response.status_code == 403
+
+
+def test_webhook_neispravan_json_sa_pogresnim_secretom_vraca_403_ne_422(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Codex review F1 (30.8.2026): tijelo se NE smije parsirati prije
+    secret provjere — neispravan JSON uz neispravan secret mora i dalje
+    dati 403 (autentifikacija prva), ne 422 koji bi otkrio da je body
+    parsiranje uopšte pokušano prije provjere."""
+    monkeypatch.setenv(telegram.ENV_WEBHOOK_SECRET, "tajna")
+    response = client.post(
+        "/api/telegram/webhook",
+        content=b"ovo nije validan JSON{{{",
+        headers={
+            "X-Telegram-Bot-Api-Secret-Token": "pogresna",
+            "Content-Type": "application/json",
+        },
+    )
+    assert response.status_code == 403
+
+
+def test_webhook_neispravan_json_sa_tacnim_secretom_ne_puca(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Nakon uspješne secret provjere, neispravan JSON se tiho ignoriše
+    (200), ne 500/ruši endpoint (Telegram uvijek šalje validan JSON, ali
+    endpoint ne smije pretpostaviti to bez provjere)."""
+    monkeypatch.setenv(telegram.ENV_WEBHOOK_SECRET, "tajna")
+    response = client.post(
+        "/api/telegram/webhook",
+        content=b"ovo nije validan JSON{{{",
+        headers={
+            "X-Telegram-Bot-Api-Secret-Token": "tajna",
+            "Content-Type": "application/json",
+        },
+    )
+    assert response.status_code == 200
 
 
 def test_webhook_validan_token_upisuje_chat_id_i_salje_poruku(

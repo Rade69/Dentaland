@@ -28,7 +28,7 @@ from collections.abc import Callable
 from datetime import datetime
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from dentaland.models import Appointment, utcnow
@@ -104,8 +104,13 @@ def send_message(chat_id: str, text: str, env: dict[str, str] | None = None) -> 
             timeout=_HTTP_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        # NIKAD logovati exc direktno (str(exc)/repr(exc)) — httpx URL-uje
+        # bot token u putanju (/bot<token>/sendMessage), pa bi se token
+        # upisao u log (Codex review F2, 30.8.2026). Samo status kod.
+        logger.warning("Slanje Telegram poruke nije uspjelo (HTTP %s).", exc.response.status_code)
     except Exception as exc:  # best-effort granica, nikad ne ruši pozivaoca
-        logger.warning("Slanje Telegram poruke nije uspjelo: %s", exc)
+        logger.warning("Slanje Telegram poruke nije uspjelo (%s).", type(exc).__name__)
 
 
 def consume_telegram_link_token(
@@ -120,25 +125,43 @@ def consume_telegram_link_token(
     potvrdnu poruku pozivaoca). Ako ne nađe (nepostojeći/istekao/već
     iskorišten token) — vrati ``None`` TIHO, bez razlikovanja razloga
     (izbjegava curenje informacije o razlogu neuspjeha/token enumeration).
+
+    **Atomska konkurentnost (Codex review F3, 30.8.2026)**: prvobitna
+    verzija je radila SELECT pa Python izmjene pa COMMIT — dva
+    istovremena webhook poziva sa istim tokenom su oba mogla proći
+    SELECT provjeru (oba vide ``telegram_chat_id IS NULL``) prije nego
+    ijedan commit-uje, i oba bi "potrošila" isti token. Umjesto toga:
+    JEDAN atomski ``UPDATE ... WHERE <isti uslovi> RETURNING start_time``.
+    Postgres (i SQLite, gdje pisanja i tako serijalizuje jedna
+    baza-nivo brava) garantuju da samo JEDNA konkurentna transakcija
+    može uspješno pogoditi red koji zadovoljava WHERE — druga transakcija
+    (bilo da čeka pa ponovo evaluira WHERE nakon prve, bilo da je
+    serijalizovana) jednostavno ne pogodi nijedan red (``rowcount 0``),
+    bez obzira na tajming. Vidi
+    ``tests/test_telegram_postgres.py::test_konkurentni_pokusaji_isti_token_samo_jedan_uspijeva``
+    za adversarni test dvije stvarne konkurentne transakcije.
     """
     token_hash = hash_token(raw_token)
+    now = utcnow()
     with session_factory() as session:
-        appt = session.scalar(
-            select(Appointment).where(
+        result = session.execute(
+            update(Appointment)
+            .where(
                 Appointment.telegram_link_token_hash == token_hash,
-                Appointment.telegram_link_token_expires_at > utcnow(),
+                Appointment.telegram_link_token_expires_at > now,
                 Appointment.telegram_chat_id.is_(None),
             )
+            .values(
+                telegram_chat_id=chat_id,
+                telegram_subscribed_at=now,
+                telegram_link_token_hash=None,
+                telegram_link_token_expires_at=None,
+            )
+            .returning(Appointment.start_time)
         )
-        if appt is None:
-            return None
-        appt.telegram_chat_id = chat_id
-        appt.telegram_subscribed_at = utcnow()
-        appt.telegram_link_token_hash = None
-        appt.telegram_link_token_expires_at = None
-        start_time = appt.start_time
+        row = result.first()
         session.commit()
-        return start_time
+        return row[0] if row is not None else None
 
 
 def format_subscribed_message(start_time: datetime | None) -> str:

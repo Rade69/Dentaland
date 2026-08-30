@@ -3,8 +3,65 @@ task_id: DENT-IMPROVE-018
 risk: HIGH
 implementer: claude
 reviewers: [codex]
-status: "Implementacija gotova, STVARNO end-to-end testirano protiv pravog Telegram bota na test VPS-u, ceka Codex review + human approval"
+status: "Fix runda 1 (Codex F1-F3) zavrsena, ceka ponovni Codex review"
 created_at: 2026-08-30
+---
+
+## Fix runda 1 (Codex review, `2026-08-30-DENT-IMPROVE-018-review-codex.md`, verdict REJECT)
+
+**F1 (HIGH, blocking) — popravljeno.** `telegram_webhook` je primao
+`payload: dict` kao FastAPI/Pydantic parametar — tijelo se parsira
+PRIJE ulaska u funkciju, dakle prije secret provjere. Codex je živom
+probom pokazao: pogrešan secret + neispravan JSON → `422` umjesto
+obaveznog `403` (curi informaciju da je body parsiranje pokušano prije
+autentifikacije). Fix: endpoint sad prima samo `Request`, ručno čita
+`await request.json()` (uz `try/except ValueError` i provjeru
+`isinstance(payload, dict)`) TEK NAKON `verify_webhook_secret`. Endpoint
+mora biti `async def` da bi `await request.json()` radio.
+
+**F2 (HIGH, blocking) — popravljeno.** `send_message` je logovao
+`exc` (cijeli izuzetak) na grešku — `httpx.HTTPStatusError`/mrežne
+greške u svom string obliku sadrže PUN URL, uključujući bot token
+(`/bot<token>/sendMessage`). Fix: `httpx.HTTPStatusError` grana
+loguje SAMO `exc.response.status_code`, generička grana loguje SAMO
+`type(exc).__name__` — nikad `str(exc)`/`repr(exc)` za bilo koju httpx
+grešku.
+
+**F3 (HIGH, blocking) — popravljeno, najozbiljniji nalaz.**
+`consume_telegram_link_token` je radio SELECT → Python izmjene →
+COMMIT — dva istovremena webhook poziva sa istim tokenom su oba mogla
+proći SELECT provjeru (`telegram_chat_id IS NULL`) prije nego ijedan
+commit-uje, i oba "potrošiti" isti token (lost update). Fix: JEDAN
+atomski `UPDATE ... WHERE <isti uslovi> RETURNING start_time` — Postgres
+garantuje da samo jedna konkurentna transakcija uspješno pogodi red,
+druga (blokirana na row lock-u dok prva ne commit-uje) ponovo evaluira
+`WHERE` protiv committed stanja i pogodi nula redova.
+
+**Adversarna verifikacija F3 (metodologija kao DENT-IMPROVE-013 F1)** —
+LIČNO reprodukovan bug prije fixa: privremeno vraćen stari
+select-pa-update kod (`git stash`), pokrenut nov deterministički test
+(`tests/test_telegram_postgres.py::test_atomski_update_blokira_i_ponovo_evaluira_where_pod_konkurencijom`)
+koji NE zavisi od sreće u thread scheduling-u (drži transakciju A
+namjerno otvorenu, thread B mora BLOKIRATI na Postgres row lock-u, pa
+se odblokira tek nakon A-inog commit-a) — **PADA** sa starim kodom
+(B je dobio ne-`None` rezultat, dokazan "lost update"), **PROLAZI**
+nakon `git stash pop` (fix vraćen). Napomena: naivan test sa dva
+threada + `Barrier` (probano prvo) NIJE pouzdano reprodukovao race na
+lokalnom, brzom Postgres-u — otud determinističko rješenje sa
+namjerno otvorenom transakcijom, ne oslanjanje na scheduling sreću.
+
+**Novi testovi**: `tests/test_telegram.py` +4 (F1: neispravan JSON sa
+pogrešnim/tačnim secretom; F2: token se ne pojavljuje u logu za
+`HTTPStatusError` i generičku grešku). Nov
+`tests/test_telegram_postgres.py` (Postgres-only, `skipif` bez
+`DATABASE_URL_TEST`) sa dva testa: deterministički (opisan iznad) i
+crno-kutijski dvo-thread regresioni test kroz stvarnu javnu funkciju.
+
+Verifikacija nakon fixa: `pytest tests/ -q` bez `DATABASE_URL_TEST`:
+**457 passed, 22 skipped**. Sa real Postgres: **479 passed, 0 failed**.
+`ruff`/`mypy src backend desktop` čisti, `agent_sensors.py --all` →
+0 blocking findings.
+
 ---
 
 # DENT-IMPROVE-018 — Telegram bot podsjetnici (jezgro) — evidence
