@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-018
 risk: HIGH
 implementer: claude
 reviewers: [codex]
-status: "IMPLEMENTED, evidence spreman, ceka Codex review — kod NIJE testiran protiv pravog Telegram bot tokena (Radovan jos nije javio token), samo protiv mock/sqlite/real-Postgres testova. Vidi agent_reports/2026-08-30-DENT-IMPROVE-018-implementation.md"
+status: "IMPLEMENTED + STVARNO end-to-end testirano protiv pravog Telegram bota (@Dentaland_zubar_bot) na test VPS-u 30.8.2026, ceka Codex review. Vidi agent_reports/2026-08-30-DENT-IMPROVE-018-implementation.md"
 created_at: 2026-08-30
 depends_on: DENT-IMPROVE-013, DENT-IMPROVE-014, DENT-IMPROVE-014C
 ---
@@ -160,7 +160,9 @@ poštuje isti minimizacioni princip kao email podsjetnici (CLAUDE.md:
 - [x] `pytest tests/ -q`, `ruff`, `mypy`, `agent_sensors.py --all` čisti
 - [x] Evidence izvještaj eksplicitno navodi da li je STVARNO testirano
       protiv pravog Telegram bota (token dostupan) ili samo protiv
-      mock/test tokena — ne miješati tvrdnje (NE, samo mock — vidi evidence)
+      mock/test tokena — ne miješati tvrdnje (DA, stvaran end-to-end
+      test 30.8.2026 protiv @Dentaland_zubar_bot — vidi evidence
+      addendum)
 
 ## Review
 

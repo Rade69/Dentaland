@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-018
 risk: HIGH
 implementer: claude
 reviewers: [codex]
-status: "Implementacija gotova, evidence spreman, ceka Codex review + human approval"
+status: "Implementacija gotova, STVARNO end-to-end testirano protiv pravog Telegram bota na test VPS-u, ceka Codex review + human approval"
 created_at: 2026-08-30
 ---
 
@@ -74,17 +74,60 @@ testiranja, vidi commit `b2c1971`).
 - `mypy src backend` — **Success: no issues found in 21 source files**.
 - `python scripts/agent_sensors.py --all` — **0 blocking findings**.
 
-## Šta NIJE testirano (eksplicitno, po acceptance kriterijumu)
+## End-to-end test protiv PRAVOG Telegram bota (30.8.2026, addendum)
 
-**Kod NIJE testiran protiv pravog Telegram Bot API-ja.** Radovan još
-nije javio bot token (kreira ga preko @BotFather). Sve gore navedeno je
-mock/unit/integration testiranje na nivou aplikacije i baze — `httpx.post`
-je u testovima mock-ovan, `send_message` nikad nije stvarno pozvao
-`api.telegram.org`. Kad token stigne, ostaje da se: (1) postavi env
-varijable na dev/test okruženju, (2) registruje webhook preko
-`setWebhook` Telegram API poziva sa `secret_token` parametrom, (3)
-provjeri end-to-end na test VPS-u (isti kao za HTTPS/backend deployment,
-29.8.2026) ili lokalno preko tunela.
+Radovan je poslao pravi bot token (kreiran preko @BotFather, bot
+`@Dentaland_zubar_bot`, potvrđen preko `getMe`). Umjesto samo mock
+testova, urađen je **stvaran end-to-end test** na test VPS-u:
+
+1. Task grana privremeno checkout-ovana na VPS-u (`/opt/dentaland`,
+   preko `git fetch`/`checkout -b`), `httpx` instaliran u venv,
+   `alembic upgrade head` primijenjen na `dentaland_vpstest` bazu (nova
+   `a7b8c9d0e1f2` migracija čisto primijenjena, sekvenca `appointments.id`
+   ručno ispravljena — batch `recreate="always"` iz migracije je
+   resetovao SERIAL sekvencu, poznata Postgres kvirka, ne bug u kodu).
+2. Tri Telegram env varijable dodane u `dentaland-backend.service`
+   (root-only fajl na disku, nikad u repou), servis restartovan.
+3. Webhook registrovan preko `setWebhook` (`secret_token` parametar) na
+   `https://169-58-208-91.nip.io/api/telegram/webhook` — `getWebhookInfo`
+   potvrdio čist status.
+4. Napravljen sintetički potvrđen termin (`ime="TEST VPS Telegram"`,
+   `appointments.id=2`, jasno markiran test podatak, ostaje u bazi kao
+   dokaz — isti princip kao ranija `id=1` VPS deployment proba, vidi
+   `docs/dentaland-politika-produkcijski-podaci.md`), pravi deep link
+   izgrađen i poslat Radovanu.
+5. Radovan kliknuo link, pritisnuo Telegram "Start" dugme (prvi klik
+   nije poslao ništa — otvaranje razgovora BEZ pritiska na Start ne
+   generiše `/start` poruku, korisna potvrda da UX zahtijeva taj korak;
+   dokumentovano za budući korisnički vodič ako zatreba).
+6. **Rezultat, potvrđeno sa dvije nezavisne strane (server baza +
+   korisnikov screenshot Telegram razgovora):**
+   - Webhook primio poziv, `X-Telegram-Bot-Api-Secret-Token` prošao.
+   - `telegram_chat_id`/`telegram_subscribed_at` upisani u bazu
+     (`1556581316`, `2026-08-30 11:24:07+00`).
+   - `telegram_link_token_hash`/`_expires_at` obrisani (jednokratnost).
+   - Radovan STVARNO primio poruku u Telegram-u: "Pretplaćeni ste na
+     Dentaland podsjetnike. Vaš termin je zakazan za 31.08.2026. u
+     13:15." — SAMO datum/vrijeme, bez naziva usluge/doktora
+     (minimizacija potvrđena na pravoj poruci, ne samo testom stringa).
+   - **Replay test**: isti (već iskorišten) sirov token poslat ponovo
+     direktno na webhook (curl, drugi `chat_id=999999`) → HTTP `200`
+     (Telegram ne dobija grešku), ali `telegram_chat_id` u bazi OSTAO
+     `1556581316` — jednokratnost potvrđena na pravom serveru, ne samo
+     u unit testu.
+7. Nakon testa: VPS vraćen na `main` (`git checkout main`), Telegram env
+   varijable uklonjene iz service fajla, servis restartovan (active),
+   `deleteWebhook` pozvan (main nema webhook kod, nema potrebe da
+   Telegram i dalje pokušava da isporučuje update-ove). Homepage
+   sanity-check nakon revert-a: `GET /` → `200`.
+
+**Zaključak:** cijeli lanac (deep link → Telegram → webhook → fail-closed
+secret provjera → jednokratna potrošnja tokena → upis chat_id-a → slanje
+minimizovane potvrdne poruke) je stvarno dokazan na pravom internetu sa
+pravim Telegram bot nalogom, ne samo mock-ovan. Ovo je jača evidencija
+od inicijalnog plana ("kad token stigne, ostaje da se testira") — test je
+urađen isti dan kad je token stigao, prije merge-a, na dedikovanom test
+VPS-u, bez dodirivanja `main` koda.
 
 ## Sljedeći koraci
 

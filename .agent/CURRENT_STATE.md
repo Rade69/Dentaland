@@ -672,3 +672,23 @@ put u projektu, ne više samo plan.
   moguće (prava HTTPS domena postoji) kad/ako se nastavi.
 - `EXCLUDE` constraint — i dalje eksplicitno odgođen (CLAUDE.md
   "Otvorena pitanja"), ne testiran ovom rundom.
+
+### Telegram bot podsjetnici (DENT-IMPROVE-018) — implementirano i STVARNO end-to-end testirano (30.8.2026)
+
+Zamjena za pauzirani Viber. Kod na grani `task/DENT-IMPROVE-018-telegram-bot`
+(NIJE još mergovan u `main` — čeka Codex review + human approval), ali
+je privremeno deployovan na ovaj isti test VPS radi stvarnog end-to-end
+testa (jedini način da se potvrdi rad protiv pravog Telegram Bot API-ja).
+
+Bot: `@Dentaland_zubar_bot` (token dobijen od Radovana preko BotFather-a,
+potvrđen `getMe` pozivom). Test: sintetički potvrđen termin →
+deep link → Radovan kliknuo + pritisnuo Telegram "Start" → webhook
+primio `/start <token>` → `chat_id` upisan u bazu → stigla stvarna
+minimizovana poruka ("...zakazan za 31.08.2026. u 13:15", bez usluge/
+doktora) → replay istog tokena potvrđeno tiho odbijen (jednokratnost).
+Pun trag: `agent_reports/2026-08-30-DENT-IMPROVE-018-implementation.md`.
+
+Nakon testa VPS vraćen na `main`, Telegram env varijable uklonjene iz
+`dentaland-backend.service`, `deleteWebhook` pozvan kod Telegrama — VPS
+je opet u istom stanju kao prije ovog testa, ništa od DENT-IMPROVE-018
+koda trenutno nije live na `main`.
