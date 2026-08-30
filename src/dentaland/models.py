@@ -57,9 +57,17 @@ class TZDateTime(TypeDecorator):
 
     Naivan datetime se odbacuje (``ValueError``). Vrijednost se normalizuje na
     UTC prije upisa, a pri čitanju se vraća kao timezone-aware UTC.
+
+    ``impl = DateTime(timezone=True)`` (DENT-IMPROVE-019) — BEZ ovoga Postgres
+    kolona je ``timestamp without time zone``, pa Postgres pri upisu tz-aware
+    vrijednosti prvo konvertuje u sesijsku ``TimeZone`` (server default) PA TEK
+    ONDA odbaci oznaku zone — tiho pomjera upisano vrijeme za offset servera.
+    Otkriveno 30.8.2026 (DENT-IMPROVE-018 end-to-end test, vidi
+    ``agent_reports/DENT-IMPROVE-019-task-contract.md``): 11:00 UTC upisano,
+    13:00 UTC pročitano nazad na serveru sa ``TimeZone=Europe/Berlin``.
     """
 
-    impl = DateTime
+    impl = DateTime(timezone=True)
     cache_ok = True
 
     def process_bind_param(self, value: Any, dialect: Any) -> datetime | None:
@@ -76,7 +84,7 @@ class TZDateTime(TypeDecorator):
             return None
         if value.tzinfo is None:
             return value.replace(tzinfo=UTC)
-        return value
+        return value.astimezone(UTC)
 
 
 class Doctor(Base):
