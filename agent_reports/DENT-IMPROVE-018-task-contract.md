@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-018
 risk: HIGH
 implementer: claude
 reviewers: [codex]
-status: "IMPLEMENTED + STVARNO end-to-end testirano protiv pravog Telegram bota (@Dentaland_zubar_bot) na test VPS-u 30.8.2026, ceka Codex review. Vidi agent_reports/2026-08-30-DENT-IMPROVE-018-implementation.md"
+status: "Fix runda 1 zavrsena (Codex F1 webhook parsing/F2 token-u-logu/F3 race condition), ceka ponovni Codex review. Vidi agent_reports/2026-08-30-DENT-IMPROVE-018-implementation.md"
 created_at: 2026-08-30
 depends_on: DENT-IMPROVE-013, DENT-IMPROVE-014, DENT-IMPROVE-014C
 ---
