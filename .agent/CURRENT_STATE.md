@@ -1,6 +1,6 @@
 # Current State
 
-Last updated: 2026-08-29
+Last updated: 2026-08-30
 
 Ovaj fajl drži KRATKOTRAJNE informacije — stvari koje realno mogu zastarjeti
 za nekoliko dana/sedmica. Trajna pravila ostaju u `CLAUDE.md`/`AGENTS.md`/
@@ -455,6 +455,39 @@ ažurirati na prazan skup (sitan follow-up, ne nov task).
 - Fizičan clean-machine test za `DENT-IMPROVE-009` (Windows packaging, na
   drugoj mašini) ostaje Radovanova provjera — implementacija/review su
   samo simulirali to lokalno na istoj mašini.
+
+## Otkriven bug: TZDateTime pogrešno vrijeme na Postgresu — DENT-IMPROVE-019, OTVOREN (30.8.2026)
+
+Slučajno otkriveno tokom DENT-IMPROVE-018 (Telegram bot) end-to-end
+testiranja na test VPS-u: potvrđen termin za 11:00 UTC je u bazi
+završio kao 13:00 UTC — dva sata pogrešno. **Reprodukovano i lokalno**
+(dev Postgres, `Europe/Budapest`), nije VPS-specifično.
+
+**Root cause**: `TZDateTime` (`src/dentaland/models.py`) je bio
+definisan sa `impl = DateTime` BEZ `timezone=True` — na Postgresu to
+znači `timestamp without time zone` kolona, ne `timestamptz`. Postgres
+pri upisu tz-aware vrijednosti u takvu kolonu prvo konvertuje u
+sesijsku `TimeZone` (server default) PA TEK ONDA odbaci oznaku zone —
+tiho pomjera vrijeme za offset servera. Pogađa SVAKU `TZDateTime`
+kolonu (termini, isteci tokena, podsjetnici, audit) na svakom Postgres
+serveru čija sesijska `TimeZone` nije UTC. 473 ranija testa (uklj.
+DENT-IMPROVE-018 Postgres run) ovo nisu uhvatila jer testovi koji
+provjeravaju tačnu vrijednost vremena rade protiv SQLite-a, ne
+Postgres-a — rupa u pokrivenosti test suite-a, ne namjeran propust.
+
+**Srećna okolnost**: hosting/produkcijska odluka je i dalje eksplicitno
+odgođena (CLAUDE.md "Otvorena pitanja") — nijedan Postgres server sa
+stvarnim pacijentskim podacima još ne postoji, pa bug nije mogao
+oštetiti stvarne podatke.
+
+**Status**: fix implementiran na `task/DENT-IMPROVE-019-timestamptz-fix`
+(HIGH risk, Claude implementer/schema pravilo, Codex reviewer) — pun
+Task Contract + evidence u `agent_reports/DENT-IMPROVE-019-*`. NIJE JOŠ
+mergovan u `main`, čeka Codex review + human approval. Test VPS-a
+(`dentaland_vpstest`) NIJE JOŠ migriran — planirano za merge trenutak.
+DENT-IMPROVE-018 i DENT-IMPROVE-019 grane obje granaju iz istog
+migracijskog head-a (`f6a7b8c9d0e1`) — koji god se prvi mergira, drugi
+treba rebase svoje migracije prije svog merge-a.
 
 ## Riješen incident: GitHub Actions CI bio crven 3 dana (otkriveno i popravljeno 29.8.2026)
 
