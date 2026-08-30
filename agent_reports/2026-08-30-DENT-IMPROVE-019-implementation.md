@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-019
 risk: HIGH
 implementer: claude
 reviewers: [codex]
-status: "Fix runda 1 (Codex F1) zavrsena, ceka ponovni Codex review"
+status: "Fix runda 2 zavrsena (F1 migracija + F2 povucen popravljen 018), ceka ponovni Codex review"
 created_at: 2026-08-30
 ---
 
@@ -48,6 +48,31 @@ merguje u `main`, DENT-IMPROVE-018 mora biti već mergovan prvi (ili će
 merge ove grane efektivno donijeti 018-ov kod sa sobom) — ovo je
 namjerna, dokumentovana posljedica linearizacije koju je Codex tražio,
 ne slučajno širenje obima.
+
+## Fix runda 2 (Codex re-review, commit `b588ac0`, verdict REJECT — F2)
+
+**F2 (HIGH, blocking) — popravljeno.** F1 je potvrđeno zatvoren, ali
+grana je i dalje sadržavala DENT-IMPROVE-018 na commit-u `1dacf765` —
+taj kod je u MEĐUVREMENU dobio SVOJ posebni Codex review sa tri
+odvojena HIGH nalaza (webhook parsing/token-u-logu/race condition, vidi
+`agent_reports/2026-08-30-DENT-IMPROVE-018-review-codex.md`), još
+nepopravljena u tom trenutku. Merge te grane bi u `main` unio poznate
+sigurnosne greške.
+
+**Fix**: DENT-IMPROVE-018 F1-F3 popravljeni na svojoj grani (vidi
+`agent_reports/2026-08-30-DENT-IMPROVE-018-implementation.md` "Fix
+runda 1"), pa `git merge origin/task/DENT-IMPROVE-018-telegram-bot`
+ponovljen u ovu granu (čist auto-merge) da povuče popravljenu verziju.
+`alembic heads` i dalje tačno jedan head (`g7h8i9j0k1l2`, migracija se
+nije mijenjala ovom rundom — 018-ov fix je bio isključivo u
+`telegram.py`/`backend/main.py`/testovima, ne u modelima/migracijama).
+
+Verifikacija: `pytest tests/ -q` bez `DATABASE_URL_TEST`: **457 passed,
+26 skipped**. Sa real Postgres: **483 passed, 0 failed** (jedan raniji
+run je opet imao 1 lažni pad zbog dijeljene test baze između paralelnih
+worktree-ova, isti obrazac kao ranije — ponovljen run čist).
+`ruff`/`mypy src backend desktop` čisti, `agent_sensors.py --all` → 0
+blocking findings.
 
 ---
 

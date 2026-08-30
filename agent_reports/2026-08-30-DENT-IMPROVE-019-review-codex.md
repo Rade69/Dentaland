@@ -1,12 +1,12 @@
 ---
 task_id: DENT-IMPROVE-019
 reviewer: codex
-reviewed_commit: 98b159278b4bf8838e9615984408fafc31f4d0f0
+reviewed_commit: b588ac0
 verdict: REJECT
 scope: PASS
 acceptance: FAIL
 blocking_findings:
-  - F1: Migracija ne pokriva Telegram TZDateTime kolone
+  - F2: Grana sadrži još uvijek odbijenu DENT-IMPROVE-018 implementaciju
 reviewed_at: 2026-08-30
 ---
 
@@ -34,3 +34,20 @@ SLJEDEĆE: uskladiti 018/019 migracioni lanac i ponoviti review.
 Grana je i dalje na istom pregledanom commitu `98b159278`; nema novog fixa
 iznad prethodnog review-a. Migracija zato i dalje izostavlja dvije Telegram
 datetime kolone i verdikt ostaje **REJECT**.
+
+## Re-review — commit `b588ac0`
+
+Prethodni F1 je **zatvoren**. Lanac je linearizovan kao
+`f6a7b8c9d0e1 -> a7b8c9d0e1f2 -> g7h8i9j0k1l2`, `alembic heads` vraća
+tačno jedan head, obje Telegram datetime kolone su dodane u eksplicitnu
+listu, a inspector test sada provjerava svih 16 kolona. Svježi run protiv
+stvarnog PostgreSQL-a iz lokalne `.env` konfiguracije: **4 passed**.
+`ruff` za izmijenjenu migraciju/test je čist.
+
+Verdikt grane ipak ostaje **REJECT** zbog F2/HIGH: commit `fd5a957` je u ovu
+granu mergovao cijeli DENT-IMPROVE-018, koji je još na `1dacf765` i još ima
+tri otvorena HIGH nalaza iz zasebnog review-a. Merge 019 prije popravljenog i
+odobrenog 018 bi zato u `main` unio poznate webhook/token sigurnosne greške.
+019 je spreman tek kada se F1-F3 na 018 zatvore i taj popravljeni 018 postane
+njegov stvarni ancestor (merge/rebase), nakon čega treba ponoviti integracioni
+gate.
