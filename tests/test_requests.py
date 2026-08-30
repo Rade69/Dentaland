@@ -201,6 +201,31 @@ def test_confirm_request_sa_bot_username_pravi_token_i_salje_deep_link_u_email(
     assert "https://t.me/dentaland_bot?start=" in body
 
 
+def test_confirm_request_email_sadrzi_ime_doktora_ali_ne_naziv_usluge(
+    session_factory: sessionmaker[Session],
+    doctor_id: int,
+    service_id: int,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Djelimičan izuzetak od minimizacije (Radovan, 30.8.2026, vidi
+    CLAUDE.md "Sigurnost i privatnost") — SAMO ime doktora smije biti u
+    email potvrdi, naziv usluge NIKAD."""
+    from unittest.mock import MagicMock, patch
+
+    monkeypatch.setenv("DENTALAND_SMTP_HOST", "smtp.example.com")
+    dto = create_request(session_factory, "Ana", "061", "ana@example.com", date(2026, 8, 20))
+    start = datetime(2026, 8, 20, 9, 0, tzinfo=UTC)
+
+    instance = MagicMock()
+    instance.__enter__.return_value = instance
+    with patch("dentaland.services.notifications.smtplib.SMTP", return_value=instance):
+        confirm_request(session_factory, dto.id, doctor_id, service_id, start)
+
+    body = instance.send_message.call_args.args[0].get_content()
+    assert "Ljubo" in body
+    assert "kontrola" not in body.lower()
+
+
 def test_confirm_request_odbija_preklapanje(
     session_factory: sessionmaker[Session], doctor_id: int, service_id: int
 ) -> None:

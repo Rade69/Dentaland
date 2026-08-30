@@ -20,7 +20,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from dentaland.models import Appointment, AppointmentStatus, Service, utcnow
+from dentaland.models import Appointment, AppointmentStatus, Doctor, Service, utcnow
 from dentaland.services.availability import (
     OverlapError,  # noqa: F401 — re-eksport kanonične klase (backward-compat)
     validate_appointment_overlap,
@@ -124,13 +124,22 @@ def confirm_request(
             telegram_deep_link = build_deep_link(bot_username, raw_token)
 
         patient_email = appt.email
+        # Djelimičan izuzetak od minimizacije (Radovan, 30.8.2026) — SAMO
+        # ime doktora ide u email potvrde, vidi CLAUDE.md "Sigurnost i
+        # privatnost". `None` (doktor ne postoji — praktično se ne dešava,
+        # appt.doctor_id je FK) samo znači da se ime izostavi, ne greška.
+        doctor = session.get(Doctor, doctor_id)
+        doctor_name = doctor.ime if doctor is not None else None
         session.commit()
 
     # Best-effort, van session konteksta (SMTP ishod ne zavisi od baze) —
     # radi bez obzira ko poziva confirm_request (backend API ili desktop
     # dashboard), jer je ožičeno ovdje, ne na pojedinačnom pozivnom mjestu.
     send_appointment_confirmed(
-        patient_email or "", start_time, telegram_deep_link=telegram_deep_link
+        patient_email or "",
+        start_time,
+        telegram_deep_link=telegram_deep_link,
+        doctor_name=doctor_name,
     )
 
 

@@ -143,6 +143,25 @@ def test_poruka_potvrda_sadrzi_tacno_vrijeme_ali_ne_uslugu_ni_doktora(
         assert zabranjeno not in body
 
 
+def test_poruka_potvrda_sa_doctor_name_sadrzi_ime_ali_ne_uslugu(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Djelimičan izuzetak (Radovan, 30.8.2026) — kad je ``doctor_name``
+    eksplicitno proslijeđen, poruka SMIJE ga sadržati. Naziv usluge i
+    dalje nema nikakav parametar za to — nema šanse da uđe u poruku."""
+    _postavi_smtp(monkeypatch)
+    instance = _smtp_mock()
+    with patch("dentaland.services.notifications.smtplib.SMTP", return_value=instance):
+        notifications.send_appointment_confirmed(
+            "ana@x.com", datetime(2026, 8, 20, 9, 0, tzinfo=UTC), doctor_name="Ljubo"
+        )
+
+    body = instance.send_message.call_args.args[0].get_content()
+    assert "Ljubo" in body
+    assert "kontrola" not in body.lower()
+    assert "usluga" not in body.lower()
+
+
 def test_potvrda_smtp_greska_ne_baca(monkeypatch: pytest.MonkeyPatch) -> None:
     _postavi_smtp(monkeypatch)
     with patch(

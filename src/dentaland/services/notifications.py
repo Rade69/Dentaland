@@ -14,7 +14,9 @@ env varijabli, nikad iz koda.
 Sadržaj poruka poštuje minimizaciju podataka iz ``CLAUDE.md``: ime
 ordinacije, datum (i za potvrđen termin: tačno vrijeme — dozvoljeno
 pravilom "nikad naziv usluge, samo vrijeme termina") — NIKAD naziv
-usluge ili doktora.
+usluge. Djelimičan izuzetak (Radovan, 30.8.2026): SAMO
+``send_appointment_confirmed`` (potvrda, ne podsjetnik) smije sadržati
+ime doktora — vidi CLAUDE.md "Sigurnost i privatnost".
 """
 
 from __future__ import annotations
@@ -56,7 +58,11 @@ def send_booking_confirmation(to_email: str, requested_date: date) -> None:
 
 
 def send_appointment_confirmed(
-    to_email: str, start_time: datetime, *, telegram_deep_link: str | None = None
+    to_email: str,
+    start_time: datetime,
+    *,
+    telegram_deep_link: str | None = None,
+    doctor_name: str | None = None,
 ) -> None:
     """Pošalji obavještenje da je termin POTVRĐEN sa tačnim vremenom.
 
@@ -65,12 +71,20 @@ def send_appointment_confirmed(
 
     ``telegram_deep_link`` je opcion (DENT-IMPROVE-018) — kad je
     proslijeđen, dodaje se rečenica sa linkom za Telegram podsjetnike.
-    Bez njega poruka je identična ranijem ponašanju (ne lomi postojeće
-    pozivaoce/testove).
+
+    ``doctor_name`` je opcion (Radovan, 30.8.2026 — djelimičan izuzetak od
+    minimizacije, vidi CLAUDE.md "Sigurnost i privatnost") — SAMO ova
+    poruka (potvrda, ne podsjetnik) smije sadržati ime doktora. Naziv
+    usluge se i dalje NIKAD ne šalje. Bez ovog parametra poruka je
+    identična ranijem ponašanju (ne lomi postojeće pozivaoce/testove).
     """
     try:
         _dispatch(to_email, lambda addr, from_addr: _compose_confirmed_message(
-            addr, start_time, from_addr, telegram_deep_link=telegram_deep_link
+            addr,
+            start_time,
+            from_addr,
+            telegram_deep_link=telegram_deep_link,
+            doctor_name=doctor_name,
         ))
     except Exception as exc:
         logger.warning("Slanje email potvrde (termin potvrđen) nije uspjelo: %s", exc)
@@ -222,8 +236,10 @@ def _compose_confirmed_message(
     from_addr: str,
     *,
     telegram_deep_link: str | None = None,
+    doctor_name: str | None = None,
 ) -> EmailMessage:
-    """SAMO ime ordinacije i tačno vrijeme — NIKAD usluga ili doktor.
+    """Ime ordinacije, tačno vrijeme, i (djelimičan izuzetak od 30.8.2026)
+    ime doktora — NIKAD naziv usluge.
 
     ``telegram_deep_link`` sadrži samo URL, ne otkriva svrhu/sadržaj
     termina — minimizacija se odnosi na sadržaj poruke, ne na sam link.
@@ -233,10 +249,9 @@ def _compose_confirmed_message(
     message["Subject"] = f"Termin potvrđen — {PRACTICE_NAME}"
     message["From"] = from_addr
     message["To"] = to_email
-    body = (
-        f"Vaš termin je potvrđen za {local:%d.%m.%Y.} u {local:%H:%M}.\n"
-        f"Ordinacija {PRACTICE_NAME} Vas očekuje.\n"
-    )
+    body = f"Vaš termin je potvrđen za {local:%d.%m.%Y.} u {local:%H:%M}"
+    body += f" kod Dr {doctor_name}.\n" if doctor_name else ".\n"
+    body += f"Ordinacija {PRACTICE_NAME} Vas očekuje.\n"
     if telegram_deep_link:
         body += (
             f"\nZa podsjetnik na Telegramu, kliknite link i pošaljite botu bilo "
