@@ -510,6 +510,169 @@ def test_scheduler_odbija_naivno_trenutno_vrijeme(
         send_due_appointment_reminders(session_factory, now=datetime(2026, 8, 20, 8, 0))
 
 
+# ---- Telegram podsjetnik u scheduleru (DENT-IMPROVE-021) ----
+
+
+def test_scheduler_salje_i_email_i_telegram_kad_oboje_postoji(
+    session_factory: sessionmaker[Session], doctor_and_service: tuple[int, int]
+) -> None:
+    now = datetime(2026, 8, 20, 8, 0, tzinfo=UTC)
+    doctor_id, service_id = doctor_and_service
+    start = now + REMINDER_LEAD_TIME
+    appt = Appointment(
+        doctor_id=doctor_id,
+        service_id=service_id,
+        ime="Pacijent Oba Kanala",
+        email="oba@example.com",
+        telegram_chat_id="555",
+        start_time=start,
+        end_time=start + timedelta(minutes=30),
+        status=AppointmentStatus.SCHEDULED,
+    )
+    with session_factory() as session:
+        session.add(appt)
+        session.commit()
+
+    with (
+        patch("dentaland.services.notifications.send_appointment_reminder") as email_send,
+        patch("dentaland.services.notifications.send_message") as telegram_send,
+    ):
+        count = send_due_appointment_reminders(session_factory, now=now)
+
+    assert count == 1
+    email_send.assert_called_once_with("oba@example.com", start)
+    telegram_send.assert_called_once()
+    assert telegram_send.call_args.args[0] == "555"
+    assert start.strftime("%d.%m.%Y") in telegram_send.call_args.args[1]
+
+
+def test_scheduler_salje_telegram_bez_emaila(
+    session_factory: sessionmaker[Session], doctor_and_service: tuple[int, int]
+) -> None:
+    """Termin sa Telegram pretplatom ali BEZ email-a i dalje mora dobiti
+    podsjetnik — ranija WHERE klauzula je zahtijevala email, pa bi ovakav
+    termin bio tiho preskočen bez ove izmjene."""
+    now = datetime(2026, 8, 20, 8, 0, tzinfo=UTC)
+    doctor_id, service_id = doctor_and_service
+    start = now + REMINDER_LEAD_TIME
+    appt = Appointment(
+        doctor_id=doctor_id,
+        service_id=service_id,
+        ime="Pacijent Samo Telegram",
+        email="",
+        telegram_chat_id="777",
+        start_time=start,
+        end_time=start + timedelta(minutes=30),
+        status=AppointmentStatus.SCHEDULED,
+    )
+    with session_factory() as session:
+        session.add(appt)
+        session.commit()
+
+    with (
+        patch("dentaland.services.notifications.send_appointment_reminder") as email_send,
+        patch("dentaland.services.notifications.send_message") as telegram_send,
+    ):
+        count = send_due_appointment_reminders(session_factory, now=now)
+
+    assert count == 1
+    email_send.assert_not_called()
+    telegram_send.assert_called_once()
+    assert telegram_send.call_args.args[0] == "777"
+
+
+def test_scheduler_bez_telegram_pretplate_ne_zove_telegram(
+    session_factory: sessionmaker[Session], doctor_and_service: tuple[int, int]
+) -> None:
+    """Postojeće ponašanje (samo email) mora ostati nepromijenjeno za
+    termine bez Telegram pretplate."""
+    now = datetime(2026, 8, 20, 8, 0, tzinfo=UTC)
+    doctor_id, service_id = doctor_and_service
+    start = now + REMINDER_LEAD_TIME
+    appt = Appointment(
+        doctor_id=doctor_id,
+        service_id=service_id,
+        ime="Pacijent Samo Email",
+        email="samoemail@example.com",
+        start_time=start,
+        end_time=start + timedelta(minutes=30),
+        status=AppointmentStatus.SCHEDULED,
+    )
+    with session_factory() as session:
+        session.add(appt)
+        session.commit()
+
+    with (
+        patch("dentaland.services.notifications.send_appointment_reminder") as email_send,
+        patch("dentaland.services.notifications.send_message") as telegram_send,
+    ):
+        count = send_due_appointment_reminders(session_factory, now=now)
+
+    assert count == 1
+    email_send.assert_called_once()
+    telegram_send.assert_not_called()
+
+
+def test_scheduler_telegram_poruka_ne_sadrzi_uslugu_ni_doktora(
+    session_factory: sessionmaker[Session], doctor_and_service: tuple[int, int]
+) -> None:
+    now = datetime(2026, 8, 20, 8, 0, tzinfo=UTC)
+    doctor_id, service_id = doctor_and_service
+    start = now + REMINDER_LEAD_TIME
+    appt = Appointment(
+        doctor_id=doctor_id,
+        service_id=service_id,
+        ime="Pacijent Minimizacija",
+        email="",
+        telegram_chat_id="999",
+        start_time=start,
+        end_time=start + timedelta(minutes=30),
+        status=AppointmentStatus.SCHEDULED,
+    )
+    with session_factory() as session:
+        session.add(appt)
+        session.commit()
+
+    with patch("dentaland.services.notifications.send_message") as telegram_send:
+        send_due_appointment_reminders(session_factory, now=now)
+
+    text = telegram_send.call_args.args[1].lower()
+    for zabranjeno in ("kontrola", "ljubo", "zorka", "usluga", "doktor"):
+        assert zabranjeno not in text
+
+
+def test_scheduler_bez_telegram_tokena_ne_puca(
+    session_factory: sessionmaker[Session],
+    doctor_and_service: tuple[int, int],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Bez DENTALAND_TELEGRAM_BOT_TOKEN, send_message se tiho preskace
+    (best-effort) - scheduler ne smije pasti."""
+    monkeypatch.delenv("DENTALAND_TELEGRAM_BOT_TOKEN", raising=False)
+    now = datetime(2026, 8, 20, 8, 0, tzinfo=UTC)
+    doctor_id, service_id = doctor_and_service
+    start = now + REMINDER_LEAD_TIME
+    appt = Appointment(
+        doctor_id=doctor_id,
+        service_id=service_id,
+        ime="Pacijent Bez Tokena",
+        email="",
+        telegram_chat_id="123",
+        start_time=start,
+        end_time=start + timedelta(minutes=30),
+        status=AppointmentStatus.SCHEDULED,
+    )
+    with session_factory() as session:
+        session.add(appt)
+        session.commit()
+
+    with patch("dentaland.services.telegram.httpx.post") as mock_post:
+        count = send_due_appointment_reminders(session_factory, now=now)
+
+    assert count == 1
+    mock_post.assert_not_called()
+
+
 def test_backend_startup_automatski_pokrece_scheduler(
     session_factory: sessionmaker[Session],
 ) -> None:

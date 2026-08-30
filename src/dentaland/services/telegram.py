@@ -174,3 +174,12 @@ def format_subscribed_message(start_time: datetime | None) -> str:
         f"Pretplaćeni ste na Dentaland podsjetnike. "
         f"Vaš termin je zakazan za {local:%d.%m.%Y.} u {local:%H:%M}."
     )
+
+
+def format_reminder_message(start_time: datetime) -> str:
+    """Stvaran podsjetnik na dan termina (DENT-IMPROVE-021) — ista
+    formulacija kao email podsjetnik (``_compose_reminder_message`` u
+    ``notifications.py``). SAMO vrijeme termina — NIKAD naziv usluge ili
+    doktora (CLAUDE.md minimizacija)."""
+    local = start_time.astimezone(SARAJEVO)
+    return f"Podsjetnik: imate zakazan termin {local:%d.%m.%Y.} u {local:%H:%M}."

@@ -29,11 +29,12 @@ from datetime import UTC, date, datetime, timedelta
 from email.message import EmailMessage
 from typing import Any, cast
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 from dentaland.models import Appointment, AppointmentStatus
+from dentaland.services.telegram import format_reminder_message, send_message
 from dentaland.timezone import SARAJEVO
 
 logger = logging.getLogger(__name__)
@@ -120,18 +121,25 @@ def send_due_appointment_reminders(
     scheduler-a ILI paralelnog/dvostrukog pokretanja — vidi
     ``agent_reports/2026-08-23-DENT-022-plan.md``.
 
-    Zauzimanje termina je ATOMSKO: prije SMTP poziva radi se
+    Zauzimanje termina je ATOMSKO: prije SMTP/Telegram poziva radi se
     ``UPDATE ... WHERE reminder_sent_at IS NULL`` i provjerava
     ``rowcount``. Samo worker čiji UPDATE stvarno pogodi red (rowcount
-    == 1) šalje email — ako je neki drugi worker već zauzeo taj red
+    == 1) šalje podsjetnik — ako je neki drugi worker već zauzeo taj red
     (rowcount == 0), termin se preskače. Ovo je namjerna izmjena
     redoslijeda "zauzmi pa pošalji" (ne "pošalji pa zauzmi") — spriječava
     da dva paralelna procesa oba pročitaju NULL i oba pošalju prije nego
     što bilo koji commituje (dokazano review-om, DENT-022 REJECT runda
-    1). ``send_appointment_reminder`` nikad ne baca izuzetak (best-effort);
-    ako SMTP zakaže NAKON uspješnog zauzimanja, podsjetnik se ne
-    ponovo pokušava — isti postojeći best-effort kompromis kao i prije,
-    sad primijenjen na nivou zauzimanja umjesto slanja.
+    1). Slanje je best-effort na oba kanala; ako SMTP/Telegram zakaže
+    NAKON uspješnog zauzimanja, podsjetnik se ne ponovo pokušava — isti
+    postojeći best-effort kompromis kao i prije, sad primijenjen na
+    nivou zauzimanja umjesto slanja.
+
+    Email i Telegram (DENT-IMPROVE-021) su NEZAVISNI best-effort pozivi —
+    termin dobija Telegram podsjetnik ako ima upisan ``telegram_chat_id``
+    (ranija pretplata preko opt-in linka, DENT-IMPROVE-018), email ako
+    ima ``email`` — oba, jedno, ili (rijetko, van window-a) nijedno.
+    JEDNO zauzimanje (``reminder_sent_at``) pokriva oba kanala, ne
+    dupliraju se pokušaji ako npr. email uspije a Telegram ne.
     """
     current = now or datetime.now(UTC)
     if current.tzinfo is None or current.utcoffset() is None:
@@ -147,8 +155,10 @@ def send_due_appointment_reminders(
                 Appointment.status == AppointmentStatus.SCHEDULED,
                 Appointment.start_time >= window_start,
                 Appointment.start_time < window_end,
-                Appointment.email.is_not(None),
-                Appointment.email != "",
+                or_(
+                    (Appointment.email.is_not(None)) & (Appointment.email != ""),
+                    Appointment.telegram_chat_id.is_not(None),
+                ),
                 Appointment.reminder_sent_at.is_(None),
             )
             .order_by(Appointment.start_time)
@@ -156,7 +166,9 @@ def send_due_appointment_reminders(
 
     sent_count = 0
     for appointment in appointments:
-        if not (appointment.email and appointment.start_time):
+        has_email = bool(appointment.email)
+        has_telegram = bool(appointment.telegram_chat_id)
+        if not ((has_email or has_telegram) and appointment.start_time):
             continue
         with session_factory() as session:
             result = cast(
@@ -174,7 +186,13 @@ def send_due_appointment_reminders(
             claimed = result.rowcount == 1
         if not claimed:
             continue  # drugi worker je vec zauzeo ovaj termin
-        send_appointment_reminder(appointment.email, appointment.start_time)
+        if appointment.email:
+            send_appointment_reminder(appointment.email, appointment.start_time)
+        if appointment.telegram_chat_id:
+            send_message(
+                appointment.telegram_chat_id,
+                format_reminder_message(appointment.start_time),
+            )
         sent_count += 1
 
     return sent_count

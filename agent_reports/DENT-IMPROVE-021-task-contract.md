@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-021
 risk: MEDIUM
 implementer: claude
 reviewers: [codex]
-status: "NOT STARTED"
+status: "IMPLEMENTED, evidence spreman, ceka Codex review. Vidi agent_reports/2026-08-30-DENT-IMPROVE-021-implementation.md"
 created_at: 2026-08-30
 depends_on: DENT-IMPROVE-017 (email reminder scheduler), DENT-IMPROVE-018 (Telegram opt-in)
 ---
@@ -82,14 +82,14 @@ kao email. Isti minimizacioni princip — samo vrijeme termina.
 
 ## Acceptance criteria
 
-- [ ] Telegram podsjetnik se šalje SAMO terminima sa upisanim
+- [x] Telegram podsjetnik se šalje SAMO terminima sa upisanim
       `telegram_chat_id`, u istom 24h prozoru kao email
-- [ ] Email i Telegram su nezavisni best-effort pozivi (pad jednog ne
+- [x] Email i Telegram su nezavisni best-effort pozivi (pad jednog ne
       blokira drugi)
-- [ ] Poruka sadrži SAMO vrijeme termina
-- [ ] Postojeći DENT-022 atomski-claim testovi i dalje prolaze
+- [x] Poruka sadrži SAMO vrijeme termina
+- [x] Postojeći DENT-022 atomski-claim testovi i dalje prolaze
       nepromijenjeni
-- [ ] `pytest tests/ -q` (i bez i sa `DATABASE_URL_TEST`), `ruff`,
+- [x] `pytest tests/ -q` (i bez i sa `DATABASE_URL_TEST`), `ruff`,
       `mypy`, `agent_sensors.py --all` čisti
 
 ## Review
