@@ -6,10 +6,12 @@ mijenja/dijeli kod sa ``MainWindow``, koji ostaje isključivo lokalan
 (SQLite) za stvarnu upotrebu u ordinaciji. Ovaj prozor postoji SAMO da
 se pokaže/testira: javna forma → ovaj panel → potvrda → email/Telegram.
 
-Pokretanje::
+Pokretanje (bilo koje od dvoje radi — putanja se automatski podešava
+ispod, PYTHONPATH nije potreban)::
 
-    set DENTALAND_REMOTE_API_BASE=https://169-58-208-91.nip.io
+    $env:DENTALAND_REMOTE_API_BASE = "https://169-58-208-91.nip.io"
     python desktop/remote_demo.py
+    # ili: python -m desktop.remote_demo
 
 ``DENTALAND_REMOTE_API_BASE`` MORA biti postavljena eksplicitno — nema
 hardkodiran default u kodu (trenutna VPS adresa je TEST-only, vidi
@@ -18,8 +20,21 @@ CLAUDE.md "Otvorena pitanja" — hosting odluka nije donesena).
 
 from __future__ import annotations
 
-import os
 import sys
+from pathlib import Path
+
+if __package__ in (None, ""):
+    # Pokrenuto direktno kao `python desktop/remote_demo.py`, ne kao
+    # `-m desktop.remote_demo` — Python tad NE vidi repo korijen/`src` na
+    # sys.path, pa `desktop.*`/`dentaland.*` importi ispod padaju sa
+    # `ModuleNotFoundError`. Popravljeno OVDJE (prije tih importa), ne
+    # zahtijevanjem da korisnik ručno postavlja PYTHONPATH svaki put.
+    _repo_root = Path(__file__).resolve().parent.parent
+    for _p in (_repo_root / "src", _repo_root):
+        if str(_p) not in sys.path:
+            sys.path.insert(0, str(_p))
+
+import os
 
 from PySide6.QtWidgets import (
     QLabel,
@@ -98,8 +113,8 @@ def main() -> int:
     base_url = os.environ.get(ENV_API_BASE)
     if not base_url:
         print(
-            f"Greška: {ENV_API_BASE} nije postavljena. Primjer:\n"
-            f"  set {ENV_API_BASE}=https://169-58-208-91.nip.io\n"
+            f"Greška: {ENV_API_BASE} nije postavljena. Primjer (PowerShell):\n"
+            f'  $env:{ENV_API_BASE} = "https://169-58-208-91.nip.io"\n'
             f"  python desktop/remote_demo.py",
             file=sys.stderr,
         )
