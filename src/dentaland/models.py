@@ -184,6 +184,18 @@ class Appointment(Base):
     # slanja (bez obzira na SMTP ishod — vidi
     # agent_reports/2026-08-23-DENT-022-plan.md).
     reminder_sent_at: Mapped[datetime | None] = mapped_column(TZDateTime(), nullable=True)
+    # Aditivna dopuna (DENT-IMPROVE-018, 30.8.2026) — Telegram opt-in.
+    # telegram_link_token_hash/expires_at su uže-namjenski jednokratni
+    # token (isti obrazac kao Session.token_hash) za /start deep link;
+    # brišu se nakon uspješne upotrebe. telegram_chat_id/subscribed_at
+    # se popunjavaju TEK kad pacijent stvarno klikne link i pošalje
+    # /start botu — do tada su NULL. Vidi src/dentaland/services/telegram.py.
+    telegram_link_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    telegram_link_token_expires_at: Mapped[datetime | None] = mapped_column(
+        TZDateTime(), nullable=True
+    )
+    telegram_chat_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    telegram_subscribed_at: Mapped[datetime | None] = mapped_column(TZDateTime(), nullable=True)
     created_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         TZDateTime(), nullable=False, default=utcnow, onupdate=utcnow

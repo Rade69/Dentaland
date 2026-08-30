@@ -12,6 +12,7 @@ koji više nije aktivan).
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -25,6 +26,9 @@ from dentaland.services.availability import (
     validate_appointment_overlap,
 )
 from dentaland.services.notifications import send_appointment_confirmed
+from dentaland.services.telegram import ENV_BOT_USERNAME, build_deep_link, generate_link_token
+
+TELEGRAM_LINK_TOKEN_TTL = timedelta(hours=72)
 
 
 class RequestNotFoundError(Exception):
@@ -105,13 +109,29 @@ def confirm_request(
         appt.end_time = end_time
         appt.status = AppointmentStatus.SCHEDULED
         appt.confirmed_at = utcnow()
+
+        # Telegram opt-in token (DENT-IMPROVE-018) — generiše se uvijek pri
+        # potvrdi (jeftino, bez mrežnog poziva), ali se u email ubacuje SAMO
+        # ako je bot username konfigurisan — inače je token neupotrebljiv
+        # (nema deep link odredišta), pa ga ne treba ni praviti u testovima
+        # koji ne podešavaju Telegram env varijable.
+        telegram_deep_link: str | None = None
+        bot_username = os.environ.get(ENV_BOT_USERNAME)
+        if bot_username:
+            raw_token, token_hash = generate_link_token()
+            appt.telegram_link_token_hash = token_hash
+            appt.telegram_link_token_expires_at = utcnow() + TELEGRAM_LINK_TOKEN_TTL
+            telegram_deep_link = build_deep_link(bot_username, raw_token)
+
         patient_email = appt.email
         session.commit()
 
     # Best-effort, van session konteksta (SMTP ishod ne zavisi od baze) —
     # radi bez obzira ko poziva confirm_request (backend API ili desktop
     # dashboard), jer je ožičeno ovdje, ne na pojedinačnom pozivnom mjestu.
-    send_appointment_confirmed(patient_email or "", start_time)
+    send_appointment_confirmed(
+        patient_email or "", start_time, telegram_deep_link=telegram_deep_link
+    )
 
 
 def reject_request(session_factory: Callable[[], Session], request_id: int) -> None:

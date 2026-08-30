@@ -55,15 +55,22 @@ def send_booking_confirmation(to_email: str, requested_date: date) -> None:
         logger.warning("Slanje email potvrde (zahtjev primljen) nije uspjelo: %s", exc)
 
 
-def send_appointment_confirmed(to_email: str, start_time: datetime) -> None:
+def send_appointment_confirmed(
+    to_email: str, start_time: datetime, *, telegram_deep_link: str | None = None
+) -> None:
     """Pošalji obavještenje da je termin POTVRĐEN sa tačnim vremenom.
 
     Isti best-effort princip — nikad ne diže izuzetak, pozivalac
     (``confirm_request``) ostaje netaknut bez obzira na SMTP ishod.
+
+    ``telegram_deep_link`` je opcion (DENT-IMPROVE-018) — kad je
+    proslijeđen, dodaje se rečenica sa linkom za Telegram podsjetnike.
+    Bez njega poruka je identična ranijem ponašanju (ne lomi postojeće
+    pozivaoce/testove).
     """
     try:
         _dispatch(to_email, lambda addr, from_addr: _compose_confirmed_message(
-            addr, start_time, from_addr
+            addr, start_time, from_addr, telegram_deep_link=telegram_deep_link
         ))
     except Exception as exc:
         logger.warning("Slanje email potvrde (termin potvrđen) nije uspjelo: %s", exc)
@@ -209,17 +216,33 @@ def _compose_received_message(to_email: str, requested_date: date, from_addr: st
     return message
 
 
-def _compose_confirmed_message(to_email: str, start_time: datetime, from_addr: str) -> EmailMessage:
-    """SAMO ime ordinacije i tačno vrijeme — NIKAD usluga ili doktor."""
+def _compose_confirmed_message(
+    to_email: str,
+    start_time: datetime,
+    from_addr: str,
+    *,
+    telegram_deep_link: str | None = None,
+) -> EmailMessage:
+    """SAMO ime ordinacije i tačno vrijeme — NIKAD usluga ili doktor.
+
+    ``telegram_deep_link`` sadrži samo URL, ne otkriva svrhu/sadržaj
+    termina — minimizacija se odnosi na sadržaj poruke, ne na sam link.
+    """
     local = start_time.astimezone(SARAJEVO)
     message = EmailMessage()
     message["Subject"] = f"Termin potvrđen — {PRACTICE_NAME}"
     message["From"] = from_addr
     message["To"] = to_email
-    message.set_content(
+    body = (
         f"Vaš termin je potvrđen za {local:%d.%m.%Y.} u {local:%H:%M}.\n"
         f"Ordinacija {PRACTICE_NAME} Vas očekuje.\n"
     )
+    if telegram_deep_link:
+        body += (
+            f"\nZa podsjetnik na Telegramu, kliknite link i pošaljite botu bilo "
+            f"koju poruku da se pretplatite: {telegram_deep_link}\n"
+        )
+    message.set_content(body)
     return message
 
 

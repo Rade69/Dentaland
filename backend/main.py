@@ -55,6 +55,12 @@ from dentaland.services.requests import (
     list_pending,
     reject_request,
 )
+from dentaland.services.telegram import (
+    consume_telegram_link_token,
+    format_subscribed_message,
+    send_message,
+    verify_webhook_secret,
+)
 
 SESSION_COOKIE_NAME = "dentaland_session"
 
@@ -321,3 +327,38 @@ def reject(
         reject_request(session_factory, request_id)
     except RequestNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/telegram/webhook", status_code=200)
+@limiter.limit("60/minute")
+def telegram_webhook(
+    request: Request,
+    payload: dict,
+    session_factory: SessionFactoryDep,
+) -> dict[str, bool]:
+    """Telegram Bot API webhook (DENT-IMPROVE-018).
+
+    Primarno zaštićen ``X-Telegram-Bot-Api-Secret-Token`` header
+    verifikacijom (fail-closed — vidi ``verify_webhook_secret``), rate
+    limit je dodatni sloj (CLAUDE.md: "rate limiting na svakom javnom
+    endpointu"). Uvijek vraća ``200`` na prepoznat ali nerelevantan update
+    (Telegram ponavlja slanje ako ne dobije brz uspješan odgovor).
+    """
+    if not verify_webhook_secret(request.headers.get("X-Telegram-Bot-Api-Secret-Token")):
+        raise HTTPException(status_code=403, detail="neispravan webhook secret")
+
+    message = payload.get("message") or {}
+    text = message.get("text") or ""
+    chat = message.get("chat") or {}
+    chat_id = chat.get("id")
+
+    if chat_id is not None and text.startswith("/start "):
+        raw_token = text.removeprefix("/start ").strip()
+        if raw_token:
+            start_time = consume_telegram_link_token(session_factory, raw_token, str(chat_id))
+            # None = token nepostojeći/istekao/već iskorišten -> tiho
+            # ignorisano (ne otkrivati razlog, vidi consume_telegram_link_token).
+            if start_time is not None:
+                send_message(str(chat_id), format_subscribed_message(start_time))
+
+    return {"ok": True}

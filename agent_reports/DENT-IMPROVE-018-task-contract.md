@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-018
 risk: HIGH
 implementer: claude
 reviewers: [codex]
-status: "NOT STARTED — ceka Telegram bot token od Radovana prije testiranja (kod se moze pisati bez njega, sam Bot API poziv testira se tek kad token stigne)"
+status: "IMPLEMENTED + STVARNO end-to-end testirano protiv pravog Telegram bota (@Dentaland_zubar_bot) na test VPS-u 30.8.2026, ceka Codex review. Vidi agent_reports/2026-08-30-DENT-IMPROVE-018-implementation.md"
 created_at: 2026-08-30
 depends_on: DENT-IMPROVE-013, DENT-IMPROVE-014, DENT-IMPROVE-014C
 ---
@@ -147,20 +147,22 @@ poštuje isti minimizacioni princip kao email podsjetnici (CLAUDE.md:
 
 ## Acceptance criteria
 
-- [ ] Migracija čisto primijenjena (`alembic upgrade head` na lokalnoj
+- [x] Migracija čisto primijenjena (`alembic upgrade head` na lokalnoj
       test bazi, ne samo `create_all()` — ista lekcija kao
       `DENT-IMPROVE-017`)
-- [ ] `telegram.py` modul: generisanje tokena, deep link, slanje poruke,
+- [x] `telegram.py` modul: generisanje tokena, deep link, slanje poruke,
       webhook secret verifikacija — sve sa testovima
-- [ ] Webhook endpoint radi, rate limited, fail-closed na secret
+- [x] Webhook endpoint radi, rate limited, fail-closed na secret
       verifikaciji
-- [ ] `confirm_request` generiše token i prosljeđuje deep link u email
-- [ ] Poruke nikad ne sadrže naziv usluge/doktora
-- [ ] Bez env varijabli — cijela funkcija se tiho isključuje, nema pada
-- [ ] `pytest tests/ -q`, `ruff`, `mypy`, `agent_sensors.py --all` čisti
-- [ ] Evidence izvještaj eksplicitno navodi da li je STVARNO testirano
+- [x] `confirm_request` generiše token i prosljeđuje deep link u email
+- [x] Poruke nikad ne sadrže naziv usluge/doktora
+- [x] Bez env varijabli — cijela funkcija se tiho isključuje, nema pada
+- [x] `pytest tests/ -q`, `ruff`, `mypy`, `agent_sensors.py --all` čisti
+- [x] Evidence izvještaj eksplicitno navodi da li je STVARNO testirano
       protiv pravog Telegram bota (token dostupan) ili samo protiv
-      mock/test tokena — ne miješati tvrdnje
+      mock/test tokena — ne miješati tvrdnje (DA, stvaran end-to-end
+      test 30.8.2026 protiv @Dentaland_zubar_bot — vidi evidence
+      addendum)
 
 ## Review
 
