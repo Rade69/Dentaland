@@ -535,3 +535,74 @@ kompletno čisto (nema više poznatih pre-postojećih failure-a). Vidi
 SVAKOM pushu na `main` tri dana (od DENT-IMPROVE-010, 26.8.2026, plitak
 checkout) — popravljeno `3d76051`, potvrđeno zeleno, vidi "Riješen
 incident" sekciju iznad.
+
+## Test VPS (Contabo) — pristup uspostavljen, HTTPS stvarno testiran (29.8.2026)
+
+Radovan je naveo da ima poseban Contabo VPS (nekorišten za zvanični sajt
+ordinacije, vidi CLAUDE.md "Dopuna") koji se u istoj sesiji stvarno
+koristio za prvi test deploymenta. **Ovo je i dalje samo test
+infrastruktura — NE produkcijska hosting odluka**, ta ostaje odvojena i
+otvorena (vidi CLAUDE.md "Otvorena pitanja").
+
+**Server:**
+- Contabo Cloud VPS 6 (2026), instanca `vmi3521908`, IP `169.58.208.91`,
+  region EU. 200GB disk (187GB slobodno), 12GB RAM, 6 CPU cores. Ubuntu
+  24.04.4 LTS.
+- Server već hostuje `ffplayout` (streaming/emitovanje softver, aktivan,
+  **NAMJERNO netaknut** — Radovanova eksplicitna odluka 29.8.2026, ne
+  dirati taj servis). Zauzima portove `80`, `1935`, `1936`, `8080`,
+  `8088`, `8181`, `8787` — Dentaland testiranje ih izbjegava.
+- Postoji korisnik `danga` (sudo grupa) — koristi se za pristup, ne
+  `root` direktno (osim preko VNC konzole za hitne slučajeve).
+
+**SSH pristup:**
+- Poseban ključ generisan lokalno (`~/.ssh/dentaland_vps_ed25519` na
+  Radovanovoj mašini, van repoa, nikad komitovan) i dodat u
+  `danga` naloga `~/.ssh/authorized_keys` na serveru.
+- **Poznat problem otkriven usput:** `~/.ssh/authorized_keys` na serveru
+  je bio u vlasništvu `root` umjesto `danga` (ostatak neke ranije
+  administracije) — blokiralo je dodavanje ključa dok se nije popravilo
+  sa `chown danga:danga`.
+- Lozinke (Contabo nalog, root/danga lozinka na serveru) su NAMJERNO
+  izvan ovog dokumenta — postoje samo u Radovanovoj lokalnoj bilješci
+  (`Contabo šifra.txt` na Desktopu) i nikad nisu upisane ni u jedan
+  git-praćen fajl.
+
+**Firewall (`ufw`):**
+- Default: `deny incoming`. Otvoreni portovi zatečeni pri dolasku: `22`, `80`,
+  `8080`, `8787`, i `443` — ali `443` je bio otvoren SAMO za jednu
+  specifičnu IP adresu, sa komentarom `"temporary Codex SSH"` (ostatak
+  neke ranije, nepovezane administracije — ne od ove Dentaland sesije).
+  To je blokiralo Let's Encrypt validaciju (dolazi sa drugih IP adresa).
+- **Ispravljeno:** `sudo ufw allow 443/tcp` — port 443 sad otvoren javno
+  (potrebno za HTTPS testiranje).
+- Kontabov "free Firewall" (mrežni nivo, poseban od `ufw`) nije diran —
+  nije bio uzrok problema, `ufw` na samom serveru jeste bio.
+
+**HTTPS — stvaran Let's Encrypt sertifikat izdat:**
+- Domena: `169-58-208-91.nip.io` (besplatan wildcard DNS servis, nema
+  registracije — razrješava se automatski na IP iz imena). Privremeno
+  rješenje dok se ne izabere prava domena uz finalnu hosting odluku.
+- `certbot` (već instaliran alat) nije podržavao TLS-ALPN-01 izazov u
+  ovoj instalaciji (samo `standalone`/`webroot`, oba zahtijevaju port 80
+  koji je zauzet od `ffplayout`-a) — prebačeno na `acme.sh`
+  (`curl https://get.acme.sh | sh`), koji ima ugrađenu podršku za
+  TLS-ALPN-01 (samo port 443, ne dira port 80).
+- Komanda koja je uspjela: `sudo /home/danga/.acme.sh/acme.sh --issue -d
+  169-58-208-91.nip.io --alpn --server letsencrypt`.
+- Sertifikat: `/root/.acme.sh/169-58-208-91.nip.io_ecc/` na serveru
+  (`.cer`, `.key`, `fullchain.cer`). Važi do ~28.11.2026, `acme.sh` cron
+  već podešen za automatsko obnavljanje.
+
+**Šta ovo dokazuje:** HTTPS mehanika (Let's Encrypt izdavanje sertifikata
+na stvarnom javnom serveru) sad je stvarno demonstrirana, ne samo
+teoretski opisana u planu — jedna od tri stavke koje su čekale hosting
+odluku (uz `EXCLUDE` constraint i processor evidenciju) sad ima realan
+tehnički dokaz da radi. Ne mijenja status preostale dvije stavke niti
+finalnu produkcijsku hosting odluku.
+
+**Sljedeći mogući koraci (nije još urađeno):** deploy Dentaland backend
+(FastAPI + PostgreSQL) na server, reverse proxy (nginx) povezan sa ovim
+sertifikatom, test punog booking flow-a uživo preko HTTPS-a, test Viber
+webhook registracije sa ovom domenom, test `EXCLUDE` constraint pod
+stvarnim mrežnim uslovima.
