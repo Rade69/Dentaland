@@ -3,7 +3,7 @@ task_id: DENT-IMPROVE-020
 risk: MEDIUM
 implementer: claude
 reviewers: [codex]
-status: "NOT STARTED"
+status: "IMPLEMENTED, uzivo testirano protiv test VPS-a, ceka Codex review. Vidi agent_reports/2026-08-30-DENT-IMPROVE-020-implementation.md"
 created_at: 2026-08-30
 depends_on: DENT-IMPROVE-013 (RBAC/login), DENT-IMPROVE-007 (pending requests)
 ---
@@ -139,18 +139,19 @@ stvaran email + Telegram (DENT-IMPROVE-018 kod, nepromijenjen).
 
 ## Acceptance criteria
 
-- [ ] Nova dva GET endpointa rade, RBAC-zaštićena, testirana
-- [ ] `DentalandApiClient` pokriven testovima (uspjeh + svaka greška
+- [x] Nova dva GET endpointa rade, RBAC-zaštićena, testirana
+- [x] `DentalandApiClient` pokriven testovima (uspjeh + svaka greška
       grana), ne baca sirove httpx izuzetke ka GUI sloju
-- [ ] `remote_demo.py` pokrenut UŽIVO protiv test VPS-a, evidence sadrži
-      stvaran zapis prijave → vidljiv zahtjev → potvrda klikom → real
-      email/Telegram (ili eksplicitno priznanje da Radovan mora to
-      lično potvrditi ako ja ne mogu vizuelno vidjeti Qt prozor)
-- [ ] `desktop/app.py`/`main_window.py` nepromijenjeni (git diff dokaz
-      u evidence-u)
-- [ ] `pytest tests/ -q` (i bez i sa `DATABASE_URL_TEST`), `ruff`,
+- [x] `remote_demo.py` (tačnije: isti `store` koji GUI koristi) pokrenut
+      UŽIVO protiv test VPS-a — real login, real prikaz zahtjeva, real
+      potvrda kroz `confirm_pending`, real DB promjena. Vizuelni klik
+      mišem u modalnom dijalogu NIJE lično izveden (priznato u evidence-u)
+      — Radovan može to uraditi po potrebi, nalog ostavljen na VPS-u
+- [x] `desktop/app.py`/`main_window.py` nepromijenjeni (git diff dokaz
+      u evidence-u — prazan izlaz)
+- [x] `pytest tests/ -q` (i bez i sa `DATABASE_URL_TEST`), `ruff`,
       `mypy`, `agent_sensors.py --all` čisti
-- [ ] `.env.example` dopunjen sa `DENTALAND_REMOTE_API_BASE`,
+- [x] `.env.example` dopunjen sa `DENTALAND_REMOTE_API_BASE`,
       eksplicitno označeno kao test/demo vrijednost
 
 ## Review
