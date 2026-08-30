@@ -154,6 +154,53 @@ def test_confirm_request_bez_emaila_ne_pokusava_slanje(
     mock_smtp.assert_not_called()
 
 
+def test_confirm_request_bez_bot_username_ne_pravi_telegram_token(
+    session_factory: sessionmaker[Session],
+    doctor_id: int,
+    service_id: int,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """DENT-IMPROVE-018 — bez DENTALAND_TELEGRAM_BOT_USERNAME token je
+    neupotrebljiv (nema deep link odredišta), pa se ni ne pravi."""
+    monkeypatch.delenv("DENTALAND_TELEGRAM_BOT_USERNAME", raising=False)
+    dto = create_request(session_factory, "Ana", "061", "", date(2026, 8, 20))
+    start = datetime(2026, 8, 20, 9, 0, tzinfo=UTC)
+
+    confirm_request(session_factory, dto.id, doctor_id, service_id, start)
+
+    with session_factory() as session:
+        appt = session.get(Appointment, dto.id)
+        assert appt.telegram_link_token_hash is None
+        assert appt.telegram_link_token_expires_at is None
+
+
+def test_confirm_request_sa_bot_username_pravi_token_i_salje_deep_link_u_email(
+    session_factory: sessionmaker[Session],
+    doctor_id: int,
+    service_id: int,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from unittest.mock import MagicMock, patch
+
+    monkeypatch.setenv("DENTALAND_TELEGRAM_BOT_USERNAME", "dentaland_bot")
+    monkeypatch.setenv("DENTALAND_SMTP_HOST", "smtp.example.com")
+    dto = create_request(session_factory, "Ana", "061", "ana@example.com", date(2026, 8, 20))
+    start = datetime(2026, 8, 20, 9, 0, tzinfo=UTC)
+
+    instance = MagicMock()
+    instance.__enter__.return_value = instance
+    with patch("dentaland.services.notifications.smtplib.SMTP", return_value=instance):
+        confirm_request(session_factory, dto.id, doctor_id, service_id, start)
+
+    with session_factory() as session:
+        appt = session.get(Appointment, dto.id)
+        assert appt.telegram_link_token_hash is not None
+        assert appt.telegram_link_token_expires_at is not None
+
+    body = instance.send_message.call_args.args[0].get_content()
+    assert "https://t.me/dentaland_bot?start=" in body
+
+
 def test_confirm_request_odbija_preklapanje(
     session_factory: sessionmaker[Session], doctor_id: int, service_id: int
 ) -> None:
