@@ -198,6 +198,101 @@ def test_range_eager_load_konstantan_broj_upita(
     assert query_count <= 5, f"očekivano <=5 upita, dobijeno {query_count}"
 
 
+def test_awaiting_confirmation_nema_n1_upit(
+    engine: Engine, session_factory: sessionmaker[Session]
+) -> None:
+    """DENT-IMPROVE-021 nalaz (31.8.2026, otkriveno testiranjem preko
+    stvarne mreže — VPS preko SSH tunela): ``awaiting_confirmation`` nije
+    imao ``selectinload`` (za razliku od ``appointments_for_range``),
+    pa je ``_to_dto``/``_service_name`` lazy-loadovao doctor/service
+    PO TERMINU — nezamjetno lokalno (SQLite), stvarno sporo preko mreže."""
+    sf = session_factory
+    with sf() as session:
+        docs = [Doctor(ime=f"D{i}") for i in range(4)]
+        svcs = [Service(naziv=f"S{i}", trajanje_min=30, buffer_min=0) for i in range(6)]
+        session.add_all(docs + svcs)
+        session.commit()
+        doc_ids = [d.id for d in docs]
+        svc_ids = [s.id for s in svcs]
+        base = _at(17, 8)
+        for i in range(12):
+            start = base + timedelta(minutes=30 * i)
+            session.add(
+                Appointment(
+                    doctor_id=doc_ids[i % len(doc_ids)],
+                    service_id=svc_ids[i % len(svc_ids)],
+                    ime="Pacijent",
+                    start_time=start,
+                    end_time=start + timedelta(minutes=30),
+                    status=AppointmentStatus.SCHEDULED,
+                    confirmed_at=None,
+                )
+            )
+        session.commit()
+
+    query_count = 0
+
+    def _count(dbapi_connection, cursor, statement, parameters, context, executemany) -> None:  # noqa: ANN001
+        nonlocal query_count
+        query_count += 1
+
+    event.listen(engine, "before_cursor_execute", _count)
+    try:
+        svc_obj = AppointmentService(sf)
+        result = svc_obj.awaiting_confirmation()
+    finally:
+        event.remove(engine, "before_cursor_execute", _count)
+
+    assert len(result) == 12
+    assert query_count <= 5, f"očekivano <=5 upita, dobijeno {query_count}"
+
+
+def test_cancelled_today_nema_n1_upit(
+    engine: Engine, session_factory: sessionmaker[Session]
+) -> None:
+    """Isti nalaz kao ``test_awaiting_confirmation_nema_n1_upit`` —
+    ``cancelled_today`` je imao identičan propust."""
+    sf = session_factory
+    today = datetime.now(UTC).date()
+    with sf() as session:
+        docs = [Doctor(ime=f"D{i}") for i in range(4)]
+        svcs = [Service(naziv=f"S{i}", trajanje_min=30, buffer_min=0) for i in range(6)]
+        session.add_all(docs + svcs)
+        session.commit()
+        doc_ids = [d.id for d in docs]
+        svc_ids = [s.id for s in svcs]
+        base = datetime(today.year, today.month, today.day, 8, tzinfo=UTC)
+        for i in range(12):
+            start = base + timedelta(minutes=30 * i)
+            session.add(
+                Appointment(
+                    doctor_id=doc_ids[i % len(doc_ids)],
+                    service_id=svc_ids[i % len(svc_ids)],
+                    ime="Pacijent",
+                    start_time=start,
+                    end_time=start + timedelta(minutes=30),
+                    status=AppointmentStatus.CANCELLED,
+                )
+            )
+        session.commit()
+
+    query_count = 0
+
+    def _count(dbapi_connection, cursor, statement, parameters, context, executemany) -> None:  # noqa: ANN001
+        nonlocal query_count
+        query_count += 1
+
+    event.listen(engine, "before_cursor_execute", _count)
+    try:
+        svc_obj = AppointmentService(sf)
+        result = svc_obj.cancelled_today(today)
+    finally:
+        event.remove(engine, "before_cursor_execute", _count)
+
+    assert len(result) == 12
+    assert query_count <= 5, f"očekivano <=5 upita, dobijeno {query_count}"
+
+
 def test_range_start_na_granici_kraja_se_ne_ukljucuje(
     session_factory: sessionmaker[Session],
 ) -> None:

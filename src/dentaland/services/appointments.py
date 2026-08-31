@@ -351,9 +351,18 @@ def mark_no_show(session_factory: Callable[[], Session], appt_id: int) -> Appoin
 
 
 def awaiting_confirmation(session_factory: Callable[[], Session]) -> list[AppointmentDTO]:
+    """Doctor/Service se učitavaju ``selectinload``-om (bez N+1) — isti
+    razlog kao ``appointments_for_range``: bez ovoga, ``_to_dto``/
+    ``_service_name`` lazy-loaduju po jedan red PO TERMINU, nezamjetno
+    na lokalnom SQLite-u ali stvarno mjerljivo sporo preko mreže (VPS
+    preko SSH tunela, DENT-IMPROVE-020/021 testiranje, 31.8.2026)."""
     with session_factory() as session:
         rows = session.scalars(
             select(Appointment)
+            .options(
+                selectinload(Appointment.doctor),
+                selectinload(Appointment.service),
+            )
             .where(
                 Appointment.status == AppointmentStatus.SCHEDULED,
                 Appointment.confirmed_at.is_(None),
@@ -367,6 +376,8 @@ def awaiting_confirmation(session_factory: Callable[[], Session]) -> list[Appoin
 def cancelled_today(
     session_factory: Callable[[], Session], day: date | None = None
 ) -> list[AppointmentDTO]:
+    """Doctor/Service se učitavaju ``selectinload``-om (bez N+1) — vidi
+    napomenu u ``awaiting_confirmation``."""
     zone = SARAJEVO
     day = day or datetime.now(zone).date()
     start = datetime.combine(day, time.min, tzinfo=zone)
@@ -374,6 +385,10 @@ def cancelled_today(
     with session_factory() as session:
         rows = session.scalars(
             select(Appointment)
+            .options(
+                selectinload(Appointment.doctor),
+                selectinload(Appointment.service),
+            )
             .where(
                 Appointment.status.in_(
                     [AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW]
