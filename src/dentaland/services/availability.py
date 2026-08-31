@@ -116,6 +116,14 @@ def time_off_for_week(
 def breaks_for_week(
     session_factory: Callable[[], Session], week_start: date
 ) -> list[CalendarBlockDTO]:
+    """``WorkingHours`` se dovlači u JEDNOM ``IN (...)`` upitu za sve aktivne
+    doktore — otkriveno testiranjem preko stvarne mreže (VPS preko SSH
+    tunela, 31.8.2026): stara verzija je pravila poseban upit PO doktoru
+    (N doktora = N+1 upita ukupno), nezamjetno lokalno (SQLite, sub-ms
+    razlika), ali stvarno mjerljivo sporo preko mreže — ova funkcija se
+    zove na SVAKI refresh rasporeda (doktor tab, dan/sedmica, auto-refresh
+    tajmer). Isti obrazac kao ranija N+1 popravka u
+    ``appointments.awaiting_confirmation``/``cancelled_today``."""
     zone = SARAJEVO
     blocks: list[CalendarBlockDTO] = []
     with session_factory() as session:
@@ -125,14 +133,21 @@ def breaks_for_week(
                 select(Doctor).where(Doctor.aktivan.is_(True)).order_by(Doctor.id)
             ).all()
         ]
+        if not active_doctor_ids:
+            return blocks
+        all_rows = session.scalars(
+            select(WorkingHours)
+            .where(WorkingHours.doctor_id.in_(active_doctor_ids))
+            .order_by(
+                WorkingHours.doctor_id, WorkingHours.dan_u_sedmici, WorkingHours.od_local
+            )
+        ).all()
+        rows_by_doctor: dict[int, list[WorkingHours]] = {}
+        for row in all_rows:
+            rows_by_doctor.setdefault(row.doctor_id, []).append(row)
         for doctor_id in active_doctor_ids:
-            rows = session.scalars(
-                select(WorkingHours)
-                .where(WorkingHours.doctor_id == doctor_id)
-                .order_by(WorkingHours.dan_u_sedmici, WorkingHours.od_local)
-            ).all()
             by_day: dict[int, list[WorkingHours]] = {}
-            for row in rows:
+            for row in rows_by_doctor.get(doctor_id, []):
                 by_day.setdefault(row.dan_u_sedmici, []).append(row)
             for iso_day, periods in by_day.items():
                 day = week_start + timedelta(days=iso_day - 1)

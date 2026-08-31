@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 
 import pytest
 from sqlalchemy import create_engine, event
@@ -16,6 +16,7 @@ from dentaland.models import (
     Base,
     Doctor,
     Service,
+    WorkingHours,
 )
 from dentaland.services import AppointmentService
 
@@ -291,6 +292,63 @@ def test_cancelled_today_nema_n1_upit(
 
     assert len(result) == 12
     assert query_count <= 5, f"očekivano <=5 upita, dobijeno {query_count}"
+
+
+def test_breaks_for_week_nema_n1_upit(
+    engine: Engine, session_factory: sessionmaker[Session]
+) -> None:
+    """N+1 nalaz (31.8.2026, otkriveno testiranjem preko stvarne mreže —
+    VPS preko SSH tunela): ``breaks_for_week`` je pravio POSEBAN
+    ``WorkingHours`` upit PO aktivnom doktoru unutar petlje — 4 doktora =
+    5 upita (1 doctors + 4 working_hours). Ova funkcija se zove na SVAKI
+    refresh rasporeda (doktor tab, dan/sedmica toggle, auto-refresh
+    tajmer), pa je bila direktan uzrok primjetnog kašnjenja preko mreže."""
+    sf = session_factory
+    week_start = date(2026, 8, 17)
+    with sf() as session:
+        docs = [Doctor(ime=f"D{i}") for i in range(4)]
+        session.add_all(docs)
+        session.commit()
+        for doctor in docs:
+            # Split-shift (dva perioda istog dana) pravi "PAUZU" bloka
+            # između njih — ono što `breaks_for_week` stvarno računa.
+            session.add_all(
+                [
+                    WorkingHours(
+                        doctor_id=doctor.id,
+                        dan_u_sedmici=1,
+                        od_local=time(8, 0),
+                        do_local=time(12, 0),
+                        timezone="Europe/Sarajevo",
+                    ),
+                    WorkingHours(
+                        doctor_id=doctor.id,
+                        dan_u_sedmici=1,
+                        od_local=time(13, 0),
+                        do_local=time(17, 0),
+                        timezone="Europe/Sarajevo",
+                    ),
+                ]
+            )
+        session.commit()
+
+    query_count = 0
+
+    def _count(dbapi_connection, cursor, statement, parameters, context, executemany) -> None:  # noqa: ANN001
+        nonlocal query_count
+        query_count += 1
+
+    event.listen(engine, "before_cursor_execute", _count)
+    try:
+        svc_obj = AppointmentService(sf)
+        result = svc_obj.breaks_for_week(week_start)
+    finally:
+        event.remove(engine, "before_cursor_execute", _count)
+
+    assert len(result) == 4  # jedna PAUZA po doktoru (12:00-13:00)
+    # Lazy (bez IN batch) = 1 doctors + 4 working_hours = 5 upita;
+    # batch = 1 doctors + 1 working_hours = 2. Prag <=3 razlikuje ta dva.
+    assert query_count <= 3, f"očekivano <=3 upita, dobijeno {query_count}"
 
 
 def test_range_start_na_granici_kraja_se_ne_ukljucuje(
