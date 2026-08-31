@@ -18,6 +18,7 @@ kanoničnu klasu).
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
@@ -91,13 +92,15 @@ def validate_appointment_overlap(
 
 
 def time_off_for_week(
-    session_factory: Callable[[], Session], week_start: date
+    session_factory: Callable[[], Session],
+    week_start: date,
+    session: Session | None = None,
 ) -> list[CalendarBlockDTO]:
     zone = SARAJEVO
     start = datetime.combine(week_start, time.min, tzinfo=zone)
     end = start + timedelta(days=7)
-    with session_factory() as session:
-        rows = session.scalars(
+    with (nullcontext(session) if session is not None else session_factory()) as sess:
+        rows = sess.scalars(
             select(TimeOff)
             .where(TimeOff.od_datetime < end, TimeOff.do_datetime > start)
             .order_by(TimeOff.od_datetime)
@@ -114,7 +117,9 @@ def time_off_for_week(
 
 
 def breaks_for_week(
-    session_factory: Callable[[], Session], week_start: date
+    session_factory: Callable[[], Session],
+    week_start: date,
+    session: Session | None = None,
 ) -> list[CalendarBlockDTO]:
     """``WorkingHours`` se dovlači u JEDNOM ``IN (...)`` upitu za sve aktivne
     doktore — otkriveno testiranjem preko stvarne mreže (VPS preko SSH
@@ -126,16 +131,16 @@ def breaks_for_week(
     ``appointments.awaiting_confirmation``/``cancelled_today``."""
     zone = SARAJEVO
     blocks: list[CalendarBlockDTO] = []
-    with session_factory() as session:
+    with (nullcontext(session) if session is not None else session_factory()) as sess:
         active_doctor_ids = [
             d.id
-            for d in session.scalars(
+            for d in sess.scalars(
                 select(Doctor).where(Doctor.aktivan.is_(True)).order_by(Doctor.id)
             ).all()
         ]
         if not active_doctor_ids:
             return blocks
-        all_rows = session.scalars(
+        all_rows = sess.scalars(
             select(WorkingHours)
             .where(WorkingHours.doctor_id.in_(active_doctor_ids))
             .order_by(

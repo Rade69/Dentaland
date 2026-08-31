@@ -202,6 +202,17 @@ class AppointmentService:
     def breaks_for_week(self, week_start: date) -> list[CalendarBlockDTO]:
         return availability.breaks_for_week(self._session_factory, week_start)
 
+    def schedule_snapshot(
+        self,
+        range_start: datetime,
+        range_end: datetime,
+        week_start: date,
+        doctor_id: int | None = None,
+    ) -> tuple[list[AppointmentDTO], list[CalendarBlockDTO]]:
+        return appointments.schedule_snapshot(
+            self._session_factory, range_start, range_end, week_start, doctor_id=doctor_id
+        )
+
     def create_time_off(
         self,
         doctor_id: int,

@@ -16,6 +16,7 @@ from dentaland.models import (
     Base,
     Doctor,
     Service,
+    TimeOff,
     WorkingHours,
 )
 from dentaland.services import AppointmentService
@@ -377,3 +378,97 @@ def test_range_end_na_granici_pocetka_se_ne_ukljucuje(
     result = svc_obj.appointments_for_range(_at(17, 0), _at(18, 0))
 
     assert result == []
+
+
+def test_schedule_snapshot_koristi_jednu_transakciju(
+    engine: Engine, session_factory: sessionmaker[Session]
+) -> None:
+    """DENT-IMPROVE-022: tri odvojena store poziva su ranije otvarala 3
+    BEGIN/ROLLBACK para; ``schedule_snapshot`` otvara tačno jedan."""
+    sf = session_factory
+    d1, _d2, svc = _seed(sf)
+    _add_appt(sf, d1, svc, _at(17, 8), _at(17, 8, 30))
+
+    begins = 0
+    rollbacks = 0
+
+    def _begin(conn) -> None:  # noqa: ANN001
+        nonlocal begins
+        begins += 1
+
+    def _rollback(conn) -> None:  # noqa: ANN001
+        nonlocal rollbacks
+        rollbacks += 1
+
+    event.listen(engine, "begin", _begin)
+    event.listen(engine, "rollback", _rollback)
+    try:
+        svc_obj = AppointmentService(sf)
+        svc_obj.schedule_snapshot(_at(17, 0), _at(18, 0), date(2026, 8, 17))
+    finally:
+        event.remove(engine, "begin", _begin)
+        event.remove(engine, "rollback", _rollback)
+
+    assert begins == 1, f"očekivano 1 BEGIN, dobijeno {begins}"
+    assert rollbacks == 1, f"očekivano 1 ROLLBACK, dobijeno {rollbacks}"
+
+
+def test_schedule_snapshot_rezultat_identican_odvojenim_pozivima(
+    session_factory: sessionmaker[Session],
+) -> None:
+    sf = session_factory
+    d1, d2, svc = _seed(sf)
+    _add_appt(sf, d1, svc, _at(17, 8), _at(17, 8, 30))
+    _add_appt(sf, d2, svc, _at(17, 9), _at(17, 9, 30))
+    with sf() as session:
+        session.add(
+            TimeOff(
+                doctor_id=d2,
+                od_datetime=_at(17, 12),
+                do_datetime=_at(17, 13),
+                razlog="Odsustvo",
+            )
+        )
+        session.commit()
+
+    svc_obj = AppointmentService(sf)
+    week_start = date(2026, 8, 17)
+    range_start = _at(17, 0)
+    range_end = _at(18, 0)
+
+    appts, blocks = svc_obj.schedule_snapshot(range_start, range_end, week_start)
+
+    expected_appts = svc_obj.appointments_for_range(range_start, range_end)
+    expected_blocks = svc_obj.time_off_for_week(week_start) + svc_obj.breaks_for_week(
+        week_start
+    )
+
+    assert appts == expected_appts
+    assert blocks == expected_blocks
+
+
+def test_schedule_snapshot_doctor_filter_samo_appointments(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """``doctor_id`` filtrira SAMO termine, ne kalendarske blokove."""
+    sf = session_factory
+    d1, d2, svc = _seed(sf)
+    _add_appt(sf, d1, svc, _at(17, 8), _at(17, 8, 30))
+    with sf() as session:
+        session.add(
+            TimeOff(
+                doctor_id=d2,
+                od_datetime=_at(17, 12),
+                do_datetime=_at(17, 13),
+                razlog="Odsustvo",
+            )
+        )
+        session.commit()
+
+    svc_obj = AppointmentService(sf)
+    appts, blocks = svc_obj.schedule_snapshot(
+        _at(17, 0), _at(18, 0), date(2026, 8, 17), doctor_id=d1
+    )
+
+    assert [a.doctor_id for a in appts] == [d1]
+    assert {b.doctor_id for b in blocks} == {d2}

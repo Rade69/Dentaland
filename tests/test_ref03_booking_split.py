@@ -224,7 +224,8 @@ def test_moduli_izlazu_ocekivane_funkcije() -> None:
 def test_appointments_koristi_dijeljenu_overlap_provjeru() -> None:
     """appointments.py ne duplira overlap SQL — koristi shared invariant."""
     src = _source("appointments")
-    assert "from dentaland.services.availability import validate_appointment_overlap" in src
+    assert "from dentaland.services.availability import" in src
+    assert "validate_appointment_overlap" in src
     assert "def validate_appointment_overlap" not in src
 
 

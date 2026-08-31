@@ -81,11 +81,13 @@ class ScheduleController:
         all_fn = getattr(self._store, "all", None)
         return list(all_fn()) if callable(all_fn) else []
 
-    def _fetch_blocks(self) -> list[Any]:
+    def _blocks_week_start(self) -> date:
         if self._is_day_active():
-            week_start = self.current_day - timedelta(days=self.current_day.weekday())
-        else:
-            week_start = self.week_start
+            return self.current_day - timedelta(days=self.current_day.weekday())
+        return self.week_start
+
+    def _fetch_blocks(self) -> list[Any]:
+        week_start = self._blocks_week_start()
         blocks: list[Any] = []
         for method_name in ("time_off_for_week", "breaks_for_week"):
             method = getattr(self._store, method_name, None)
@@ -97,8 +99,13 @@ class ScheduleController:
 
     def refresh(self) -> None:
         view = self._active_view()
-        appointments = self._fetch_appointments()
-        blocks = self._fetch_blocks()
+        snapshot = getattr(self._store, "schedule_snapshot", None)
+        if callable(snapshot):
+            start, end = self._active_range()
+            appointments, blocks = snapshot(start, end, self._blocks_week_start())
+        else:
+            appointments = self._fetch_appointments()
+            blocks = self._fetch_blocks()
         view.render_schedule(appointments, blocks)
         self._on_status_counts(view.visible_status_counts())
         self._on_doctor_counts(view.visible_doctor_counts())
