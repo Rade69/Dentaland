@@ -277,3 +277,46 @@ def test_pravi_day_view_ne_fetchuje_interno(qtbot) -> None:
     assert store.time_off_for_week_calls == 1
     assert store.breaks_for_week_calls == 1
 
+
+class _SnapshotStore(_CountingStore):
+    """Store koji podržava kombinovanu ``schedule_snapshot`` putanju."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.snapshot_calls = 0
+
+    def schedule_snapshot(
+        self, start: datetime, end: datetime, week_start: date
+    ) -> tuple[list, list]:
+        self.snapshot_calls += 1
+        appt_start = start + timedelta(hours=1)
+        appt = SimpleNamespace(
+            id=1,
+            start=appt_start,
+            end=appt_start + timedelta(minutes=30),
+            doctor_id=1,
+            doctor_name="Ljubo",
+            patient_name="Ana",
+            service="Kontrola",
+            status=None,
+            confirmed_at=None,
+            arrived_at=None,
+        )
+        return [appt], []
+
+
+def test_refresh_koristi_schedule_snapshot_kad_postoji() -> None:
+    """Kad store ima ``schedule_snapshot``, refresh ga koristi umjesto 3 poziva."""
+    store = _SnapshotStore()
+    controller, _, week_view, _, _, status_counts, doctor_counts = _make_controller(store)
+
+    controller.refresh()
+
+    assert store.snapshot_calls == 1
+    assert store.appointments_for_range_calls == 0
+    assert store.time_off_for_week_calls == 0
+    assert store.breaks_for_week_calls == 0
+    assert week_view.render_calls == 1
+    assert status_counts == [{"waiting": 1}]
+    assert doctor_counts == [{1: 1}]
+

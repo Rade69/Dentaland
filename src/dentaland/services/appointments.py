@@ -13,6 +13,7 @@ overlap SQL-a.
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
@@ -21,7 +22,12 @@ from sqlalchemy.orm import Session, selectinload
 
 from dentaland.models import Appointment, AppointmentStatus, AuditAction, Doctor, Service, utcnow
 from dentaland.services.audit import write_audit_event
-from dentaland.services.availability import validate_appointment_overlap
+from dentaland.services.availability import (
+    CalendarBlockDTO,
+    breaks_for_week,
+    time_off_for_week,
+    validate_appointment_overlap,
+)
 from dentaland.timezone import SARAJEVO
 
 
@@ -200,6 +206,7 @@ def appointments_for_range(
     range_start: datetime,
     range_end: datetime,
     doctor_id: int | None = None,
+    session: Session | None = None,
 ) -> list[AppointmentDTO]:
     """Termini koji se vremenski preklapaju sa ``[range_start, range_end)``.
 
@@ -208,7 +215,7 @@ def appointments_for_range(
     range_start``. Doctor i Service se učitavaju ``selectinload``-om (bez
     N+1). ``doctor_id=None`` vraća sve doktore.
     """
-    with session_factory() as session:
+    with (nullcontext(session) if session is not None else session_factory()) as sess:
         stmt = (
             select(Appointment)
             .options(
@@ -230,8 +237,37 @@ def appointments_for_range(
         )
         if doctor_id is not None:
             stmt = stmt.where(Appointment.doctor_id == doctor_id)
-        appts = session.scalars(stmt).all()
+        appts = sess.scalars(stmt).all()
         return [_to_dto(a, _service_name(a)) for a in appts]
+
+
+def schedule_snapshot(
+    session_factory: Callable[[], Session],
+    range_start: datetime,
+    range_end: datetime,
+    week_start: date,
+    doctor_id: int | None = None,
+) -> tuple[list[AppointmentDTO], list[CalendarBlockDTO]]:
+    """Termini + kalendarski blokovi (odsustva + pauze) u JEDNOJ sesiji.
+
+    DENT-IMPROVE-022: ranije su ``appointments_for_range``,
+    ``time_off_for_week`` i ``breaks_for_week`` otvarali PO SVOJU
+    sesiju/transakciju — preko SSH-tunelovane mreže to su 3 BEGIN/ROLLBACK
+    para za jedan snapshot rasporeda. Ova funkcija otvara tačno jednu sesiju
+    i prosljeđuje je svim trima upitima — isti SELECT-i, isti izlazni podaci,
+    samo jedan transakcijski kontekst.
+    """
+    with session_factory() as session:
+        appts = appointments_for_range(
+            session_factory,
+            range_start,
+            range_end,
+            doctor_id=doctor_id,
+            session=session,
+        )
+        blocks = time_off_for_week(session_factory, week_start, session=session)
+        blocks += breaks_for_week(session_factory, week_start, session=session)
+    return appts, blocks
 
 
 def mark_arrived(session_factory: Callable[[], Session], appt_id: int) -> AppointmentDTO:
